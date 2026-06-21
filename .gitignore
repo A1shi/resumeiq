@@ -1,0 +1,54 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Environment
+.env
+
+# VS Code / IntelliJ
+.vscode/
+.idea/
+
+# Python cache
+.pytest_cache/
+.mypy_cache/
+
+# Database
+*.db
+
+# Uploads
+uploads/
+
+# Build
+build/
+app/build/
+.gradle/
+
+# Android
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+
+# APK & AAB
+*.apk
+*.aab
+
+# Keystore (VERY IMPORTANT)
+*.jks
+*.keystore
+release.keystore
+
+# Logs
+*.log
+hs_err_pid*
+
+# Scratch/Test
+scratch/
+test_*.py
+
+# OS files
+.DS_Store
+Thumbs.db

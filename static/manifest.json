@@ -1,0 +1,24 @@
+{
+  "name": "ResumeIQ AI - AI-Powered Resume Intelligence Platform",
+  "short_name": "ResumeIQ AI",
+  "description": "Local AI-powered resume intelligence platform. Evaluate your CV for ATS compliance, match job descriptions, simulate recruiter screening, and generate tailored cover letters and interview prep guides.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F8FAFC",
+  "theme_color": "#4F46E5",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

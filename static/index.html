@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="ResumeIQ AI is a local AI-powered resume intelligence platform. Evaluate your CV for ATS compliance, match job descriptions, simulate recruiter screening, and generate tailored cover letters and interview prep guides.">
+  <title>ResumeIQ AI - AI-Powered Resume Intelligence Platform</title>
+  <!-- PWA Manifest link -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#4F46E5">
+  <link rel="apple-touch-icon" href="/assets/icon-192.png">
+  <!-- Premium SVG Favicon -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='25' fill='url(%23g)'/%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23a855f7'/%3E%3Cstop offset='100%25' stop-color='%236366f1'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ctext y='.9em' x='.18em' font-size='50' font-weight='800' fill='%23ffffff' font-family='system-ui, sans-serif'%3ERI%3C/text%3E%3C/svg%3E">
+  <!-- Load custom SaaS-grade fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Main Premium CSS Styles -->
+  <link rel="stylesheet" href="/assets/styles.css">
+  <!-- Load React and ReactDOM locally -->
+  <script src="/assets/react.development.js"></script>
+  <script src="/assets/react-dom.development.js"></script>
+  <!-- Load Babel Standalone locally -->
+  <script src="/assets/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- Load our React dashboard application, compiled via Babel -->
+  <script type="text/babel" src="/assets/app.js"></script>
+  <!-- Service Worker unregistration script to bypass cache during development -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        for (let registration of registrations) {
+          registration.unregister().then((success) => {
+            if (success) console.log('Service Worker unregistered.');
+          });
+        }
+      });
+    }
+    if ('caches' in window) {
+      caches.keys().then((names) => {
+        for (let name of names) {
+          caches.delete(name).then((success) => {
+            if (success) console.log('Cache deleted:', name);
+          });
+        }
+      });
+    }
+  </script>
+</body>
+</html>
