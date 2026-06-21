@@ -3,7 +3,11 @@ uvicorn
 sqlalchemy
 pydantic
 pydantic-settings
-pypdf
-python-docx
-python-multipart
 python-dotenv
+python-multipart
+python-docx
+pypdf
+google-generativeai
+jinja2
+reportlab
+Pillow
