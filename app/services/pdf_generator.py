@@ -13,6 +13,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 import app.models as models
 from typing import Dict, Any
 from app.services.cover_letter import generate_cover_letter_text
+from app.services.industry_data import INDUSTRY_DATA_MAP
 
 LIGATURE_MAP = {
     '\ufb00': 'ff',
@@ -194,6 +195,84 @@ def generate_cover_letter_pdf(cover_letter_text: str) -> io.BytesIO:
     return buffer
 
 
+def validate_ats_report_sections(resume: models.Resume) -> None:
+    """
+    Validates that all required fields and sections are present and have correct types in the resume's ATS analysis.
+    Raises ValueError if any verification fails.
+    """
+    if not resume.ats_analysis:
+        raise ValueError("ATS analysis report is completely missing.")
+    
+    analysis = resume.ats_analysis
+    
+    # 1. Check score fields
+    score_fields = [
+        "ats_score", "resume_improvement_score", "job_readiness_score", "interview_readiness_score",
+        "contact_score", "summary_score", "skills_score", "experience_score", "projects_score",
+        "education_score", "certifications_score", "formatting_score", "keyword_score"
+    ]
+    for field in score_fields:
+        val = analysis.get(field)
+        if val is None:
+            raise ValueError(f"Required scoring field '{field}' is missing in ATS analysis.")
+        if not isinstance(val, (int, float)):
+            raise ValueError(f"Scoring field '{field}' must be a number, got {type(val).__name__}.")
+            
+    # 2. Check text fields (reasons, summary, profile keys, etc.)
+    text_fields = [
+        "contact_reason", "summary_reason", "skills_reason", "experience_reason", "projects_reason",
+        "education_reason", "certifications_reason", "formatting_reason", "keyword_reason",
+        "improved_summary", "readiness_level", "candidate_profile", "career_level",
+        "industry_classification", "experience_level"
+    ]
+    for field in text_fields:
+        val = analysis.get(field)
+        if val is None or not str(val).strip():
+            raise ValueError(f"Required text field '{field}' is missing or empty in ATS analysis.")
+        if not isinstance(val, str):
+            raise ValueError(f"Field '{field}' must be a string, got {type(val).__name__}.")
+
+    # 3. Check list fields (feedback, priority gaps, plans)
+    list_fields = [
+        "recruiters_like", "recruiters_reject", "top_risks",
+        "current_skills", "missing_skills", "future_skills",
+        "high_priority_gaps", "medium_priority_gaps", "low_priority_gaps",
+        "seven_day_plan", "thirty_day_plan", "sixty_day_plan", "ninety_day_plan"
+    ]
+    for field in list_fields:
+        val = analysis.get(field)
+        if val is None or not isinstance(val, list):
+            raise ValueError(f"Required list field '{field}' is missing or not a list in ATS analysis.")
+        if len(val) == 0 and field != "current_skills":
+            raise ValueError(f"List field '{field}' cannot be empty.")
+        for idx, item in enumerate(val):
+            if not isinstance(item, str) or not item.strip():
+                raise ValueError(f"Item at index {idx} in list '{field}' must be a non-empty string.")
+
+    # 4. Check top matched job roles & salary ranges
+    top_roles = analysis.get("top_job_roles") or analysis.get("top_matching_roles")
+    if not top_roles or not isinstance(top_roles, list) or len(top_roles) == 0:
+        raise ValueError("Matched Job Roles list ('top_job_roles'/'top_matching_roles') is missing or empty.")
+    
+    for idx, role_match in enumerate(top_roles):
+        if not isinstance(role_match, dict):
+            # Check for pydantic object attributes
+            role_name = getattr(role_match, 'role', None)
+            fit = getattr(role_match, 'match_score', None)
+            sal = getattr(role_match, 'expected_salary', None)
+        else:
+            role_name = role_match.get("role")
+            fit = role_match.get("match_score")
+            sal = role_match.get("expected_salary")
+            
+        if not role_name or not str(role_name).strip():
+            raise ValueError(f"Matched role at index {idx} has an empty or missing 'role' name.")
+        if fit is None or not isinstance(fit, (int, float)):
+            raise ValueError(f"Matched role at index {idx} has an invalid or missing 'match_score'.")
+        if not sal or not str(sal).strip():
+            raise ValueError(f"Matched role at index {idx} has an empty or missing 'expected_salary' range.")
+
+
 def generate_resume_pdf_report(resume: models.Resume, enhancements: Dict[str, Any]) -> io.BytesIO:
     """
     Generates a premium 3-page recruiter-grade ATS evaluation and career intelligence report.
@@ -318,12 +397,38 @@ def generate_resume_pdf_report(resume: models.Resume, enhancements: Dict[str, An
     
     story = []
     
+    # Run validation first
+    validate_ats_report_sections(resume)
+    
     # Safely load the analysis dictionary and clean ligatures
     analysis = clean_ligatures(resume.ats_analysis or {})
     candidate_name = clean_ligatures(resume.name or 'Candidate')
     resume_skills = clean_ligatures(resume.skills or [])
     resume_raw_text = clean_ligatures(resume.raw_text or '')
     enhancements = clean_ligatures(enhancements)
+    
+    # Map profession to industry data fallbacks
+    detected_profession = getattr(resume, "profession", "General Professional") or "General Professional"
+    profession_to_old_industry = {
+        "Software Engineer": "Tech",
+        "Android Developer": "Tech",
+        "Data Analyst": "Tech",
+        "Business Analyst": "Management",
+        "Customer Service": "General",
+        "HR": "HR",
+        "Marketing": "Marketing",
+        "Teacher": "General",
+        "Nurse": "Healthcare",
+        "Accountant": "Finance",
+        "Graphic Designer": "General",
+        "Sales": "Marketing",
+        "Hospitality": "General",
+        "Banking": "Finance",
+        "Student/Fresher": "General",
+        "General Professional": "General"
+    }
+    mapped_old_ind = profession_to_old_industry.get(detected_profession, "General")
+    ind_data = INDUSTRY_DATA_MAP.get(mapped_old_ind, INDUSTRY_DATA_MAP["General"])
     
     # ----------------------------------------------------
     # PAGE 1: EXECUTIVE SUMMARY, SCORECARD, RECRUITER VIEW
@@ -505,8 +610,8 @@ def generate_resume_pdf_report(resume: models.Resume, enhancements: Dict[str, An
     story.append(Paragraph("Skill Gap Analysis", h1_style))
     
     curr_skills = ", ".join(analysis.get("current_skills", resume_skills)) or "None Extracted"
-    miss_skills = ", ".join(analysis.get("missing_skills", ["Docker", "Kubernetes", "CI/CD", "AWS"]))
-    future_skills = ", ".join(analysis.get("future_skills", ["Terraform", "Serverless"]))
+    miss_skills = ", ".join(analysis.get("missing_skills", ind_data["missing_skills"]))
+    future_skills = ", ".join(analysis.get("future_skills", ind_data["future_skills"]))
     
     gaps_col = [
         [Paragraph("<b>Current Skills Matrix:</b>", body_bold), Paragraph(curr_skills, body_style)],
@@ -522,9 +627,9 @@ def generate_resume_pdf_report(resume: models.Resume, enhancements: Dict[str, An
     ]))
     
     priority_gaps_header = [Paragraph("<b>High Priority Gaps</b>", body_bold), Paragraph("<b>Medium Priority Gaps</b>", body_bold), Paragraph("<b>Low Priority Gaps</b>", body_bold)]
-    high_gaps = [Paragraph(f"• {g}", bullet_style_red) for g in analysis.get("high_priority_gaps", ["Docker", "CI/CD"])[:3]]
-    med_gaps = [Paragraph(f"• {g}", bullet_style) for g in analysis.get("medium_priority_gaps", ["AWS", "System Design"])[:3]]
-    low_gaps = [Paragraph(f"• {g}", bullet_style_green) for g in analysis.get("low_priority_gaps", ["Kubernetes"])[:3]]
+    high_gaps = [Paragraph(f"• {g}", bullet_style_red) for g in analysis.get("high_priority_gaps", ind_data["high_priority_gaps"])[:3]]
+    med_gaps = [Paragraph(f"• {g}", bullet_style) for g in analysis.get("medium_priority_gaps", ind_data["medium_priority_gaps"])[:3]]
+    low_gaps = [Paragraph(f"• {g}", bullet_style_green) for g in analysis.get("low_priority_gaps", ind_data["low_priority_gaps"])[:3]]
     
     priority_gaps_table = Table([priority_gaps_header, [high_gaps, med_gaps, low_gaps]], colWidths=[180, 180, 180])
     priority_gaps_table.setStyle(TableStyle([
@@ -544,10 +649,10 @@ def generate_resume_pdf_report(resume: models.Resume, enhancements: Dict[str, An
     story.append(Paragraph("Actionable Career Roadmap", h1_style))
     roadmap_headers = [Paragraph("<b>7 Days (Immediate Actions)</b>", body_bold), Paragraph("<b>30 Day Plan</b>", body_bold), Paragraph("<b>60 Day Plan</b>", body_bold), Paragraph("<b>90 Day Plan</b>", body_bold)]
     
-    plan_7 = [Paragraph(f"{idx+1}. {p}", bullet_style_red) for idx, p in enumerate(analysis.get("seven_day_plan", ["Add GitHub Link", "Create LinkedIn"])[:3])]
-    plan_30 = [Paragraph(f"{idx+1}. {p}", bullet_style) for idx, p in enumerate(analysis.get("thirty_day_plan", ["Learn Docker", "Rewrite resume Summary"])[:3])]
-    plan_60 = [Paragraph(f"{idx+1}. {p}", bullet_style) for idx, p in enumerate(analysis.get("sixty_day_plan", ["Build portfolio app", "Apply metrics"])[:3])]
-    plan_90 = [Paragraph(f"{idx+1}. {p}", bullet_style_green) for idx, p in enumerate(analysis.get("ninety_day_plan", ["Learn Kubernetes", "Apply to roles"])[:3])]
+    plan_7 = [Paragraph(f"{idx+1}. {p}", bullet_style_red) for idx, p in enumerate(analysis.get("seven_day_plan", ind_data["seven_day_plan"])[:3])]
+    plan_30 = [Paragraph(f"{idx+1}. {p}", bullet_style) for idx, p in enumerate(analysis.get("thirty_day_plan", ind_data["thirty_day_plan"])[:3])]
+    plan_60 = [Paragraph(f"{idx+1}. {p}", bullet_style) for idx, p in enumerate(analysis.get("sixty_day_plan", ind_data["sixty_day_plan"])[:3])]
+    plan_90 = [Paragraph(f"{idx+1}. {p}", bullet_style_green) for idx, p in enumerate(analysis.get("ninety_day_plan", ind_data["ninety_day_plan"])[:3])]
     
     roadmap_table = Table([roadmap_headers, [plan_7, plan_30, plan_60, plan_90]], colWidths=[135, 135, 135, 135])
     roadmap_table.setStyle(TableStyle([

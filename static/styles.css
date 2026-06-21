@@ -3863,6 +3863,247 @@ h1, h2, h3, h4, h5, h6 {
   border-color: var(--color-primary);
 }
 
+/* ==========================================================================
+   INPUTS & THEMING AUDIT - LIGHT & DARK THEMES WITH FULL COMPLIANCE
+   ========================================================================== */
+
+/* Common base styles for input fields, textareas, selects, & search boxes */
+.auth-input,
+.builder-input,
+.builder-textarea,
+.jd-textarea,
+.toolkit-textarea,
+.form-control,
+input[type="text"],
+input[type="email"],
+input[type="password"] {
+  caret-color: #111827 !important; /* Dark cursor by default */
+  border: 1px solid var(--card-border) !important;
+  transition: var(--transition-smooth) !important;
+  color: #111827 !important; /* Force dark text color in light mode */
+  background: #FFFFFF !important; /* Force white background in light mode */
+}
+
+/* Placeholder styles (Light Mode) */
+.auth-input::placeholder,
+.builder-input::placeholder,
+.builder-textarea::placeholder,
+.jd-textarea::placeholder,
+.toolkit-textarea::placeholder,
+.form-control::placeholder,
+input::placeholder,
+textarea::placeholder {
+  color: #6B7280 !important;
+  opacity: 1 !important;
+}
+
+/* Hover state (Light Mode) */
+.auth-input:hover,
+.builder-input:hover,
+.builder-textarea:hover,
+.jd-textarea:hover,
+.toolkit-textarea:hover,
+.form-control:hover,
+input[type="text"]:hover,
+input[type="email"]:hover,
+input[type="password"]:hover {
+  border-color: var(--glass-border-hover) !important;
+}
+
+/* Focus state (Light Mode) */
+.auth-input:focus,
+.builder-input:focus,
+.builder-textarea:focus,
+.jd-textarea:focus,
+.toolkit-textarea:focus,
+.form-control:focus,
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus {
+  outline: none !important;
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15) !important;
+}
+
+/* Disabled state (Light & Dark Mode) */
+.auth-input:disabled,
+.builder-input:disabled,
+.builder-textarea:disabled,
+.jd-textarea:disabled,
+.toolkit-textarea:disabled,
+.form-control:disabled,
+input:disabled,
+textarea:disabled {
+  background: #F1F5F9 !important;
+  color: #9CA3AF !important;
+  cursor: not-allowed !important;
+  opacity: 0.7 !important;
+  border-color: var(--card-border) !important;
+}
+
+/* Validation error state styling */
+.auth-input.is-invalid,
+.builder-input.is-invalid,
+.builder-textarea.is-invalid,
+.form-control.is-invalid,
+input.is-invalid,
+textarea.is-invalid,
+.auth-error-global {
+  border-color: var(--color-danger) !important;
+}
+
+.auth-input.is-invalid:focus,
+.builder-input.is-invalid:focus,
+.builder-textarea.is-invalid:focus,
+.form-control.is-invalid:focus,
+input.is-invalid:focus,
+textarea.is-invalid:focus {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
+}
+
+/* Browser Autofill styling (Light Mode) */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus {
+  -webkit-text-fill-color: #111827 !important;
+  -webkit-box-shadow: 0 0 0px 1000px #FFFFFF inset !important;
+  transition: background-color 5000s ease-in-out 0s !important;
+}
+
+/* Dark Mode Overrides via OS Preferences */
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Premium Dark Theme Palette */
+    --bg-main: #0B0F19;
+    --bg-gradient: radial-gradient(circle at top, #111827 0%, #0B0F19 100%);
+    --glass-bg: rgba(17, 24, 39, 0.85);
+    --glass-border: #1F2937;
+    --glass-border-hover: #374151;
+    
+    /* Text Theme Colors */
+    --color-text-main: #F9FAFB;
+    --color-text-muted: #9CA3AF;
+    --color-text-light: #6B7280;
+    --color-text-inverse: #111827;
+    
+    /* Cards & Elevators */
+    --card-bg: #111827;
+    --card-border: #1F2937;
+    --card-hover-border: #374151;
+  }
+
+  body {
+    background: var(--bg-main) !important;
+    background-image: var(--bg-gradient) !important;
+    color: var(--color-text-main) !important;
+  }
+
+  /* Text & Titles Visibility in Dark Mode */
+  .panel-title, .auth-title, .logo-title, h1, h2, h3, h4, h5, h6, 
+  .candidate-name, .candidate-full-name, .logo-text .logo-title {
+    color: var(--color-text-main) !important;
+  }
+
+  .auth-label, .builder-field label {
+    color: var(--color-text-main) !important;
+  }
+
+  .auth-card, .glass-panel, .confirm-modal-container, .keyword-column {
+    background: var(--card-bg) !important;
+    border-color: var(--card-border) !important;
+  }
+
+  .history-card, .btn-modal-cancel, .builder-item-block, .dropzone, .recruiter-verdict-box, .match-results-header {
+    background: #1F2937 !important;
+    border-color: var(--card-border) !important;
+  }
+
+  .history-card:hover, .btn-modal-cancel:hover, .btn-secondary:hover {
+    background: #374151 !important;
+    color: var(--color-primary) !important;
+  }
+
+  .btn-secondary {
+    background: #111827 !important;
+    color: var(--color-text-main) !important;
+    border-color: var(--card-border) !important;
+  }
+
+  /* Input overrides for Dark Mode */
+  .auth-input,
+  .builder-input,
+  .builder-textarea,
+  .jd-textarea,
+  .toolkit-textarea,
+  .form-control,
+  input[type="text"],
+  input[type="email"],
+  input[type="password"] {
+    background: #111827 !important;
+    color: #F9FAFB !important;
+    border-color: var(--card-border) !important;
+    caret-color: #FFFFFF !important; /* White cursor in dark mode */
+  }
+
+  /* Placeholder color in Dark Mode */
+  .auth-input::placeholder,
+  .builder-input::placeholder,
+  .builder-textarea::placeholder,
+  .jd-textarea::placeholder,
+  .toolkit-textarea::placeholder,
+  .form-control::placeholder,
+  input::placeholder,
+  textarea::placeholder {
+    color: #9CA3AF !important;
+  }
+
+  /* Focus Border in Dark Mode */
+  .auth-input:focus,
+  .builder-input:focus,
+  .builder-textarea:focus,
+  .jd-textarea:focus,
+  .toolkit-textarea:focus,
+  .form-control:focus,
+  input[type="text"]:focus,
+  input[type="email"]:focus,
+  input[type="password"]:focus {
+    border-color: var(--color-primary) !important;
+  }
+
+  /* Disabled state in Dark Mode */
+  .auth-input:disabled,
+  .builder-input:disabled,
+  .builder-textarea:disabled,
+  .jd-textarea:disabled,
+  .toolkit-textarea:disabled,
+  .form-control:disabled,
+  input:disabled,
+  textarea:disabled {
+    background: #1F2937 !important;
+    color: #6B7280 !important;
+  }
+
+  /* Browser Autofill overrides for Dark Mode */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  textarea:-webkit-autofill,
+  textarea:-webkit-autofill:hover,
+  textarea:-webkit-autofill:focus,
+  select:-webkit-autofill,
+  select:-webkit-autofill:hover,
+  select:-webkit-autofill:focus {
+    -webkit-text-fill-color: #F9FAFB !important;
+    -webkit-box-shadow: 0 0 0px 1000px #111827 inset !important;
+  }
+}
+
 
 
 

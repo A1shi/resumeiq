@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import com.aashi.resumeiq.network.*
 import com.aashi.resumeiq.ui.auth.UiState
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
+import com.aashi.resumeiq.ui.theme.getOutlinedTextFieldColors
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -252,12 +253,7 @@ fun PersonalSection(viewModel: BuilderViewModel) {
                 label = { Text("Full Name") },
                 isError = nameError != null,
                 supportingText = nameError?.let { { Text(it, color = Color(0xFFE57373)) } },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant
-                ),
+                colors = getOutlinedTextFieldColors(),
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -272,12 +268,7 @@ fun PersonalSection(viewModel: BuilderViewModel) {
                 label = { Text("Email Address") },
                 isError = emailError != null,
                 supportingText = emailError?.let { { Text(it, color = Color(0xFFE57373)) } },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant
-                ),
+                colors = getOutlinedTextFieldColors(),
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -292,12 +283,7 @@ fun PersonalSection(viewModel: BuilderViewModel) {
                 label = { Text("Phone Number") },
                 isError = phoneError != null,
                 supportingText = phoneError?.let { { Text(it, color = Color(0xFFE57373)) } },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant
-                ),
+                colors = getOutlinedTextFieldColors(),
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -373,7 +359,7 @@ fun EducationSection(viewModel: BuilderViewModel) {
                             viewModel.onFieldChanged()
                         },
                         label = { Text("School / University") },
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                        colors = getOutlinedTextFieldColors(),
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -385,7 +371,7 @@ fun EducationSection(viewModel: BuilderViewModel) {
                             viewModel.onFieldChanged()
                         },
                         label = { Text("Degree Earned (e.g. BS, MS)") },
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                        colors = getOutlinedTextFieldColors(),
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -397,7 +383,7 @@ fun EducationSection(viewModel: BuilderViewModel) {
                             viewModel.onFieldChanged()
                         },
                         label = { Text("Field of Study") },
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                        colors = getOutlinedTextFieldColors(),
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -410,7 +396,7 @@ fun EducationSection(viewModel: BuilderViewModel) {
                                 viewModel.onFieldChanged()
                             },
                             label = { Text("Start Date") },
-                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                            colors = getOutlinedTextFieldColors(),
                             modifier = Modifier.weight(1f)
                         )
                         OutlinedTextField(
@@ -421,7 +407,7 @@ fun EducationSection(viewModel: BuilderViewModel) {
                                 viewModel.onFieldChanged()
                             },
                             label = { Text("End Date") },
-                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                            colors = getOutlinedTextFieldColors(),
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -500,7 +486,7 @@ fun ExperienceSection(viewModel: BuilderViewModel) {
                             viewModel.onFieldChanged()
                         },
                         label = { Text("Company Name") },
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                        colors = getOutlinedTextFieldColors(),
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -512,7 +498,7 @@ fun ExperienceSection(viewModel: BuilderViewModel) {
                             viewModel.onFieldChanged()
                         },
                         label = { Text("Job Title / Role") },
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                        colors = getOutlinedTextFieldColors(),
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -525,7 +511,7 @@ fun ExperienceSection(viewModel: BuilderViewModel) {
                                 viewModel.onFieldChanged()
                             },
                             label = { Text("Start Date") },
-                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                            colors = getOutlinedTextFieldColors(),
                             modifier = Modifier.weight(1f)
                         )
                         OutlinedTextField(
@@ -536,7 +522,7 @@ fun ExperienceSection(viewModel: BuilderViewModel) {
                                 viewModel.onFieldChanged()
                             },
                             label = { Text("End Date") },
-                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                            colors = getOutlinedTextFieldColors(),
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -550,7 +536,7 @@ fun ExperienceSection(viewModel: BuilderViewModel) {
                         },
                         label = { Text("Description & Achievements") },
                         minLines = 3,
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                        colors = getOutlinedTextFieldColors(),
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -586,7 +572,7 @@ fun SkillsSection(viewModel: BuilderViewModel) {
                     onValueChange = { textInput = it },
                     label = { Text("Add Skill") },
                     singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                    colors = getOutlinedTextFieldColors(),
                     modifier = Modifier.weight(1f)
                 )
                 Button(
@@ -712,7 +698,7 @@ fun ProjectsSection(viewModel: BuilderViewModel) {
                             viewModel.onFieldChanged()
                         },
                         label = { Text("Project Title") },
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                        colors = getOutlinedTextFieldColors(),
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -725,7 +711,7 @@ fun ProjectsSection(viewModel: BuilderViewModel) {
                         },
                         label = { Text("Description") },
                         minLines = 2,
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                        colors = getOutlinedTextFieldColors(),
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -740,7 +726,7 @@ fun ProjectsSection(viewModel: BuilderViewModel) {
                             viewModel.onFieldChanged()
                         },
                         label = { Text("Technologies (comma separated)") },
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                        colors = getOutlinedTextFieldColors(),
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -818,7 +804,7 @@ fun CertificationsSection(viewModel: BuilderViewModel) {
                             viewModel.onFieldChanged()
                         },
                         label = { Text("Certification Name") },
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                        colors = getOutlinedTextFieldColors(),
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -830,7 +816,7 @@ fun CertificationsSection(viewModel: BuilderViewModel) {
                             viewModel.onFieldChanged()
                         },
                         label = { Text("Issuing Organization") },
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                        colors = getOutlinedTextFieldColors(),
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -843,7 +829,7 @@ fun CertificationsSection(viewModel: BuilderViewModel) {
                                 viewModel.onFieldChanged()
                             },
                             label = { Text("Date of Issuance") },
-                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                            colors = getOutlinedTextFieldColors(),
                             modifier = Modifier.weight(1f)
                         )
                         OutlinedTextField(
@@ -854,7 +840,7 @@ fun CertificationsSection(viewModel: BuilderViewModel) {
                                 viewModel.onFieldChanged()
                             },
                             label = { Text("Score / Grade") },
-                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                            colors = getOutlinedTextFieldColors(),
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -933,7 +919,7 @@ fun LanguagesSection(viewModel: BuilderViewModel) {
                             viewModel.onFieldChanged()
                         },
                         label = { Text("Language Name") },
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                        colors = getOutlinedTextFieldColors(),
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -945,7 +931,7 @@ fun LanguagesSection(viewModel: BuilderViewModel) {
                             viewModel.onFieldChanged()
                         },
                         label = { Text("Proficiency (e.g. Native, Fluent, Basic)") },
-                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                        colors = getOutlinedTextFieldColors(),
                         modifier = Modifier.fillMaxWidth()
                     )
                 }

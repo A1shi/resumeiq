@@ -1,5 +1,7 @@
 package com.aashi.resumeiq.ui.match
 
+import com.aashi.resumeiq.ui.theme.getOutlinedTextFieldColors
+
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.widget.Toast
@@ -158,14 +160,7 @@ fun MatchScreen(
                                 .fillMaxWidth()
                                 .weight(1f),
                             shape = RoundedCornerShape(16.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                focusedLabelColor = MaterialTheme.colorScheme.primary,
-                                unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
-                                unfocusedLabelColor = Color.White.copy(alpha = 0.5f),
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
-                            )
+                            colors = getOutlinedTextFieldColors()
                         )
 
                         Button(
@@ -378,7 +373,7 @@ fun MatchResultView(match: JDMatchResponse) {
                         onClick = {
                             val intent = android.content.Intent(
                                 android.content.Intent.ACTION_VIEW,
-                                Uri.parse("http://10.0.2.2:8000/api/v1/resumes/${match.resumeId}/matches/${match.id}/export-pdf")
+                                Uri.parse("https://resumeiq-xga7.onrender.com/api/v1/resumes/${match.resumeId}/matches/${match.id}/export-pdf")
                             )
                             context.startActivity(intent)
                         },

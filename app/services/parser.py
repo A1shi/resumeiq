@@ -1,10 +1,51 @@
 import re
 import logging
+import json
+import google.generativeai as genai
 from typing import List, Optional
+from app.config import settings
 from app.schemas import ResumeParsedSchema, EducationSchema, ExperienceSchema, ProjectSchema, CertificationSchema, LanguageSchema
 
 # Configure logger
 logger = logging.getLogger("app.services.parser")
+
+HEADER_PATTERNS = {
+    "skills": re.compile(r'^\s*(?:#+\s*|-+\s*|\*+\s*|\d+\.\s*)?(?:skills|technical toolkit|core competencies|technical skills|skills\s*&\s*tools|toolkit|competencies)\s*[:\.]*\s*$', re.IGNORECASE),
+    "experience": re.compile(r'^\s*(?:#+\s*|-+\s*|\*+\s*|\d+\.\s*)?(?:experience|work experience|professional experience|employment history|work history|professional timeline|career history)\s*[:\.]*\s*$', re.IGNORECASE),
+    "education": re.compile(r'^\s*(?:#+\s*|-+\s*|\*+\s*|\d+\.\s*)?(?:education|academic background|academic history|education\s*&\s*academic background|academic credentials|credentials)\s*[:\.]*\s*$', re.IGNORECASE),
+    "projects": re.compile(r'^\s*(?:#+\s*|-+\s*|\*+\s*|\d+\.\s*)?(?:projects|highlighted projects|personal projects|academic projects|key projects)\s*[:\.]*\s*$', re.IGNORECASE),
+    "summary": re.compile(r'^\s*(?:#+\s*|-+\s*|\*+\s*|\d+\.\s*)?(?:summary|objective|professional summary|about me|profile)\s*[:\.]*\s*$', re.IGNORECASE),
+    "certifications": re.compile(r'^\s*(?:#+\s*|-+\s*|\*+\s*|\d+\.\s*)?(?:certifications|certification|certificates|certificate|licensing|credentials|courses|awards|accomplishments)\s*[:\.]*\s*$', re.IGNORECASE),
+    "languages": re.compile(r'^\s*(?:#+\s*|-+\s*|\*+\s*|\d+\.\s*)?(?:languages|language|language skills|spoken languages)\s*[:\.]*\s*$', re.IGNORECASE),
+    "leadership": re.compile(r'^\s*(?:#+\s*|-+\s*|\*+\s*|\d+\.\s*)?(?:leadership|leadership\s*(?:activities|experience|roles|involvement)|extracurricular\s*(?:activities|involvement)?|volunteer\s*(?:experience|work|service)?|volunteering)\s*[:\.]*\s*$', re.IGNORECASE),
+    "interests": re.compile(r'^\s*(?:#+\s*|-+\s*|\*+\s*|\d+\.\s*)?(?:interests|hobbies|hobbies\s*&\s*interests|personal\s*interests|activities)\s*[:\.]*\s*$', re.IGNORECASE),
+    "referees": re.compile(r'^\s*(?:#+\s*|-+\s*|\*+\s*|\d+\.\s*)?(?:referees|references|referee|reference|references\s*(?:available)?\s*(?:upon\s*request)?)\s*[:\.]*\s*$', re.IGNORECASE)
+}
+
+HELPER_PATTERNS = [
+    re.compile(r'^\s*(?:tip|example|note|nb|optional|instruction|instructions|guidance|template\s*guidance)\s*:', re.IGNORECASE),
+    re.compile(r'^\s*\[\s*(?:insert|describe|replace|enter|include|choose|write|optional)\b', re.IGNORECASE),
+    re.compile(r'\b(?:insert\s+your\s+name|describe\s+your\s+responsibilities|enter\s+company\s+name|write\s+a\s+short\s+summary|how\s+to\s+write)\b', re.IGNORECASE)
+]
+
+def is_helper_line(line: str) -> bool:
+    line_stripped = line.strip()
+    if not line_stripped:
+        return False
+    for pat in HELPER_PATTERNS:
+        if pat.search(line_stripped):
+            return True
+    return False
+
+def clean_lines_of_helper_text(text: str) -> List[str]:
+    """Cleans text by removing helper/instructional lines."""
+    if not text.strip():
+        return []
+    cleaned = []
+    for line in text.splitlines():
+        if not is_helper_line(line):
+            cleaned.append(line.strip())
+    return cleaned
 
 # Predefined dictionary of popular technical and soft skills for matching
 SKILLS_DB = [
@@ -30,7 +71,39 @@ SKILLS_DB = [
     "security", "devsecops", "cloud computing", "saas", "paas", "iaas", "api design", "rest api", "soap",
     # Soft Skills / Methodologies
     "communication", "leadership", "teamwork", "problem solving", "critical thinking", "time management", 
-    "adaptability", "collaboration", "project management", "product management", "technical writing"
+    "adaptability", "collaboration", "project management", "product management", "technical writing",
+    # Nursing / Healthcare
+    "cpr", "ehr", "patient care", "vital signs", "triage", "clinical", "nursing", "hipaa", "medication administration", "cpr certification", "patient safety", "clinical documentation", "ehr systems", "epic", "cerner", "first aid",
+    # Sales
+    "salesforce", "crm", "lead generation", "negotiation", "b2b sales", "client relations", "cold calling", "pipeline management", "account management", "business development", "contract negotiation", "b2b",
+    # Marketing
+    "seo", "google analytics", "social media", "email campaigns", "copywriting", "digital marketing", "content creation", "campaign optimization", "brand strategy", "market research", "content strategy", "advertising",
+    # HR
+    "talent acquisition", "onboarding", "employee relations", "ats", "labor law compliance", "interviewing", "recruiting", "human resources", "benefits administration", "offboarding", "labor law",
+    # Teacher / Education
+    "classroom management", "lesson planning", "curriculum design", "educational technology", "student assessment", "pedagogy", "tutor", "instructional design", "classroom instruction", "curriculum development",
+    # Accountant / Finance
+    "gaap compliance", "gaap", "general ledger", "quickbooks", "financial reconciliation", "tax preparation", "bookkeeping", "financial reporting", "ledger reconciliation", "auditing",
+    # Graphic Design / Creative
+    "adobe photoshop", "photoshop", "adobe illustrator", "illustrator", "figma", "ui/ux design", "ui/ux", "typography", "visual identity", "layouts", "adobe indesign", "indesign", "branding",
+    # Customer Service
+    "zendesk", "customer support", "conflict resolution", "ticketing", "empathy", "customer service", "helpdesk",
+    # Hospitality
+    "guest relations", "reservation systems", "front desk operations", "food safety", "guest services", "catering", "event planning", "front desk",
+    # Banking
+    "banking compliance", "financial services", "loan processing", "customer transactions", "banking", "credit analysis", "cash handling",
+    # Student / Fresher / General Soft Skills
+    "microsoft office", "ms office", "public speaking",
+    # Mechanical Engineering
+    "cad", "solidworks", "thermodynamics", "materials science", "product design", "cnc programming", "mechanical design",
+    # Civil Engineering
+    "autocad", "structural engineering", "project estimating", "site surveying", "concrete design", "safety protocols", "civil engineering",
+    # Government
+    "public policy", "community outreach", "regulatory compliance", "program administration", "public budgeting",
+    # Legal
+    "legal research", "contract drafting", "litigation support", "case documentation", "client consultation", "lexisnexis", "paralegal",
+    # Healthcare Admin
+    "medical terminology", "patient scheduling", "billing & insurance", "electronic health records", "office coordination", "medical records"
 ]
 
 SKILLS_MAP = {
@@ -76,7 +149,74 @@ SKILLS_MAP = {
     "problem solving": "Problem Solving", "critical thinking": "Critical Thinking", 
     "time management": "Time Management", "adaptability": "Adaptability", "collaboration": "Collaboration", 
     "project management": "Project Management", "product management": "Product Management", 
-    "technical writing": "Technical Writing"
+    "technical writing": "Technical Writing",
+
+    "cpr": "CPR", "ehr": "EHR", "patient care": "Patient Care", "vital signs": "Vital Signs", "triage": "Triage",
+    "clinical": "Clinical Care", "nursing": "Nursing", "hipaa": "HIPAA Compliance", "medication administration": "Medication Administration",
+    "cpr certification": "CPR Certification", "patient safety": "Patient Safety", "clinical documentation": "Clinical Documentation",
+    "ehr systems": "EHR Systems", "epic": "Epic EHR", "cerner": "Cerner EHR", "first aid": "First Aid",
+    
+    "salesforce": "Salesforce CRM", "crm": "CRM", "lead generation": "Lead Generation", "negotiation": "Negotiation",
+    "b2b sales": "B2B Sales", "client relations": "Client Relations", "cold calling": "Cold Calling",
+    "pipeline management": "Pipeline Management", "account management": "Account Management",
+    "business development": "Business Development", "contract negotiation": "Contract Negotiation", "b2b": "B2B Sales",
+    
+    "seo": "SEO Optimization", "google analytics": "Google Analytics", "social media": "Social Media Marketing",
+    "email campaigns": "Email Campaigns", "copywriting": "Copywriting", "digital marketing": "Digital Marketing",
+    "content creation": "Content Creation", "campaign optimization": "Campaign Optimization", "brand strategy": "Brand Strategy",
+    "market research": "Market Research", "content strategy": "Content Strategy", "advertising": "Advertising",
+    
+    "talent acquisition": "Talent Acquisition", "onboarding": "Employee Onboarding", "employee relations": "Employee Relations",
+    "ats": "Applicant Tracking Systems", "labor law compliance": "Labor Law Compliance", "interviewing": "Interviewing",
+    "recruiting": "Recruiting", "human resources": "Human Resources", "benefits administration": "Benefits Administration",
+    "offboarding": "Employee Offboarding", "labor law": "Labor Law Compliance",
+    
+    "classroom management": "Classroom Management", "lesson planning": "Lesson Planning", "curriculum design": "Curriculum Design",
+    "educational technology": "Educational Technology", "student assessment": "Student Assessment", "pedagogy": "Pedagogy",
+    "tutor": "Tutoring", "instructional design": "Instructional Design", "classroom instruction": "Classroom Instruction",
+    "curriculum development": "Curriculum Development",
+    
+    "gaap compliance": "GAAP Compliance", "gaap": "GAAP", "general ledger": "General Ledger", "quickbooks": "QuickBooks",
+    "financial reconciliation": "Financial Reconciliation", "tax preparation": "Tax Preparation", "bookkeeping": "Bookkeeping",
+    "financial reporting": "Financial Reporting", "ledger reconciliation": "Ledger Reconciliation", "auditing": "Auditing",
+    
+    "adobe photoshop": "Adobe Photoshop", "photoshop": "Adobe Photoshop", "adobe illustrator": "Adobe Illustrator",
+    "illustrator": "Adobe Illustrator", "figma": "Figma", "ui/ux design": "UI/UX Design", "ui/ux": "UI/UX",
+    "typography": "Typography", "visual identity": "Visual Identity", "layouts": "Layout Design",
+    "adobe indesign": "Adobe InDesign", "indesign": "Adobe InDesign", "branding": "Branding",
+    
+    "zendesk": "Zendesk", "customer support": "Customer Support", "conflict resolution": "Conflict Resolution",
+    "ticketing": "Support Ticketing", "empathy": "Empathy", "customer service": "Customer Service", "helpdesk": "Helpdesk",
+    
+    "guest relations": "Guest Relations", "reservation systems": "Reservation Systems", "front desk operations": "Front Desk Operations",
+    "food safety": "Food Safety", "guest services": "Guest Services", "catering": "Catering", "event planning": "Event Planning",
+    "front desk": "Front Desk Operations",
+    
+    "banking compliance": "Banking Compliance", "financial services": "Financial Services", "loan processing": "Loan Processing",
+    "customer transactions": "Customer Transactions", "banking": "Banking", "credit analysis": "Credit Analysis",
+    "cash handling": "Cash Handling",
+    
+    "teamwork": "Teamwork", "problem solving": "Problem Solving", "time management": "Time Management",
+    "analytical research": "Analytical Research", "microsoft office": "Microsoft Office", "ms office": "Microsoft Office",
+    "public speaking": "Public Speaking",
+    
+    "cad": "CAD Design", "solidworks": "SolidWorks", "thermodynamics": "Thermodynamics", "materials science": "Materials Science",
+    "product design": "Product Design", "cnc programming": "CNC Programming", "mechanical design": "Mechanical Design",
+    
+    "autocad": "AutoCAD", "structural engineering": "Structural Engineering", "project estimating": "Project Estimating",
+    "site surveying": "Site Surveying", "concrete design": "Concrete Design", "safety protocols": "Safety Protocols",
+    "civil engineering": "Civil Engineering",
+    
+    "public policy": "Public Policy", "community outreach": "Community Outreach", "regulatory compliance": "Regulatory Compliance",
+    "program administration": "Program Administration", "public budgeting": "Public Budgeting",
+    
+    "legal research": "Legal Research", "contract drafting": "Contract Drafting", "litigation support": "Litigation Support",
+    "case documentation": "Case Documentation", "client consultation": "Client Consultation", "lexisnexis": "LexisNexis",
+    "paralegal": "Paralegal Studies",
+    
+    "medical terminology": "Medical Terminology", "patient scheduling": "Patient Scheduling", "billing & insurance": "Billing & Insurance",
+    "electronic health records": "Electronic Health Records", "office coordination": "Office Coordination",
+    "medical records": "Medical Records"
 }
 
 def extract_skills_from_text(text: str) -> List[str]:
@@ -100,17 +240,10 @@ def segment_sections(raw_text: str) -> dict:
         "projects": [],
         "summary": [],
         "certifications": [],
-        "languages": []
-    }
-    
-    header_patterns = {
-        "skills": re.compile(r'^\s*(?:#+\s*|-+\s*|\*+\s*|\d+\.\s*)?(?:skills|technical toolkit|core competencies|technical skills|skills\s*&\s*tools|toolkit|competencies)\s*[:\.]*\s*$', re.IGNORECASE),
-        "experience": re.compile(r'^\s*(?:#+\s*|-+\s*|\*+\s*|\d+\.\s*)?(?:experience|work experience|professional experience|employment history|work history|professional timeline|career history)\s*[:\.]*\s*$', re.IGNORECASE),
-        "education": re.compile(r'^\s*(?:#+\s*|-+\s*|\*+\s*|\d+\.\s*)?(?:education|academic background|academic history|education\s*&\s*academic background|academic credentials|credentials)\s*[:\.]*\s*$', re.IGNORECASE),
-        "projects": re.compile(r'^\s*(?:#+\s*|-+\s*|\*+\s*|\d+\.\s*)?(?:projects|highlighted projects|personal projects|academic projects|key projects)\s*[:\.]*\s*$', re.IGNORECASE),
-        "summary": re.compile(r'^\s*(?:#+\s*|-+\s*|\*+\s*|\d+\.\s*)?(?:summary|objective|professional summary|about me|profile)\s*[:\.]*\s*$', re.IGNORECASE),
-        "certifications": re.compile(r'^\s*(?:#+\s*|-+\s*|\*+\s*|\d+\.\s*)?(?:certifications|certification|certificates|certificate|licensing|credentials|courses|awards|accomplishments)\s*[:\.]*\s*$', re.IGNORECASE),
-        "languages": re.compile(r'^\s*(?:#+\s*|-+\s*|\*+\s*|\d+\.\s*)?(?:languages|language|language skills|spoken languages)\s*[:\.]*\s*$', re.IGNORECASE)
+        "languages": [],
+        "leadership": [],
+        "interests": [],
+        "referees": []
     }
     
     current_section = "header"
@@ -121,14 +254,15 @@ def segment_sections(raw_text: str) -> dict:
         # Check if line matches any header (only if the line is not empty)
         matched_header = False
         if cleaned_line:
-            for sec_name, regex in header_patterns.items():
+            for sec_name, regex in HEADER_PATTERNS.items():
                 if regex.match(cleaned_line):
                     current_section = sec_name
                     matched_header = True
                     break
         
         if not matched_header:
-            sections[current_section].append(line)
+            if not is_helper_line(line):
+                sections[current_section].append(line)
             
     return {k: "\n".join(v).strip() for k, v in sections.items()}
 
@@ -159,6 +293,11 @@ def parse_education_section(edu_text: str) -> List[EducationSchema]:
     date_range_pat = r'((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{4}|\d{1,2}/\d{2,4}|\d{4})\s*(?:-|to)\s*((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{4}|\d{1,2}/\d{2,4}|\d{4}|Present|Current)'
     
     for line in lines:
+        cleaned_line = line.strip()
+        if not cleaned_line:
+            continue
+        if any(pat.match(cleaned_line) for pat in HEADER_PATTERNS.values()):
+            break
         has_school = any(x in line.lower() for x in ["university", "college", "institute", "school", "academy", "polytechnic"]) or re.search(r'\b(?:MIT|IIT|Stanford|Harvard|Caltech|Berkeley|CMU)\b', line)
         
         has_degree = False
@@ -268,6 +407,9 @@ def parse_experience_section(exp_text: str) -> List[ExperienceSchema]:
         cleaned_line = line.strip()
         if not cleaned_line:
             continue
+            
+        if any(pat.match(cleaned_line) for pat in HEADER_PATTERNS.values()):
+            break
             
         has_role = bool(role_indicator.search(cleaned_line))
         has_dates = bool(re.search(date_range_pat, cleaned_line, re.IGNORECASE))
@@ -380,6 +522,11 @@ def parse_projects_section(proj_text: str) -> List[ProjectSchema]:
     tech_headers = ["technologies", "tech stack", "tech", "tools used", "tools", "languages", "stack"]
     
     for line in lines:
+        cleaned_line = line.strip()
+        if not cleaned_line:
+            continue
+        if any(pat.match(cleaned_line) for pat in HEADER_PATTERNS.values()):
+            break
         is_bullet = line.startswith(("-", "*", "•", "o ", "+"))
         line_clean = re.sub(r'^(?:\d+\.|\-|\*|\•|\+)\s*', "", line).strip()
         line_lower = line_clean.lower()
@@ -537,6 +684,55 @@ def parse_languages_section(lang_text: str) -> List[LanguageSchema]:
             
     return entries
 
+def parse_summary_section(summary_text: str) -> Optional[str]:
+    """Parse summary from segmented text."""
+    if not summary_text.strip():
+        return None
+    lines = [l.strip() for l in summary_text.splitlines() if l.strip()]
+    return "\n".join(lines).strip() if lines else None
+
+def parse_leadership_section(leadership_text: str) -> List[str]:
+    """Parse leadership entries from segmented text."""
+    if not leadership_text.strip():
+        return []
+    entries = []
+    for line in leadership_text.splitlines():
+        cleaned = re.sub(r'^(?:\d+\.|\-|\*|\•|\+)\s*', "", line).strip()
+        if len(cleaned) >= 3:
+            entries.append(cleaned)
+    return entries
+
+def parse_interests_section(interests_text: str) -> List[str]:
+    """Parse interests/hobbies entries from segmented text."""
+    if not interests_text.strip():
+        return []
+    entries = []
+    for line in interests_text.splitlines():
+        cleaned = re.sub(r'^(?:\d+\.|\-|\*|\•|\+)\s*', "", line).strip()
+        if not cleaned:
+            continue
+        if "," in cleaned and len(cleaned) < 150:
+            parts = [p.strip() for p in cleaned.split(",") if p.strip()]
+            for p in parts:
+                p_clean = re.sub(r'^[\s\-\|\,\•\:\@]+|[\s\-\|\,\•\:\@]+$', "", p).strip()
+                if len(p_clean) >= 2:
+                    entries.append(p_clean)
+        else:
+            if len(cleaned) >= 2:
+                entries.append(cleaned)
+    return entries
+
+def parse_referees_section(referees_text: str) -> List[str]:
+    """Parse referees/references details from segmented text."""
+    if not referees_text.strip():
+        return []
+    entries = []
+    for line in referees_text.splitlines():
+        cleaned = re.sub(r'^(?:\d+\.|\-|\*|\•|\+)\s*', "", line).strip()
+        if len(cleaned) >= 3:
+            entries.append(cleaned)
+    return entries
+
 def is_pure_date(s: str) -> bool:
     if not s:
         return False
@@ -552,7 +748,7 @@ def remove_embedded_dates(s: str) -> str:
         return s
     date_range_pat = r'((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{4}|\d{1,2}/\d{2,4}|\d{4})\s*(?:-|to|–|—)\s*((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{4}|\d{1,2}/\d{2,4}|\d{4}|Present|Current)'
     s = re.sub(date_range_pat, "", s, flags=re.IGNORECASE)
-    single_date_pat = r'\b(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{4}|\d{1,2}/\d{2,4}|\b(?:19\d{2}|20\d{2})\b)'
+    single_date_pat = r'\b(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov{2,4})|20\d{2})\b'
     s = re.sub(single_date_pat, "", s, flags=re.IGNORECASE)
     s = re.sub(r'^[\s\-\|\,\•\:\@\(\)–—]+|[\s\-\|\,\•\:\@\(\)–—]+$', "", s)
     return s.strip()
@@ -697,7 +893,250 @@ def cleanup_parsed_data(parsed_data: ResumeParsedSchema) -> ResumeParsedSchema:
             unique_lang.append(lang)
     parsed_data.languages = unique_lang
 
+    # 7. Clean Leadership
+    unique_leader = []
+    seen_leader = set()
+    for l in parsed_data.leadership:
+        l_clean = l.strip()
+        if l_clean and l_clean.lower() not in seen_leader:
+            seen_leader.add(l_clean.lower())
+            unique_leader.append(l_clean)
+    parsed_data.leadership = unique_leader
+
+    # 8. Clean Interests
+    unique_interests = []
+    seen_interests = set()
+    for i in parsed_data.interests:
+        i_clean = i.strip()
+        if i_clean and i_clean.lower() not in seen_interests:
+            seen_interests.add(i_clean.lower())
+            unique_interests.append(i_clean)
+    parsed_data.interests = unique_interests
+
+    # 9. Clean Referees
+    unique_referees = []
+    seen_referees = set()
+    for r in parsed_data.referees:
+        r_clean = r.strip()
+        if r_clean and r_clean.lower() not in seen_referees:
+            seen_referees.add(r_clean.lower())
+            unique_referees.append(r_clean)
+    parsed_data.referees = unique_referees
+
     return parsed_data
+
+def detect_profession_with_gemini(raw_text: str) -> dict:
+    """
+    Classifies the candidate's profession, industry, seniority, experience level,
+    skills, and career objective using Gemini API.
+    Runs self-validation to reject unsupported assumptions.
+    """
+    prompt = (
+        "You are an expert career classification agent. Analyze the following candidate resume text and extract the candidate's professional profile.\n\n"
+        "Resume Text:\n"
+        f"{raw_text}\n\n"
+        "Your task is to detect the following details:\n"
+        "1. Profession: Must be EXACTLY one of the following supported professions:\n"
+        "   - Customer Service\n"
+        "   - HR\n"
+        "   - Marketing\n"
+        "   - Teacher\n"
+        "   - Nurse\n"
+        "   - Accountant\n"
+        "   - Software Engineer\n"
+        "   - Android Developer\n"
+        "   - Data Analyst\n"
+        "   - Business Analyst\n"
+        "   - Graphic Designer\n"
+        "   - Sales\n"
+        "   - Hospitality\n"
+        "   - Banking\n"
+        "   - Student/Fresher\n"
+        "   - General Professional\n\n"
+        "2. Industry: The industry classification (e.g. Technology, Healthcare, Finance, Education, Retail, Customer Support, Design & Creative, Hospitality, Academic, etc.)\n"
+        "3. Seniority: The seniority level (e.g. Intern, Junior, Mid, Senior, Lead, Manager, Director, Executive)\n"
+        "4. Experience Level: The experience duration/level (e.g. Fresher, 1-3 Years, 3-5 Years, 5+ Years)\n"
+        "5. Skills: List of key professional/technical skills explicitly mentioned or directly supported by the resume. Do NOT fabricate skills.\n"
+        "6. Career Objective: A summary of the candidate's career objective (either directly extracted or logically inferred).\n\n"
+        "CRITICAL ASSUMPTION VALIDATION LAYER:\n"
+        "You must run a validation check on your classification. Reject any unsupported assumptions.\n"
+        "- Do NOT assume a candidate is a Software Engineer or Android Developer unless the resume contains direct evidence of software development skills (e.g., programming languages like Python, Java, Kotlin, React) and/or experience.\n"
+        "- Do NOT default to 'Software Engineer'.\n"
+        "- Look for direct, clear, objective evidence in the text.\n"
+        "- If the evidence is weak, ambiguous, or if your confidence in the selected profession is below 70%, you MUST set the Profession to 'General Professional' and confidence to less than 70%.\n\n"
+        "Return your output as a single, valid JSON object containing the following keys (no markdown formatting, no code block wrapper):\n"
+        "{\n"
+        '  "profession": "string, one of the supported professions",\n'
+        '  "industry": "string",\n'
+        '  "seniority": "string",\n'
+        '  "experience_level": "string",\n'
+        '  "skills": ["list of strings"],\n'
+        '  "career_objective": "string",\n'
+        '  "confidence": 0-100,\n'
+        '  "validation_passed": true/false,\n'
+        '  "validation_reason": "detailed explanation of why the validation passed or failed, explaining the evidence or lack thereof"\n'
+        "}\n"
+    )
+
+    genai.configure(api_key=settings.GEMINI_API_KEY)
+    model = genai.GenerativeModel("gemini-1.5-flash")
+    
+    # Generate content with JSON constraint
+    response = model.generate_content(
+        prompt,
+        generation_config={"response_mime_type": "application/json"}
+    )
+    
+    result = json.loads(response.text)
+    
+    # Apply strict requirements check
+    confidence = result.get("confidence", 100)
+    validation_passed = result.get("validation_passed", True)
+    
+    if confidence < 70 or not validation_passed:
+        result["profession"] = "General Professional"
+        result["validation_passed"] = False
+        
+    # Standardize selected profession to the allowed list (case-insensitive check)
+    allowed_professions = [
+        "Customer Service", "HR", "Marketing", "Teacher", "Nurse", "Accountant",
+        "Software Engineer", "Android Developer", "Data Analyst", "Business Analyst",
+        "Graphic Designer", "Sales", "Hospitality", "Banking", "Student/Fresher", "General Professional"
+    ]
+    
+    detected = result.get("profession", "General Professional").strip()
+    matched = None
+    for p in allowed_professions:
+        if p.lower() == detected.lower():
+            matched = p
+            break
+            
+    if not matched:
+        result["profession"] = "General Professional"
+    else:
+        result["profession"] = matched
+        
+    return result
+
+def detect_profession_local(raw_text: str, parsed_skills: list) -> dict:
+    """
+    Rule-based local fallback to classify candidate's profession, industry, seniority, etc.
+    """
+    text_lower = raw_text.lower()
+    skills_lower = [s.lower() for s in (parsed_skills or [])]
+
+    # Predefined keywords for target professions
+    keywords_map = {
+        "Software Engineer": ["software engineer", "developer", "backend", "frontend", "fullstack", "programming", "algorithms", "c++", "java", "python", "software developer", "web developer", "systems architect", "react", "fastapi", "django"],
+        "Android Developer": ["android", "kotlin", "mobile developer", "mobile app", "gradle", "apk", "android studio", "ios", "swift", "objective-c"],
+        "Data Analyst": ["data analyst", "sql", "tableau", "power bi", "powerbi", "pandas", "data visualization", "excel", "analytics", "business intelligence"],
+        "Business Analyst": ["business analyst", "requirements", "uml", "use cases", "stakeholders", "agile", "jira", "scrum", "process improvement"],
+        "Customer Service": ["customer service", "help desk", "support", "call center", "client support", "troubleshooting", "customer success", "client relations"],
+        "HR": ["hr", "human resources", "recruiting", "talent acquisition", "onboarding", "payroll", "employee relations", "benefits", "hiring"],
+        "Marketing": ["marketing", "seo", "campaign", "digital marketing", "social media", "branding", "adwords", "market research", "content creator"],
+        "Teacher": ["teacher", "teaching", "education", "classroom", "curriculum", "tutor", "pedagogy", "instructor", "lecturer"],
+        "Nurse": ["nurse", "nursing", "rn", "patient care", "cpr", "triage", "registered nurse", "nurse practitioner"],
+        "Accountant": ["accountant", "accounting", "ledger", "bookkeeping", "tax", "audit", "quickbooks", "cpa", "financial reporting"],
+        "Graphic Designer": ["graphic designer", "photoshop", "illustrator", "indesign", "figma", "ui/ux", "visual design", "typography", "graphic design", "branding"],
+        "Sales": ["sales", "account executive", "cold calling", "leads", "revenue", "b2b sales", "crm", "salesforce", "business development"],
+        "Hospitality": ["hospitality", "hotel", "restaurant", "chef", "waiter", "event planning", "catering", "front desk"],
+        "Banking": ["banking", "bank", "credit", "loan", "investment", "wealth management", "teller", "mortgage"],
+        "Student/Fresher": ["student", "intern", "internship", "fresher", "graduate", "university", "college", "gpa", "academic project", "academic", "co-op"]
+    }
+
+    # Calculate match scores
+    scores = {}
+    for prof, kw_list in keywords_map.items():
+        score = 0
+        for kw in kw_list:
+            # Count frequency in raw text (case-insensitive)
+            count = len(re.findall(r'\b' + re.escape(kw) + r'\b', text_lower))
+            score += count
+            # Give extra weight if the keyword matches a parsed skill
+            if kw in skills_lower:
+                score += 3
+        scores[prof] = score
+
+    # Find highest score
+    max_prof = max(scores, key=scores.get)
+    max_score = scores[max_prof]
+
+    # Decide confidence and profession based on rules
+    if max_score >= 3:
+        profession = max_prof
+        confidence = 85.0
+        validation_passed = True
+        validation_reason = f"Strong local keyword matches found (score: {max_score}) for {profession}."
+    else:
+        profession = "General Professional"
+        confidence = 50.0
+        validation_passed = False
+        validation_reason = f"No strong matching keywords for any specific profession. Defaulted to General Professional."
+
+    # Map profession to industry
+    industry_map = {
+        "Software Engineer": "Technology",
+        "Android Developer": "Technology",
+        "Data Analyst": "Technology",
+        "Business Analyst": "Business Services",
+        "Customer Service": "Customer Support",
+        "HR": "Human Resources",
+        "Marketing": "Marketing & Advertising",
+        "Teacher": "Education",
+        "Nurse": "Healthcare",
+        "Accountant": "Finance & Accounting",
+        "Graphic Designer": "Design & Creative",
+        "Sales": "Sales & Retail",
+        "Hospitality": "Hospitality & Tourism",
+        "Banking": "Finance & Banking",
+        "Student/Fresher": "Academic",
+        "General Professional": "General Business"
+    }
+    industry = industry_map.get(profession, "General Business")
+
+    # Detect Seniority
+    seniority = "Mid"
+    if any(kw in text_lower for kw in ["director", "vp", "chief", "executive", "head", "president"]):
+        seniority = "Executive"
+    elif any(kw in text_lower for kw in ["senior", "lead", "principal", "architect", "manager"]):
+        seniority = "Senior"
+    elif any(kw in text_lower for kw in ["junior", "intern", "fresher", "trainee"]):
+        seniority = "Junior"
+
+    # Detect Experience Level
+    if profession == "Student/Fresher" or seniority == "Intern":
+        experience_level = "Fresher"
+    else:
+        # Check years of experience mentioned in text or base it on mentions
+        years_matches = re.findall(r'(\d+)\+?\s*years?', text_lower)
+        if years_matches:
+            max_years = max(int(y) for y in years_matches if int(y) < 50)
+            if max_years >= 5:
+                experience_level = "5+ Years"
+            elif max_years >= 3:
+                experience_level = "3-5 Years"
+            else:
+                experience_level = "1-3 Years"
+        else:
+            experience_level = "1-3 Years"
+
+    # Fallback career objective
+    career_objective = (
+        f"Detail-oriented professional seeking to leverage skills and experience in {industry} "
+        f"as a {profession} to contribute to organizational goals."
+    )
+
+    return {
+        "profession": profession,
+        "industry": industry,
+        "seniority": seniority,
+        "experience_level": experience_level,
+        "skills": parsed_skills,
+        "career_objective": career_objective,
+        "confidence": confidence,
+        "validation_passed": validation_passed,
+        "validation_reason": validation_reason
+    }
 
 def parse_resume_text(raw_text: str) -> ResumeParsedSchema:
     """
@@ -764,26 +1203,57 @@ def parse_resume_text(raw_text: str) -> ResumeParsedSchema:
         skills = extract_skills_from_text(raw_text)
         
         # 6. Parse education, experience, projects, certifications, and languages
+        summary = parse_summary_section(sections.get("summary", ""))
         education = parse_education_section(sections.get("education", ""))
         experience = parse_experience_section(sections.get("experience", ""))
         projects = parse_projects_section(sections.get("projects", ""))
         certifications = parse_certifications_section(sections.get("certifications", ""))
         languages = parse_languages_section(sections.get("languages", ""))
+        leadership = parse_leadership_section(sections.get("leadership", ""))
+        interests = parse_interests_section(sections.get("interests", ""))
+        referees = parse_referees_section(sections.get("referees", ""))
         
         parsed_resume = ResumeParsedSchema(
             name=name,
             email=email,
             phone=phone,
+            summary=summary,
             skills=skills,
             education=education,
             experience=experience,
             projects=projects,
             certifications=certifications,
-            languages=languages
+            languages=languages,
+            leadership=leadership,
+            interests=interests,
+            referees=referees
         )
         
         # 7. Post-parsing cleanup and validation
         cleaned_resume = cleanup_parsed_data(parsed_resume)
+        
+        # 8. Phase 2 Profession detection
+        prof_data = None
+        if settings.GEMINI_API_KEY:
+            try:
+                logger.info("Detecting profession with Gemini AI...")
+                prof_data = detect_profession_with_gemini(raw_text)
+            except Exception as e:
+                logger.warning(f"Failed to detect profession using Gemini: {str(e)}. Falling back to local rules.")
+        
+        if not prof_data:
+            logger.info("Detecting profession using local rule-based fallback...")
+            prof_data = detect_profession_local(raw_text, cleaned_resume.skills)
+            
+        cleaned_resume.profession = prof_data.get("profession")
+        cleaned_resume.industry = prof_data.get("industry")
+        cleaned_resume.seniority = prof_data.get("seniority")
+        cleaned_resume.experience_level = prof_data.get("experience_level")
+        cleaned_resume.career_objective = prof_data.get("career_objective")
+        cleaned_resume.profession_confidence = float(prof_data.get("confidence", 0.0))
+        cleaned_resume.validation_passed = bool(prof_data.get("validation_passed", False))
+        cleaned_resume.validation_reason = prof_data.get("validation_reason", "")
+        
         return cleaned_resume
 
     except Exception as e:

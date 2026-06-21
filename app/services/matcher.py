@@ -27,7 +27,7 @@ def extract_jd_keywords(jd_text: str) -> Tuple[str, List[str]]:
 
     # 1. Job Title extraction from the first few lines
     lines = [line.strip() for line in jd_text.split("\n") if line.strip()]
-    job_title = "Software Engineer" # Default
+    job_title = "General Professional" # Default
     
     title_indicators = ["job title:", "title:", "role:", "position:"]
     found_title = False
@@ -50,7 +50,7 @@ def extract_jd_keywords(jd_text: str) -> Tuple[str, List[str]]:
             job_title = re.sub(r'^[#\-\*\•\s]+', "", first_line).strip()
         else:
             # If the first line is very long, try to find a line with role words
-            role_keywords = ["engineer", "developer", "manager", "lead", "architect", "analyst", "intern", "specialist"]
+            role_keywords = ["engineer", "developer", "manager", "lead", "architect", "analyst", "intern", "specialist", "nurse", "teacher", "accountant", "sales", "marketing", "designer", "coordinator", "representative", "officer"]
             for line in lines[:3]:
                 if any(kw in line.lower() for kw in role_keywords) and len(line) < 80:
                     job_title = line
@@ -62,7 +62,24 @@ def extract_jd_keywords(jd_text: str) -> Tuple[str, List[str]]:
     # 2. Keyword extraction (using our robust skills extractor)
     jd_keywords = extract_skills_from_text(jd_text)
     if not jd_keywords:
-        jd_keywords = ["Software Development", "Technical Skills"]
+        # Determine fallback keywords based on job title / content
+        title_lower = job_title.lower()
+        if any(kw in title_lower for kw in ["software", "developer", "engineer", "android", "programmer", "technical"]):
+            jd_keywords = ["Software Development", "Technical Skills"]
+        elif any(kw in title_lower for kw in ["nurse", "clinical", "healthcare"]):
+            jd_keywords = ["Patient Care", "Clinical Documentation"]
+        elif any(kw in title_lower for kw in ["teacher", "educator", "school", "instruction"]):
+            jd_keywords = ["Classroom Instruction", "Curriculum Design"]
+        elif any(kw in title_lower for kw in ["accountant", "audit", "financial"]):
+            jd_keywords = ["Financial Reporting", "GAAP Compliance"]
+        elif any(kw in title_lower for kw in ["sales", "account executive"]):
+            jd_keywords = ["Lead Generation", "Pipeline Management"]
+        elif any(kw in title_lower for kw in ["marketing", "seo"]):
+            jd_keywords = ["Campaign Optimization", "Digital Advertising"]
+        elif any(kw in title_lower for kw in ["designer", "ux", "ui"]):
+            jd_keywords = ["Visual Design", "UI/UX Design"]
+        else:
+            jd_keywords = ["Professional Skills", "Business Operations"]
 
     return job_title, jd_keywords
 
@@ -272,7 +289,23 @@ def match_resume_with_jd_local(resume_text: str, jd_text: str) -> Dict[str, Any]
     interview_qs = []
     sample_skills = comparison.missing_keywords[:3]
     if not sample_skills:
-        sample_skills = ["Software Development", "System Design", "Cloud Architecture"]
+        title_lower = job_title.lower()
+        if any(kw in title_lower for kw in ["software", "developer", "engineer", "android", "programmer", "technical"]):
+            sample_skills = ["Software Development", "System Design", "Cloud Architecture"]
+        elif any(kw in title_lower for kw in ["nurse", "clinical", "healthcare"]):
+            sample_skills = ["Patient Care", "Clinical Documentation", "EHR Systems"]
+        elif any(kw in title_lower for kw in ["teacher", "educator", "school", "instruction"]):
+            sample_skills = ["Classroom Instruction", "Curriculum Design", "Classroom Management"]
+        elif any(kw in title_lower for kw in ["accountant", "audit", "financial"]):
+            sample_skills = ["Financial Reporting", "GAAP Compliance", "QuickBooks ERP"]
+        elif any(kw in title_lower for kw in ["sales", "account executive"]):
+            sample_skills = ["Lead Generation", "Pipeline Management", "Salesforce CRM"]
+        elif any(kw in title_lower for kw in ["marketing", "seo"]):
+            sample_skills = ["Campaign Optimization", "Digital Advertising", "Google Analytics"]
+        elif any(kw in title_lower for kw in ["designer", "ux", "ui"]):
+            sample_skills = ["Visual Design", "UI/UX Design", "Figma"]
+        else:
+            sample_skills = ["Professional Skills", "Communication", "Project Management"]
         
     difficulties = ["Medium", "Hard", "Medium"]
     for idx, skill in enumerate(sample_skills[:3]):

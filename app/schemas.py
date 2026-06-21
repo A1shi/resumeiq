@@ -42,12 +42,24 @@ class ResumeParsedSchema(BaseModel):
     name: Optional[str] = Field(default=None, description="Full name of the candidate")
     email: Optional[str] = Field(default=None, description="Email address extracted from the resume")
     phone: Optional[str] = Field(default=None, description="Phone number extracted from the resume")
+    summary: Optional[str] = Field(default=None, description="Professional summary or objective statement")
     skills: List[str] = Field(default_factory=list, description="List of technical and soft skills")
     education: List[EducationSchema] = Field(default_factory=list, description="List of education entries")
     experience: List[ExperienceSchema] = Field(default_factory=list, description="List of work experiences")
     projects: List[ProjectSchema] = Field(default_factory=list, description="List of projects")
     certifications: List[CertificationSchema] = Field(default_factory=list, description="List of certifications")
     languages: List[LanguageSchema] = Field(default_factory=list, description="List of languages")
+    leadership: List[str] = Field(default_factory=list, description="Leadership roles, activities, or accomplishments")
+    interests: List[str] = Field(default_factory=list, description="Personal interests, hobbies, or activities")
+    referees: List[str] = Field(default_factory=list, description="References or referee contact details")
+    profession: Optional[str] = Field(default=None, description="Detected profession")
+    industry: Optional[str] = Field(default=None, description="Detected industry")
+    seniority: Optional[str] = Field(default=None, description="Detected seniority")
+    experience_level: Optional[str] = Field(default=None, description="Detected experience level")
+    career_objective: Optional[str] = Field(default=None, description="Detected career objective")
+    profession_confidence: Optional[float] = Field(default=None, description="Confidence score of profession detection (0.0 to 100.0)")
+    validation_passed: Optional[bool] = Field(default=None, description="Whether the AI validation check passed")
+    validation_reason: Optional[str] = Field(default=None, description="Reasoning behind validation check")
 
 # --- API Response Schemas ---
 
@@ -185,14 +197,26 @@ class ResumeResponse(BaseModel):
     name: Optional[str]
     email: Optional[str]
     phone: Optional[str]
+    summary: Optional[str] = None
     skills: List[str]
     education: List[EducationSchema]
     experience: List[ExperienceSchema]
     projects: List[ProjectSchema]
     certifications: List[CertificationSchema] = Field(default_factory=list)
     languages: List[LanguageSchema] = Field(default_factory=list)
+    leadership: List[str] = Field(default_factory=list)
+    interests: List[str] = Field(default_factory=list)
+    referees: List[str] = Field(default_factory=list)
     ats_score: Optional[int] = None
     ats_analysis: Optional[ATSAnalysisSchema] = None
+    profession: Optional[str] = None
+    industry: Optional[str] = None
+    seniority: Optional[str] = None
+    experience_level: Optional[str] = None
+    career_objective: Optional[str] = None
+    profession_confidence: Optional[float] = None
+    validation_passed: Optional[bool] = None
+    validation_reason: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.aashi.resumeiq.network.*
 import com.aashi.resumeiq.ui.auth.UiState
+import com.aashi.resumeiq.ui.theme.getOutlinedTextFieldColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1275,28 +1276,28 @@ fun EditResumeDialog(
                     value = name,
                     onValueChange = { name = it },
                     label = { Text("Name") },
-                    colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
+                    colors = getOutlinedTextFieldColors()
                 )
 
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it },
                     label = { Text("Email") },
-                    colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
+                    colors = getOutlinedTextFieldColors()
                 )
 
                 OutlinedTextField(
                     value = phone,
                     onValueChange = { phone = it },
                     label = { Text("Phone") },
-                    colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
+                    colors = getOutlinedTextFieldColors()
                 )
 
                 OutlinedTextField(
                     value = skillInput,
                     onValueChange = { skillInput = it },
                     label = { Text("Skills (comma separated)") },
-                    colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
+                    colors = getOutlinedTextFieldColors()
                 )
 
                 Row(

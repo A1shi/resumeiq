@@ -12,6 +12,122 @@ from app.services.industry_data import INDUSTRY_DATA_MAP
 
 logger = logging.getLogger("app.services.scoring")
 
+PROFESSION_ROLES_SKILLS_MAP = {
+    "Software Engineer": {
+        "Software Engineer": ["Python", "Java", "C++", "C#", "SQL", "Git", "Data Structures", "Algorithms", "System Design", "Unit Testing"],
+        "Frontend Developer": ["React", "Next.js", "TypeScript", "JavaScript", "HTML", "CSS", "Tailwind CSS", "Redux", "GraphQL", "Bootstrap"],
+        "Backend Developer": ["Python", "FastAPI", "Django", "Java", "Spring Boot", "Go", "PostgreSQL", "MySQL", "REST APIs", "SQL"],
+        "Full Stack Developer": ["React", "Node.js", "JavaScript", "TypeScript", "Python", "SQL", "HTML", "CSS", "REST APIs", "Git"],
+        "DevOps Engineer": ["AWS", "Docker", "Kubernetes", "CI/CD", "Terraform", "Jenkins", "Git", "Linux", "Nginx", "Ansible"]
+    },
+    "Android Developer": {
+        "Android Developer": ["Kotlin", "Java", "Android SDK", "Jetpack Compose", "Retrofit", "Git", "Android Studio", "Gradle", "Coroutines", "MVVM"],
+        "Mobile Application Developer": ["Swift", "Kotlin", "Java", "React Native", "Flutter", "Objective-C", "Git", "REST APIs", "Android", "iOS"],
+        "iOS Developer": ["Swift", "Objective-C", "Xcode", "UIKit", "SwiftUI", "CocoaPods", "CoreData", "Git", "REST APIs", "iOS SDK"],
+        "Mobile UI Engineer": ["Figma", "Android SDK", "Jetpack Compose", "SwiftUI", "UI/UX", "Material Design", "Human Interface Guidelines", "Kotlin", "Swift"],
+        "Mobile Architect": ["System Design", "Kotlin", "Swift", "REST APIs", "Clean Architecture", "MVVM", "CI/CD", "Android SDK", "iOS SDK", "Git"]
+    },
+    "Data Analyst": {
+        "Data Analyst": ["SQL", "Python", "Excel", "Tableau", "Power BI", "Statistics", "Data Cleaning", "Pandas", "R", "A/B Testing"],
+        "Business Intelligence Analyst": ["Tableau", "Power BI", "SQL", "Data Warehousing", "ETL", "Data Modeling", "Excel", "Dashboards", "KPIs", "Business Analysis"],
+        "Reporting Analyst": ["Excel", "SQL", "VBA", "Power BI", "Reporting", "Data Analysis", "KPIs", "Access", "SharePoint", "Word"],
+        "Data Visualization Specialist": ["Tableau", "Power BI", "D3.js", "Python", "SQL", "Dashboards", "Graphic Design", "UI/UX", "Excel", "Data Storytelling"],
+        "Quantitative Analyst": ["Python", "R", "SQL", "Mathematics", "Statistics", "Time Series", "Machine Learning", "Excel", "Pandas", "Matplotlib"]
+    },
+    "Business Analyst": {
+        "Business Analyst": ["Requirements Gathering", "SQL", "Agile", "Scrum", "JIRA", "Process Mapping", "User Stories", "UML", "SDLC", "Tableau"],
+        "Agile Business Analyst": ["Agile", "Scrum", "JIRA", "User Stories", "Product Backlog", "Sprint Planning", "Requirements Gathering", "Confluence", "SQL"],
+        "Systems Analyst": ["SQL", "UML", "System Architecture", "Requirements Gathering", "SDLC", "Databases", "Data Flow", "APIs", "Agile", "JIRA"],
+        "Product Analyst": ["SQL", "Tableau", "Product Analytics", "User Analytics", "Google Analytics", "A/B Testing", "Excel", "Requirements Gathering", "Agile"],
+        "Operations Analyst": ["Process Improvement", "Excel", "SQL", "KPIs", "Data Analysis", "Process Mapping", "Visio", "Tableau", "Project Coordination", "Report Writing"]
+    },
+    "Customer Service": {
+        "Customer Service Representative": ["Customer Support", "Communication", "CRM Tools", "Active Listening", "Problem Solving", "Phone Etiquette", "Email Support", "MS Office", "Data Entry", "Conflict Resolution"],
+        "Customer Support Specialist": ["Zendesk", "Customer Support", "Troubleshooting", "CRM Tools", "Helpdesk Tickets", "Communication", "Live Chat", "Email Support", "SLA Management", "Technical Support"],
+        "Client Services Coordinator": ["Client Relations", "Communication", "Project Coordination", "CRM Tools", "Scheduling", "Email Support", "Problem Solving", "MS Office", "Account Management"],
+        "Call Center Agent": ["Phone Etiquette", "Communication", "Active Listening", "Multi-tasking", "Customer Support", "Data Entry", "Conflict Resolution", "CRM Tools", "Problem Solving", "Inbound Calls"],
+        "Help Desk Support": ["Technical Support", "Troubleshooting", "Helpdesk Tickets", "Zendesk", "Active Directory", "Windows OS", "Communication", "Customer Support", "Hardware", "Network Basics"]
+    },
+    "HR": {
+        "HR Generalist": ["Labor Laws", "HRIS Setup", "Employee Relations", "Onboarding", "Compliance", "Benefits Administration", "Recruiting", "Performance Management", "Payroll", "MS Office"],
+        "Corporate Recruiter": ["Greenhouse ATS", "Sourcing", "Interviewing", "Applicant Tracking Systems", "LinkedIn Recruiter", "Candidate Experience", "Talent Acquisition", "Negotiation", "Networking", "Communication"],
+        "Talent Acquisition Specialist": ["Negotiation", "Sourcing Tools", "Talent Acquisition", "Employer Branding", "Interviewing", "Greenhouse ATS", "LinkedIn Recruiter", "Applicant Tracking Systems", "ATS Systems", "Communication"],
+        "HR Manager": ["Employee Relations", "Conflict Resolution", "HR Strategy", "Compliance", "Performance Management", "Leadership", "HRIS", "Onboarding", "Policy Development", "Recruiting"],
+        "Learning & Development Coordinator": ["Course Design", "Onboarding", "Training Delivery", "LMS", "Employee Development", "Communication", "Event Planning", "Instructional Design", "Presentation Skills"]
+    },
+    "Marketing": {
+        "Marketing Specialist": ["SEO", "Content Strategy", "Google Analytics", "Email Marketing", "Social Media Marketing", "Copywriting", "HubSpot", "Brand Management", "A/B Testing", "Campaign Optimization"],
+        "Marketing Manager": ["A/B Testing", "CRM Automation", "Campaign Management", "Marketing Strategy", "Google Analytics", "Budget Management", "Content Strategy", "SEO", "Email Marketing", "Brand Management"],
+        "Digital Strategist": ["GA4 Analytics", "SEO Strategy", "Digital Marketing", "PPC", "Social Media Marketing", "Content Strategy", "Google Ads", "Conversion Rate Optimization", "Email Marketing", "Copywriting"],
+        "Content Marketing Lead": ["Copywriting", "Branding", "Content Strategy", "SEO", "Blogging", "Social Media", "Editing", "Content Creation", "WordPress", "Email Campaigns"],
+        "Social Media Manager": ["Ad Campaigns", "Buffer", "Social Media Strategy", "Content Creation", "Community Management", "Analytics", "Copywriting", "Graphic Design", "Canva", "Video Editing"]
+    },
+    "Teacher": {
+        "Teacher": ["Lesson Planning", "Classroom Management", "Curriculum Design", "Student Assessment", "Communication", "Parent-Teacher Relations", "Differentiated Instruction", "Pedagogy", "Educational Technology", "Child Development"],
+        "Educator": ["Curriculum Development", "Student Engagement", "Classroom Management", "Instructional Strategies", "Educational Assessment", "Communication", "Differentiated Instruction", "Tutoring", "Subject Matter Expertise", "Pedagogy"],
+        "Tutor": ["Tutoring", "One-on-One Instruction", "Academic Support", "Subject Matter Expertise", "Study Skills", "Student Assessment", "Communication", "Lesson Planning", "Test Preparation", "Patience"],
+        "Curriculum Developer": ["Curriculum Design", "Instructional Design", "Educational Technology", "Learning Objectives", "Assessment Creation", "Content Writing", "Educational Research", "Standards Alignment", "Communication"],
+        "Special Education Teacher": ["IEPs", "Differentiated Instruction", "Special Education", "Classroom Management", "Behavioral Intervention", "Student Assessment", "Collaboration", "Communication", "Assistive Technology", "Patience"]
+    },
+    "Nurse": {
+        "Registered Nurse (RN)": ["Patient Care", "CPR", "EHR", "Medication Administration", "Vital Signs", "Triage", "Clinical Assessments", "Patient Education", "Wound Care", "HIPAA Compliance"],
+        "Clinical Coordinator": ["HIPAA Codes", "Epic EHR", "Patient Care", "Clinical Operations", "Scheduling", "Staff Coordination", "Quality Assurance", "Compliance", "EHR Systems", "Communication"],
+        "Nurse Manager": ["Ward Staffing", "Triages", "Leadership", "Patient Care", "Budgeting", "Compliance", "Employee Relations", "Epic EHR", "Conflict Resolution", "Quality Management"],
+        "ICU Nurse": ["Patient Care", "Critical Care", "Vital Signs", "Medication Administration", "EHR", "Patient Assessment", "Emergency Response", "Ventilator Management", "CPR", "HIPAA Compliance"],
+        "Emergency Room Nurse": ["Triage", "Patient Care", "Emergency Medicine", "CPR", "EHR", "Trauma Care", "Medication Administration", "Clinical Assessments", "HIPAA Compliance", "Vital Signs"]
+    },
+    "Accountant": {
+        "Accountant": ["General Ledger", "GAAP", "QuickBooks", "Tax Preparation", "Financial Auditing", "Account Reconciliation", "Financial Statements", "Excel", "Accounts Payable", "Cost Accounting"],
+        "Senior Accountant": ["GAAP", "General Ledger", "Financial Statements", "Account Reconciliation", "Financial Auditing", "Excel", "QuickBooks", "Tax Compliance", "Financial Analysis", "Leadership"],
+        "Staff Accountant": ["General Ledger", "Account Reconciliation", "Accounts Payable", "Accounts Receivable", "QuickBooks", "Excel", "GAAP", "Data Entry", "Financial Statements", "Journal Entries"],
+        "Tax Accountant": ["Tax Preparation", "Tax Compliance", "GAAP", "QuickBooks", "IRS Regulations", "Tax Filing", "Excel", "Financial Statements", "Account Reconciliation", "Auditing"],
+        "Auditor": ["Financial Auditing", "Internal Controls", "GAAP", "Compliance", "Risk Assessment", "Account Reconciliation", "Financial Statements", "Excel", "Audit Reports", "Detail Oriented"]
+    },
+    "Graphic Designer": {
+        "Graphic Designer": ["Photoshop", "Illustrator", "InDesign", "Figma", "Typography", "Visual Design", "Branding", "Layout Design", "Wireframing", "Adobe Creative Suite"],
+        "UI/UX Designer": ["Figma", "Wireframing", "User Research", "Prototyping", "UI/UX", "Visual Design", "Typography", "Information Architecture", "Usability Testing", "Interaction Design", "Responsive Design"],
+        "Visual Designer": ["Photoshop", "Illustrator", "Branding", "Typography", "Visual Design", "Layout Design", "Adobe Creative Suite", "Figma", "Color Theory", "Vector Illustration", "Digital Painting"],
+        "Brand Designer": ["Branding", "Logo Design", "Typography", "Visual Identity", "Illustrator", "Photoshop", "InDesign", "Style Guides", "Marketing Collateral", "Graphic Design"],
+        "Illustrator": ["Drawing", "Vector Illustration", "Photoshop", "Illustrator", "Character Design", "Branding", "Visual Design", "Typography", "Digital Painting", "Concept Art"]
+    },
+    "Sales": {
+        "Sales Representative": ["Lead Generation", "CRM", "Salesforce", "Sales Pitching", "Negotiation", "Customer Relationship Management", "Cold Calling", "Pipeline Management", "Closing Deals", "B2B Sales"],
+        "Account Executive": ["Salesforce", "Sales Strategy", "Account Management", "Negotiation", "B2B Sales", "Client Relations", "Pipeline Management", "Closing Deals", "Lead Qualification", "Product Demos"],
+        "Business Development Representative": ["Lead Generation", "Cold Calling", "Salesforce", "Email Outreach", "Sales Pitching", "Market Research", "Negotiation", "CRM", "B2B Sales", "LinkedIn Sourcing"],
+        "Sales Manager": ["Sales Strategy", "Leadership", "Pipeline Management", "CRM", "Salesforce", "Negotiation", "Target Achievement", "Sales Training", "Account Management", "B2B Sales"],
+        "Account Manager": ["Account Management", "Client Relations", "Customer Success", "Upselling", "Salesforce", "CRM", "Negotiation", "Communication", "Retention", "B2B Sales"]
+    },
+    "Hospitality": {
+        "Hospitality Manager": ["Customer Service", "Front Desk Operations", "Guest Relations", "Event Planning", "Hotel Management", "Point of Sale (POS)", "Reservation Systems", "Conflict Resolution", "Team Coordination", "Food & Beverage"],
+        "Front Desk Receptionist": ["Customer Service", "Front Desk Operations", "Guest Relations", "Scheduling", "Phone Etiquette", "Reservation Systems", "Data Entry", "MS Office", "Multi-tasking", "Communication"],
+        "Guest Services Agent": ["Customer Service", "Guest Relations", "Front Desk Operations", "Reservation Systems", "Conflict Resolution", "Communication", "Problem Solving", "Point of Sale (POS)", "Multi-tasking", "Check-in/Check-out"],
+        "Restaurant Manager": ["Food & Beverage", "Staff Scheduling", "Inventory Management", "Customer Service", "Point of Sale (POS)", "Team Leadership", "Conflict Resolution", "Budgeting", "Food Safety", "Guest Relations"],
+        "Hotel Coordinator": ["Hotel Management", "Reservation Systems", "Guest Relations", "Event Planning", "Scheduling", "Team Coordination", "Customer Service", "Front Desk Operations", "Communication", "Administrative Support"]
+    },
+    "Banking": {
+        "Teller": ["Cash Handling", "Customer Service", "Banking Transactions", "Data Entry", "Banking Compliance", "Cross-selling", "Communication", "Detail Oriented", "Math Skills", "Balance Sheet"],
+        "Personal Banker": ["Financial Services", "Customer Service", "Banking Compliance", "Cross-selling", "Loan Processing", "Credit Analysis", "Account Opening", "Relationship Management", "Wealth Management", "Financial Analysis"],
+        "Loan Officer": ["Loan Processing", "Credit Analysis", "Underwriting", "Banking Compliance", "Customer Service", "Salesforce", "Financial Analysis", "Risk Assessment", "Mortgage Lending", "Communication"],
+        "Financial Advisor": ["Wealth Management", "Financial Analysis", "Investment Strategy", "Customer Service", "Risk Assessment", "Portfolio Management", "Banking Compliance", "Retirement Planning", "Financial Planning", "Cross-selling"],
+        "Credit Analyst": ["Credit Analysis", "Risk Assessment", "Financial Statements", "Banking Compliance", "Excel", "Data Analysis", "Underwriting", "Loan Processing", "GAAP", "Commercial Lending"]
+    },
+    "Student/Fresher": {
+        "Intern": ["Teamwork", "Problem Solving", "Communication", "Time Management", "Adaptability", "Research", "Project Presentation", "MS Office", "Analytical Skills", "Technical Aptitude"],
+        "Entry Level Associate": ["Communication", "Teamwork", "MS Office", "Problem Solving", "Time Management", "Research", "Adaptability", "Reporting", "Analytical Skills", "Data Entry"],
+        "Junior Assistant": ["Office Administration", "Scheduling", "MS Office", "Data Entry", "Communication", "Teamwork", "Problem Solving", "Time Management", "Reporting", "Document Management"],
+        "Graduate Trainee": ["Research", "Analytical Skills", "Presentation Skills", "Teamwork", "Problem Solving", "Communication", "Adaptability", "MS Office", "Project Coordination", "Time Management"],
+        "Research Assistant": ["Research", "Data Collection", "Data Analysis", "Report Writing", "MS Office", "Analytical Skills", "Detail Oriented", "Communication", "Time Management", "Teamwork"]
+    },
+    "General Professional": {
+        "Project Coordinator": ["Project Coordination", "Operations Support", "MS Office", "Office Administration", "Communication", "Problem Solving", "Scheduling", "Reporting", "Stakeholder Communication", "Time Management"],
+        "Operations Associate": ["Operations Support", "Process Mapping", "Excel", "Asana", "Project Coordination", "Communication", "Problem Solving", "KPIs", "Reporting", "Customer Support"],
+        "Office Administrator": ["Office Administration", "Scheduling", "MS Office", "Communication", "Data Entry", "Problem Solving", "Time Management", "Customer Service", "Record Keeping", "Billing"],
+        "Business Associate": ["Communication", "Problem Solving", "Data Analysis", "Excel", "Project Coordination", "Reporting", "MS Office", "Stakeholder Communication", "Teamwork", "Research"],
+        "Executive Assistant": ["Scheduling", "Travel Coordination", "MS Office", "Communication", "Calendar Management", "Office Administration", "Problem Solving", "Confidentiality", "Reporting", "Time Management"]
+    }
+}
+
+
 def enrich_ats_report_with_gemini(resume: models.Resume, base_data: dict) -> dict:
     """
     Enriches the base ATS scores and parsed resume with premium career intelligence from Gemini.
@@ -24,9 +140,20 @@ def enrich_ats_report_with_gemini(resume: models.Resume, base_data: dict) -> dic
     for proj in (resume.projects or []):
         proj_details += f"- Project: {proj.get('title')}\n  Description: {proj.get('description')}\n  Tech: {', '.join(proj.get('technologies', []))}\n"
         
+    detected_profession = getattr(resume, "profession", "General Professional") or "General Professional"
+    detected_industry = getattr(resume, "industry", "General Business") or "General Business"
+    detected_seniority = getattr(resume, "seniority", "Mid") or "Mid"
+    detected_experience_level = getattr(resume, "experience_level", "1-3 Years") or "1-3 Years"
+    detected_objective = getattr(resume, "career_objective", "") or ""
+
     prompt = (
         "You are an expert recruiter-grade career intelligence assistant. You are analyzing the following candidate resume:\n\n"
         f"Candidate Name: {resume.name or 'Candidate'}\n"
+        f"Detected Profession: {detected_profession}\n"
+        f"Detected Industry: {detected_industry}\n"
+        f"Detected Seniority: {detected_seniority}\n"
+        f"Detected Experience Level: {detected_experience_level}\n"
+        f"Detected Career Objective: {detected_objective}\n"
         f"Skills: {', '.join(resume.skills or [])}\n"
         f"Experience:\n{exp_details}\n"
         f"Projects:\n{proj_details}\n"
@@ -100,17 +227,18 @@ def enrich_ats_report_with_gemini(resume: models.Resume, base_data: dict) -> dic
         "   - \"project_questions\": list of 3-5 personalized project-specific questions\n"
         "   - \"behavioral_questions\": list of 3-5 personalized behavioral questions\n"
         "10. Flat overview meta keys:\n"
-        "   - \"candidate_profile\": string tag describing background (e.g. \"Software Professional\" or \"Data Analyst\")\n"
-        "   - \"career_level\": string, one of: \"Entry Level\", \"Mid Level\", \"Senior Level\", \"Executive\"\n"
-        "   - \"industry_classification\": string, e.g. \"Software Development\", \"Finance\", \"Healthcare\"\n"
-        "   - \"experience_level\": string, e.g. \"Fresher\", \"1-3 Years\", \"5+ Years\"\n"
-        "   - \"professional_summary\": string, polished professional summary paragraph\n\n"
+        f"   - \"candidate_profile\": string tag describing background. You MUST base this on the Detected Profession: '{detected_profession}' (e.g. '{detected_seniority} {detected_profession}').\n"
+        f"   - \"career_level\": string. You MUST use/adapt the Detected Seniority: '{detected_seniority}' (one of: 'Entry Level', 'Mid Level', 'Senior Level', 'Executive').\n"
+        f"   - \"industry_classification\": string. You MUST base this on the Detected Industry: '{detected_industry}'.\n"
+        f"   - \"experience_level\": string. You MUST use the Detected Experience Level: '{detected_experience_level}'.\n"
+        f"   - \"professional_summary\": string. You MUST use/adapt the Detected Career Objective: '{detected_objective}' and polish it professionally.\n\n"
         "CRITICAL RULES FOR INTEGRITY AND QUALITY:\n"
         "- NEVER invent, assume, or fabricate any numbers, percentages, timelines, companies, or achievements. "
         "Only improve grammar, readability, and action verbs (e.g., change passive verbs to active verbs). "
         "Keep existing metrics (like dates and percentages) exactly as they are without fabrication!\n"
         "- Never convert dates into job titles.\n"
         "- Never hallucinate skills. All recommendations must be traceable to the parsed resume data.\n"
+        "- NEVER recommend technical infrastructure, DevOps, or software development tools/skills (such as Docker, Kubernetes, AWS, Git, Python, Jenkins, Terraform, CI/CD, etc.) unless the candidate's detected profession is technical (e.g., Software Engineer, Android Developer, Data Analyst, Business Analyst, Graphic Designer, or when the resume contains clear evidence of coding/technical experience). For non-technical professions (such as Nurse, Teacher, Accountant, Customer Service, Hospitality, Sales, HR, etc.), recommend tools and skills that are domain-appropriate (e.g., Epic/Cerner EHR for Nurses, QuickBooks/GAAP for Accountants, Zendesk/CRM for Customer Service, LMS/pedagogy for Teachers).\n"
         "- Return ONLY a valid JSON object in response. No markdown wrappers or comments."
     )
     
@@ -209,48 +337,84 @@ def enrich_ats_report_local(resume: models.Resume, base_data: dict) -> dict:
     High-fidelity rule-based career intelligence generator serving as a fallback.
     Categorizes the candidate dynamically and drafts highly tailored recruiter-grade content.
     """
-    industry = classify_resume_industry(resume)
-    ind_data = INDUSTRY_DATA_MAP.get(industry, INDUSTRY_DATA_MAP["General"])
-    
-    primary_title = ind_data["primary_title"]
-    roles_raw = ind_data["roles_list"]
+    detected_profession = getattr(resume, "profession", None)
+    detected_industry = getattr(resume, "industry", None)
+    detected_seniority = getattr(resume, "seniority", None)
+    detected_experience_level = getattr(resume, "experience_level", None)
+    detected_objective = getattr(resume, "career_objective", None)
 
-    # Calculate career level and experience level locally
-    titles_lower = [str(e.get("role", "")).lower() for e in (resume.experience or [])]
-    if not titles_lower:
-        career_level = "Entry Level"
-        experience_level = "Fresher"
-    else:
-        num_roles = len(titles_lower)
-        if num_roles == 1:
-            experience_level = "Fresher" if not resume.experience[0].get("description") else "1-3 Years"
-        elif num_roles == 2:
-            experience_level = "1-3 Years"
-        else:
-            experience_level = "5+ Years"
-
-        is_exec = any(any(kw in t for kw in ["director", "vp", "chief", "executive", "head", "president"]) for t in titles_lower)
-        is_sr = any(any(kw in t for kw in ["senior", "lead", "principal", "architect", "sr.", "manager"]) for t in titles_lower)
+    if detected_profession:
+        profession_to_old_industry = {
+            "Software Engineer": "Tech",
+            "Android Developer": "Tech",
+            "Data Analyst": "Tech",
+            "Business Analyst": "Management",
+            "Customer Service": "General",
+            "HR": "HR",
+            "Marketing": "Marketing",
+            "Teacher": "General",
+            "Nurse": "Healthcare",
+            "Accountant": "Finance",
+            "Graphic Designer": "General",
+            "Sales": "Marketing",
+            "Hospitality": "General",
+            "Banking": "Finance",
+            "Student/Fresher": "General",
+            "General Professional": "General"
+        }
+        mapped_old_ind = profession_to_old_industry.get(detected_profession, "General")
+        ind_data = INDUSTRY_DATA_MAP.get(mapped_old_ind, INDUSTRY_DATA_MAP["General"])
         
-        if is_exec:
-            career_level = "Executive"
-        elif is_sr:
-            career_level = "Senior Level"
-        else:
-            career_level = "Entry Level" if num_roles <= 1 else "Mid Level"
+        primary_title = detected_profession
+        roles_raw = ind_data["roles_list"]
+        
+        career_level = detected_seniority or "Mid Level"
+        industry_classification = detected_industry or "General Business"
+        experience_level = detected_experience_level or "1-3 Years"
+        candidate_profile = f"{career_level} specializing in {industry_classification}"
+    else:
+        industry = classify_resume_industry(resume)
+        ind_data = INDUSTRY_DATA_MAP.get(industry, INDUSTRY_DATA_MAP["General"])
+        
+        primary_title = ind_data["primary_title"]
+        roles_raw = ind_data["roles_list"]
 
-    industry_map = {
-        "Tech": "Software Development",
-        "Management": "Product Management & Operations",
-        "Marketing": "Marketing & Sales",
-        "Finance": "Finance & Accounting",
-        "HR": "Human Resources",
-        "Healthcare": "Healthcare & Medicine",
-        "General": "General Business"
-    }
-    industry_classification = industry_map.get(industry, "General Business")
-    candidate_profile = f"{career_level} specializing in {industry_classification}"
-    
+        # Calculate career level and experience level locally
+        titles_lower = [str(e.get("role", "")).lower() for e in (resume.experience or [])]
+        if not titles_lower:
+            career_level = "Entry Level"
+            experience_level = "Fresher"
+        else:
+            num_roles = len(titles_lower)
+            if num_roles == 1:
+                experience_level = "Fresher" if not resume.experience[0].get("description") else "1-3 Years"
+            elif num_roles == 2:
+                experience_level = "1-3 Years"
+            else:
+                experience_level = "5+ Years"
+
+            is_exec = any(any(kw in t for kw in ["director", "vp", "chief", "executive", "head", "president"]) for t in titles_lower)
+            is_sr = any(any(kw in t for kw in ["senior", "lead", "principal", "architect", "sr.", "manager"]) for t in titles_lower)
+            
+            if is_exec:
+                career_level = "Executive"
+            elif is_sr:
+                career_level = "Senior Level"
+            else:
+                career_level = "Entry Level" if num_roles <= 1 else "Mid Level"
+
+        industry_map = {
+            "Tech": "Software Development",
+            "Management": "Product Management & Operations",
+            "Marketing": "Marketing & Sales",
+            "Finance": "Finance & Accounting",
+            "HR": "Human Resources",
+            "Healthcare": "Healthcare & Medicine",
+            "General": "General Business"
+        }
+        industry_classification = industry_map.get(industry, "General Business")
+        candidate_profile = f"{career_level} specializing in {industry_classification}"
+        
     total_score = base_data.get("ats_score", 0)
     if total_score >= 90:
         readiness_level = "Interview Ready"
@@ -289,12 +453,15 @@ def enrich_ats_report_local(resume: models.Resume, base_data: dict) -> dict:
     skills_list = resume.skills[:4] if resume.skills else ["Professional skills"]
     skills_str = ", ".join(skills_list)
     
-    improved_summary = (
-        f"Detail-oriented and results-driven {primary_title} with a proven track record of professional delivery. "
-        f"Skilled in leveraging {skills_str} to drive performance, streamline workflows, and coordinate team efforts. "
-        f"Passionate about continuous upskilling, solving complex operational challenges, and collaborating across "
-        f"functional boundaries to deliver high-quality project outcomes."
-    )
+    if detected_objective:
+        improved_summary = detected_objective
+    else:
+        improved_summary = (
+            f"Detail-oriented and results-driven {primary_title} with a proven track record of professional delivery. "
+            f"Skilled in leveraging {skills_str} to drive performance, streamline workflows, and coordinate team efforts. "
+            f"Passionate about continuous upskilling, solving complex operational challenges, and collaborating across "
+            f"functional boundaries to deliver high-quality project outcomes."
+        )
 
     improved_experience = []
     for exp in (resume.experience or []):
@@ -445,6 +612,7 @@ def evaluate_resume_ats(resume: models.Resume) -> ATSAnalysisSchema:
     9 distinct categories (out of 10 each) and applying a weighted sum.
     Then enriches the score with Page 1-3 Universal Career Intelligence details.
     """
+    detected_prof = getattr(resume, "profession", "General Professional") or "General Professional"
     deductions = []
     missing_sections = []
     
@@ -465,10 +633,14 @@ def evaluate_resume_ats(resume: models.Resume) -> ATSAnalysisSchema:
         deductions.append("Contact Information: Missing contact phone number (-3)")
         
     raw_text_lower = (resume.raw_text or "").lower()
-    has_github = "github.com" in raw_text_lower or "github" in raw_text_lower
-    if not has_github:
-        contact_score -= 1
-        deductions.append("Contact Information: Missing GitHub profile link (-1)")
+    
+    # Require GitHub only for technical profiles
+    is_tech_profile = detected_prof in ["Software Engineer", "Android Developer", "Data Analyst", "Business Analyst", "Graphic Designer"]
+    if is_tech_profile:
+        has_github = "github.com" in raw_text_lower or "github" in raw_text_lower
+        if not has_github:
+            contact_score -= 1
+            deductions.append("Contact Information: Missing GitHub profile link (-1)")
         
     has_linkedin = "linkedin.com" in raw_text_lower or "linkedin" in raw_text_lower
     if not has_linkedin:
@@ -679,18 +851,12 @@ def evaluate_resume_ats(resume: models.Resume) -> ATSAnalysisSchema:
     # Category I: Keyword Match (Max 10)
     keyword_score = 10
     
-    ROLE_SKILLS_MAP = {
-        "Software Engineer": ["Python", "Java", "C++", "C#", "SQL", "Git", "Data Structures", "Algorithms", "System Design", "Unit Testing"],
-        "Frontend Developer": ["React", "Next.js", "TypeScript", "JavaScript", "HTML", "CSS", "Tailwind CSS", "Redux", "GraphQL", "Bootstrap"],
-        "Backend Developer": ["Python", "FastAPI", "Django", "Java", "Spring Boot", "Go", "PostgreSQL", "MySQL", "REST APIs", "SQL"],
-        "Full Stack Developer": ["React", "Node.js", "JavaScript", "TypeScript", "Python", "SQL", "HTML", "CSS", "REST APIs", "Git"],
-        "DevOps Engineer": ["AWS", "Docker", "Kubernetes", "CI/CD", "Terraform", "Jenkins", "Git", "Linux", "Nginx", "Ansible"],
-        "Data Scientist": ["Python", "R", "Machine Learning", "Deep Learning", "SQL", "Pandas", "NumPy", "Scikit-Learn", "PyTorch", "TensorFlow"],
-        "Data Engineer": ["Python", "SQL", "Spark", "PostgreSQL", "AWS", "Git", "Docker", "Algorithms", "REST APIs", "Linux"],
-        "Mobile Application Developer": ["Swift", "Kotlin", "Java", "React Native", "Flutter", "Objective-C", "Git", "REST APIs", "Android", "iOS"],
-        "Cloud Architect": ["AWS", "Azure", "GCP", "Terraform", "Kubernetes", "Docker", "System Design", "Microservices", "Security", "CI/CD"],
-        "Machine Learning Engineer": ["Python", "PyTorch", "TensorFlow", "Machine Learning", "Deep Learning", "NLP", "Git", "Docker", "Algorithms", "SQL"]
-    }
+    if detected_prof not in PROFESSION_ROLES_SKILLS_MAP:
+        current_prof = "General Professional"
+    else:
+        current_prof = detected_prof
+        
+    ROLE_SKILLS_MAP = PROFESSION_ROLES_SKILLS_MAP[current_prof]
     
     candidate_skills_lower = [s.strip().lower() for s in (resume.skills or [])]
     

@@ -1,5 +1,7 @@
 package com.aashi.resumeiq.ui.auth
 
+import com.aashi.resumeiq.ui.theme.getOutlinedTextFieldColors
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -116,14 +118,7 @@ fun LoginScreen(
                 isError = emailError != null,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    focusedLabelColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
-                    unfocusedLabelColor = Color.White.copy(alpha = 0.5f),
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
-                ),
+                colors = getOutlinedTextFieldColors(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
             )
             if (emailError != null) {
@@ -149,14 +144,7 @@ fun LoginScreen(
                 isError = passwordError != null,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    focusedLabelColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
-                    unfocusedLabelColor = Color.White.copy(alpha = 0.5f),
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
-                ),
+                colors = getOutlinedTextFieldColors(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
             )
             if (passwordError != null) {

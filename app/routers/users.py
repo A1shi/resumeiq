@@ -8,6 +8,7 @@ from app.database import get_db
 import app.models as models
 import app.schemas as schemas
 from app.services.security import get_password_hash, verify_password, generate_token, get_current_user, get_current_verified_user
+from app.services.email import send_email
 
 router = APIRouter(prefix="/users", tags=["Users"])
 logger = logging.getLogger("app.routers.users")
@@ -57,13 +58,41 @@ def create_user(user_in: schemas.UserCreate, db: Session) -> models.User:
             num_sims = db.query(models.RecruiterSimulation).filter(models.RecruiterSimulation.user_id == None).update({models.RecruiterSimulation.user_id: db_user.id}, synchronize_session=False)
             logger.info(f"First user registered. Migrated {num_resumes} resumes, {num_matches} matches, and {num_sims} simulations to user ID {db_user.id}")
             
+        if not is_verified:
+            html_content = f"""
+            <html>
+                <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #1F2937;">
+                    <h2 style="color: #4F46E5;">Verify Your ResumeIQ Account</h2>
+                    <p>Thank you for registering. Please use the following One-Time Password (OTP) to complete your registration:</p>
+                    <div style="font-size: 24px; font-weight: bold; letter-spacing: 2px; color: #4F46E5; margin: 20px 0; background: #F3F4F6; padding: 10px 20px; display: inline-block; border-radius: 8px;">
+                        {verification_code}
+                    </div>
+                    <p>This code is valid for 1 hour.</p>
+                    <p>If you did not request this, please ignore this email.</p>
+                </body>
+            </html>
+            """
+            send_email(db_user.email, "Verify Your ResumeIQ Account", html_content)
+
         db.commit()
         db.refresh(db_user)
         logger.info(f"User {db_user.email} registered successfully with ID {db_user.id}. Verification code: {verification_code}")
         return db_user
+    except ValueError as e:
+        db.rollback()
+        logger.error(f"SMTP configuration error for registering {user_in.email}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Email delivery service is not configured on the server."
+        )
     except Exception as e:
         db.rollback()
         logger.error(f"Failed to save user {user_in.email}: {str(e)}")
+        if "SMTP" in str(e) or "email" in str(e) or "connect" in str(e).lower():
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to send verification email: {str(e)}"
+            )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Database registration failure: {str(e)}"
@@ -173,14 +202,36 @@ def resend_verification(payload: schemas.ForgotPasswordRequest, db: Session = De
     verification_code = f"{random.randint(100000, 999999)}"
     user.verification_token = verification_code
     try:
+        html_content = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #1F2937;">
+                <h2 style="color: #4F46E5;">Verify Your ResumeIQ Account</h2>
+                <p>You requested to resend the verification code. Please use the following One-Time Password (OTP) to complete your registration:</p>
+                <div style="font-size: 24px; font-weight: bold; letter-spacing: 2px; color: #4F46E5; margin: 20px 0; background: #F3F4F6; padding: 10px 20px; display: inline-block; border-radius: 8px;">
+                    {verification_code}
+                </div>
+                <p>This code is valid for 1 hour.</p>
+                <p>If you did not request this, please ignore this email.</p>
+            </body>
+        </html>
+        """
+        send_email(user.email, "Verify Your ResumeIQ Account - New Code", html_content)
         db.commit()
         logger.info(f"Resent verification code for {user.email}: {verification_code}")
         return {"message": "Verification code resent successfully"}
-    except Exception as e:
+    except ValueError as e:
         db.rollback()
+        logger.error(f"SMTP configuration error for resending verification code to {user.email}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Database error: {str(e)}"
+            detail="Email delivery service is not configured on the server."
+        )
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to resend verification code for {user.email}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to send email: {str(e)}"
         )
 
 
@@ -199,14 +250,36 @@ def forgot_password(payload: schemas.ForgotPasswordRequest, db: Session = Depend
     user.reset_token_expires = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) + datetime.timedelta(hours=1)
     
     try:
+        html_content = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #1F2937;">
+                <h2 style="color: #4F46E5;">Reset Your ResumeIQ Password</h2>
+                <p>A password reset has been requested for your ResumeIQ account. Please use the following One-Time Password (OTP) to reset your password:</p>
+                <div style="font-size: 24px; font-weight: bold; letter-spacing: 2px; color: #4F46E5; margin: 20px 0; background: #F3F4F6; padding: 10px 20px; display: inline-block; border-radius: 8px;">
+                    {reset_code}
+                </div>
+                <p>This code is valid for 1 hour.</p>
+                <p>If you did not request this password reset, please ignore this email. Your password will remain secure.</p>
+            </body>
+        </html>
+        """
+        send_email(user.email, "Reset Your ResumeIQ Password", html_content)
         db.commit()
         logger.info(f"Password reset token for {user.email}: {reset_code}")
         return {"message": "If this email is registered, a reset code has been sent."}
-    except Exception as e:
+    except ValueError as e:
         db.rollback()
+        logger.error(f"SMTP configuration error for password reset to {user.email}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Database error: {str(e)}"
+            detail="Email delivery service is not configured on the server."
+        )
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to send password reset email for {user.email}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to send email: {str(e)}"
         )
 
 
@@ -285,6 +358,20 @@ def update_profile(
         if not is_verified:
             verification_code = f"{random.randint(100000, 999999)}"
             current_user.verification_token = verification_code
+            html_content = f"""
+            <html>
+                <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #1F2937;">
+                    <h2 style="color: #4F46E5;">Verify Your New ResumeIQ Email Address</h2>
+                    <p>You requested to change your email address. Please use the following One-Time Password (OTP) to verify your new email address:</p>
+                    <div style="font-size: 24px; font-weight: bold; letter-spacing: 2px; color: #4F46E5; margin: 20px 0; background: #F3F4F6; padding: 10px 20px; display: inline-block; border-radius: 8px;">
+                        {verification_code}
+                    </div>
+                    <p>This code is valid for 1 hour.</p>
+                    <p>If you did not request this email change, please secure your account immediately.</p>
+                </body>
+            </html>
+            """
+            send_email(current_user.email, "Verify Your New ResumeIQ Email Address", html_content)
             logger.info(f"User changed email to {user_update.email}. New verification code generated: {verification_code}")
         else:
             current_user.verification_token = None

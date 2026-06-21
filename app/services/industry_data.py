@@ -202,7 +202,7 @@ INDUSTRY_DATA_MAP = {
             ("Treasury Analyst", 55, ["Cash Flows", "Liquidity"], "High", "$80,000 - $112,000")
         ],
         "missing_skills": ["Financial Modeling", "Advanced Excel (VBA/Macros)", "QuickBooks ERP", "SQL Databases", "Tableau/PowerBI", "CPA/CFA Progress"],
-        "future_skills": ["Python for Finance", "Automated Reporting", "SAP ERP routines", "Predictive Modeling"],
+        "future_skills": ["Automated Financial Analytics", "Automated Reporting", "SAP ERP routines", "Predictive Modeling"],
         "high_priority_gaps": ["Financial Modeling", "Advanced Excel (VBA/Macros)"],
         "medium_priority_gaps": ["QuickBooks ERP", "SQL Databases"],
         "low_priority_gaps": ["Tableau/PowerBI"],
@@ -388,7 +388,7 @@ INDUSTRY_DATA_MAP = {
             ("Operations Director", 55, ["Global Delivery", "Budgets"], "High", "$85,000 - $120,000")
         ],
         "missing_skills": ["Project Management Tools (Asana)", "Data Visualization (Excel/PowerBI)", "Business Writing", "Customer Relationship CRM", "Budgeting & Expenses", "KPI Analytics"],
-        "future_skills": ["Basic programming (Python for automation)", "Salesforce automation", "Multi-channel communication platforms", "Collaborative dashboarding"],
+        "future_skills": ["AI Productivity Tools", "Salesforce automation", "Multi-channel communication platforms", "Collaborative dashboarding"],
         "high_priority_gaps": ["Project Management Tools (Asana)", "Data Visualization (Excel/PowerBI)"],
         "medium_priority_gaps": ["Business Writing", "Customer Relationship CRM"],
         "low_priority_gaps": ["Budgeting & Expenses"],

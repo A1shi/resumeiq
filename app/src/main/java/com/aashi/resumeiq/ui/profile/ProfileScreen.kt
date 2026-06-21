@@ -1,5 +1,7 @@
 package com.aashi.resumeiq.ui.profile
 
+import com.aashi.resumeiq.ui.theme.getOutlinedTextFieldColors
+
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -112,12 +114,7 @@ fun ProfileScreen(
                         onValueChange = { nameInput = it },
                         label = { Text("Full Name") },
                         modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            focusedLabelColor = MaterialTheme.colorScheme.primary
-                        )
+                        colors = getOutlinedTextFieldColors()
                     )
 
                     OutlinedTextField(
@@ -125,12 +122,7 @@ fun ProfileScreen(
                         onValueChange = { emailInput = it },
                         label = { Text("Email Address") },
                         modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            focusedLabelColor = MaterialTheme.colorScheme.primary
-                        )
+                        colors = getOutlinedTextFieldColors()
                     )
 
                     if (authState is UiState.Error) {
@@ -172,12 +164,7 @@ fun ProfileScreen(
                         onValueChange = { oldPassword = it },
                         label = { Text("Current Password") },
                         modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            focusedLabelColor = MaterialTheme.colorScheme.primary
-                        )
+                        colors = getOutlinedTextFieldColors()
                     )
 
                     OutlinedTextField(
@@ -185,12 +172,7 @@ fun ProfileScreen(
                         onValueChange = { newPassword = it },
                         label = { Text("New Password (min 6 chars)") },
                         modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            focusedLabelColor = MaterialTheme.colorScheme.primary
-                        )
+                        colors = getOutlinedTextFieldColors()
                     )
 
                     if (actionState is UiState.Error) {

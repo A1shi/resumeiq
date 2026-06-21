@@ -38,6 +38,17 @@ class Resume(Base):
     name: Any = Column(String(255), nullable=True)
     email: Any = Column(String(255), nullable=True, index=True)
     phone: Any = Column(String(50), nullable=True)
+    summary: Any = Column(Text, nullable=True)
+    
+    # Phase 2 - Profession Detection & AI validation info
+    profession: Any = Column(String(255), nullable=True)
+    industry: Any = Column(String(255), nullable=True)
+    seniority: Any = Column(String(255), nullable=True)
+    experience_level: Any = Column(String(255), nullable=True)
+    career_objective: Any = Column(Text, nullable=True)
+    profession_confidence: Any = Column(Integer, nullable=True)
+    validation_passed: Any = Column(Boolean, nullable=True)
+    validation_reason: Any = Column(Text, nullable=True)
     
     # Complex fields stored as JSON arrays of objects/strings
     skills: Any = Column(JSON, nullable=False, default=list)
@@ -46,6 +57,9 @@ class Resume(Base):
     projects: Any = Column(JSON, nullable=False, default=list)
     certifications: Any = Column(JSON, nullable=False, default=list)
     languages: Any = Column(JSON, nullable=False, default=list)
+    leadership: Any = Column(JSON, nullable=False, default=list)
+    interests: Any = Column(JSON, nullable=False, default=list)
+    referees: Any = Column(JSON, nullable=False, default=list)
     
     # ATS Scoring Cache Fields
     ats_score: Any = Column(Integer, nullable=True)

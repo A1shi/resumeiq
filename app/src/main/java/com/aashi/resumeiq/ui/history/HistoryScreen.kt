@@ -1,5 +1,7 @@
 package com.aashi.resumeiq.ui.history
 
+import com.aashi.resumeiq.ui.theme.getOutlinedTextFieldColors
+
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -105,12 +107,7 @@ fun HistoryScreen(
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)) },
                 modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
-                )
+                colors = getOutlinedTextFieldColors()
             )
 
             // Sorting Controls Row

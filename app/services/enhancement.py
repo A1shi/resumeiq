@@ -86,38 +86,255 @@ def generate_resume_enhancements_with_gemini(resume: models.Resume) -> Dict[str,
             
     return data
 
+def get_profession_defaults(detected_prof: str) -> dict:
+    defaults = {
+        "Nurse": {
+            "role": "Registered Nurse",
+            "skills": "patient care and clinical documentation",
+            "summary_focus": "deliver high-quality patient care, coordinate treatments, and implement patient safety guidelines",
+            "experience_focus": "patient care delivery and clinical workflow",
+            "experience": [
+                "Delivered high-quality patient care and managed clinical treatments.",
+                "Collaborated with healthcare professionals to implement patient treatment plans.",
+                "Maintained regulatory compliance with HIPAA and clinical care standards."
+            ],
+            "project_focus": "patient care initiative, implementing clinical protocols and tracking patient outcomes",
+            "keywords": ["Patient Care", "Clinical Documentation", "EHR Systems (Epic/Cerner)", "HIPAA Compliance", "Triage & Assessment"]
+        },
+        "Teacher": {
+            "role": "Educator",
+            "skills": "classroom instruction and curriculum design",
+            "summary_focus": "deliver classroom instruction, coordinate student assessments, and implement educational techniques",
+            "experience_focus": "classroom management and instructional design",
+            "experience": [
+                "Delivered classroom instruction and managed student learning plans.",
+                "Collaborated with education professionals to develop curriculum guidelines.",
+                "Maintained student performance logs and assessed learning outcomes."
+            ],
+            "project_focus": "curriculum design initiative, implementing educational guidelines and tracking student engagement",
+            "keywords": ["Curriculum Development", "Classroom Management", "Student Assessment", "Educational Technology", "Parent-Teacher Communication"]
+        },
+        "Accountant": {
+            "role": "Accountant",
+            "skills": "financial reporting and GAAP compliance",
+            "summary_focus": "manage general ledger accounting, coordinate audits, and ensure compliance with GAAP guidelines",
+            "experience_focus": "financial ledger maintenance and accounting accuracy",
+            "experience": [
+                "Managed general ledger balances and financial account reconciliations.",
+                "Collaborated with finance teams to compile balance sheets and tax filings.",
+                "Ensured compliance with GAAP standards and corporate tax codes."
+            ],
+            "project_focus": "financial auditing initiative, implementing reconciliation protocols and tracking variances",
+            "keywords": ["GAAP Compliance", "General Ledger Accounting", "QuickBooks ERP", "Financial Reconciliation", "Tax Preparation"]
+        },
+        "Customer Service": {
+            "role": "Customer Service Representative",
+            "skills": "client support and CRM ticket resolution",
+            "summary_focus": "resolve customer inquiries, coordinate support tickets, and implement customer satisfaction workflows",
+            "experience_focus": "customer support operations and relationship management",
+            "experience": [
+                "Resolved customer inquiries and managed support ticket queues.",
+                "Collaborated with operations teams to improve customer satisfaction ratings.",
+                "Maintained accurate customer accounts database records using CRM systems."
+            ],
+            "project_focus": "support ticket optimization project, implementing resolution guidelines and tracking SLA compliance",
+            "keywords": ["Customer Support", "Zendesk CRM", "Conflict Resolution", "Email & Phone Etiquette", "Helpdesk Ticketing"]
+        },
+        "Sales": {
+            "role": "Sales Representative",
+            "skills": "lead generation and pipeline management",
+            "summary_focus": "generate sales leads, coordinate client accounts, and manage pipeline conversions",
+            "experience_focus": "business development pipelines and client acquisition",
+            "experience": [
+                "Generated new business leads and maintained CRM client profiles.",
+                "Collaborated with account teams to present sales pitches and close deals.",
+                "Managed pipeline performance and exceeded sales targets."
+            ],
+            "project_focus": "CRM pipeline initiative, implementing outreach strategies and tracking conversions",
+            "keywords": ["Lead Generation", "Salesforce CRM", "B2B Sales", "Negotiation", "Pipeline Management"]
+        },
+        "HR": {
+            "role": "HR Specialist",
+            "skills": "talent acquisition and employee onboarding",
+            "summary_focus": "coordinate recruiting pipelines, manage onboarding tasks, and implement compliance procedures",
+            "experience_focus": "personnel management and recruitment cycles",
+            "experience": [
+                "Coordinated talent acquisition processes and conducted candidate interviews.",
+                "Collaborated with department heads to design employee onboarding plans.",
+                "Maintained personnel records compliance with local labor guidelines."
+            ],
+            "project_focus": "onboarding system upgrade, implementing structured interviews and tracking retention metrics",
+            "keywords": ["Talent Acquisition", "Applicant Tracking Systems (ATS)", "Onboarding & Offboarding", "Labor Law Compliance", "Employee Relations"]
+        },
+        "Marketing": {
+            "role": "Marketing Specialist",
+            "skills": "campaign optimization and digital advertising",
+            "summary_focus": "design marketing campaigns, coordinate content delivery, and analyze conversion metrics",
+            "experience_focus": "campaign conversions and marketing channels",
+            "experience": [
+                "Developed marketing campaigns and analyzed lead generation results.",
+                "Collaborated with creative teams to design conversion layouts.",
+                "Optimized multi-channel outreach strategies to maximize customer reach."
+            ],
+            "project_focus": "digital campaign project, implementing brand guidelines and tracking conversions",
+            "keywords": ["SEO Optimization", "Google Analytics", "Email Campaigns", "Social Media Strategy", "Copywriting"]
+        },
+        "Hospitality": {
+            "role": "Guest Services Agent",
+            "skills": "guest relations and front desk operations",
+            "summary_focus": "coordinate hotel reservations, manage guest inquiries, and resolve client conflicts",
+            "experience_focus": "hospitality services and check-in workflows",
+            "experience": [
+                "Managed front desk operations and processed reservation bookings.",
+                "Collaborated with service teams to coordinate special event schedules.",
+                "Resolved guest service requests and maintained positive client relations."
+            ],
+            "project_focus": "guest experience program, implementing check-in procedures and tracking feedback scores",
+            "keywords": ["Customer Service", "Guest Relations", "Reservation Systems", "Front Desk Operations", "Conflict Resolution"]
+        },
+        "Banking": {
+            "role": "Personal Banker",
+            "skills": "banking compliance and financial transactions",
+            "summary_focus": "process financial transactions, coordinate loan applications, and manage account openings",
+            "experience_focus": "financial services and customer compliance",
+            "experience": [
+                "Processed customer banking transactions and balanced cash registers.",
+                "Collaborated with underwriting teams to verify loan application details.",
+                "Maintained compliance with federal banking regulations and privacy laws."
+            ],
+            "project_focus": "banking compliance auditing project, implementing validation routines and tracking discrepancies",
+            "keywords": ["Cash Handling", "Banking Compliance", "Cross-selling", "Loan Processing", "Financial Services"]
+        },
+        "Student/Fresher": {
+            "role": "Intern",
+            "skills": "project presentation and analytical research",
+            "summary_focus": "contribute to research tasks, coordinate class assignments, and deliver project presentations",
+            "experience_focus": "academic projects and analytical support",
+            "experience": [
+                "Assisted in technical research tasks and data collection.",
+                "Collaborated with peers to compile team project deliverables.",
+                "Delivered final presentations to course advisors and stakeholders."
+            ],
+            "project_focus": "student research project, compiling data points and presenting findings to classmates",
+            "keywords": ["Teamwork", "Problem Solving", "Time Management", "Analytical Research", "MS Office"]
+        },
+        "General Professional": {
+            "role": "Operations Coordinator",
+            "skills": "project coordination and business operations",
+            "summary_focus": "coordinate project timelines, manage operational tasks, and optimize standard office procedures",
+            "experience_focus": "operational workflows and business organization",
+            "experience": [
+                "Coordinated project milestones and managed operational tasks.",
+                "Collaborated with cross-functional partners to execute deliverables.",
+                "Identified workflow bottlenecks and optimized standard business procedures."
+            ],
+            "project_focus": "business operations alignment project, implementing workflow tracking and monitoring deliverables",
+            "keywords": ["Project Coordination", "Operations Support", "Office Administration", "Spreadsheet Modeling", "Stakeholder Communication"]
+        },
+        "Software Engineer": {
+            "role": "Software Engineer",
+            "skills": "modern software engineering practices",
+            "summary_focus": "design software architectures, coordinate backend APIs, and implement system improvements",
+            "experience_focus": "software development cycles and database maintenance",
+            "experience": [
+                "Contributed to core development and code maintenance.",
+                "Collaborated with product teams to design features and resolve defects.",
+                "Applied best practices in software design and source control."
+            ],
+            "project_focus": "system interface, implementing functional modules and testing dependencies to ensure software quality",
+            "keywords": ["REST API Design", "Git Version Control", "Data Structures", "Algorithms", "Unit Testing"]
+        },
+        "Android Developer": {
+            "role": "Android Developer",
+            "skills": "mobile application development and Android SDK",
+            "summary_focus": "design Android application layouts, coordinate mobile APIs, and implement mobile UX improvements",
+            "experience_focus": "mobile software development cycles and app store deployment",
+            "experience": [
+                "Developed native Android applications using Kotlin and Java.",
+                "Collaborated with product managers to design interactive user interfaces.",
+                "Optimized app performance and reduced crash rates in production."
+            ],
+            "project_focus": "Android mobile app design, implementing material design and testing activity cycles",
+            "keywords": ["Android SDK", "Kotlin", "Java", "Retrofit", "Jetpack Compose"]
+        },
+        "Data Analyst": {
+            "role": "Data Analyst",
+            "skills": "data visualization and statistical analysis",
+            "summary_focus": "design data dashboards, coordinate ETL pipelines, and translate data into actionable insights",
+            "experience_focus": "data cleaning, metrics definition, and report generation",
+            "experience": [
+                "Performed ad-hoc database queries and clean datasets for analysis.",
+                "Collaborated with business units to build interactive dashboards and reports.",
+                "Identified trends and delivered statistical insights to guide strategy."
+            ],
+            "project_focus": "data analysis initiative, cleaning datasets and building dashboard visualizations",
+            "keywords": ["SQL Queries", "Tableau", "Power BI", "Data Cleaning", "Excel Analytics"]
+        },
+        "Business Analyst": {
+            "role": "Business Analyst",
+            "skills": "requirements gathering and business process mapping",
+            "summary_focus": "analyze business processes, draft functional requirements, and coordinate stakeholders",
+            "experience_focus": "business workflows and user acceptance testing",
+            "experience": [
+                "Gathered business requirements and translated them into functional specifications.",
+                "Collaborated with technical teams and business stakeholders to align goals.",
+                "Conducted gap analysis and mapped standard operational procedures."
+            ],
+            "project_focus": "business process mapping project, documenting workflows and tracking user requirements",
+            "keywords": ["Requirements Gathering", "Process Mapping", "SQL Basics", "Agile Methodologies", "User Stories"]
+        },
+        "Graphic Designer": {
+            "role": "Graphic Designer",
+            "skills": "visual design and brand identity",
+            "summary_focus": "design visual assets, coordinate brand campaigns, and implement creative layouts",
+            "experience_focus": "creative workflows and digital design assets",
+            "experience": [
+                "Created digital designs, icons, and illustrations for marketing campaigns.",
+                "Collaborated with creative directors to align with brand guidelines.",
+                "Polished user interface wireframes and visual design prototypes."
+            ],
+            "project_focus": "brand redesign initiative, creating layouts and optimizing digital assets",
+            "keywords": ["Adobe Photoshop", "Adobe Illustrator", "Figma", "UI/UX Design", "Typography"]
+        }
+    }
+    
+    return defaults.get(detected_prof, defaults["General Professional"])
+
 def generate_resume_enhancements_local(resume: models.Resume) -> Dict[str, Any]:
     """Generates local rephrasings strictly grounded in parsed content."""
+    detected_prof = getattr(resume, "profession", "General Professional") or "General Professional"
+    prof_defaults = get_profession_defaults(detected_prof)
+    
     # 1. Professional Summary
-    first_role = "Software Engineer"
+    first_role = prof_defaults["role"]
     first_company = ""
     if resume.experience and len(resume.experience) > 0:
-        first_role = resume.experience[0].get("role") or "Software Engineer"
+        first_role = resume.experience[0].get("role") or prof_defaults["role"]
         first_company = resume.experience[0].get("company") or ""
 
-    skills_snippet = "modern software engineering practices"
+    skills_snippet = prof_defaults["skills"]
     if resume.skills and len(resume.skills) > 0:
         skills_snippet = ", ".join(resume.skills[:3])
 
     if first_company:
         improved_summary = (
             f"Detail-oriented {first_role} with hands-on experience at {first_company}. "
-            f"Proficient in leveraging {skills_snippet} to design and deploy reliable applications. "
-            f"Skilled in collaborating with cross-functional teams, solving technical challenges, "
-            f"and implementing maintainable software designs to support business objectives."
+            f"Proficient in leveraging {skills_snippet} to {prof_defaults['summary_focus']}. "
+            f"Skilled in collaborating with cross-functional partners, solving operational challenges, "
+            f"and coordinating workflows to support key organizational objectives."
         )
     else:
         improved_summary = (
             f"Detail-oriented {first_role} with professional industry experience. "
-            f"Proficient in leveraging {skills_snippet} to design and deploy reliable applications. "
-            f"Skilled in collaborating with cross-functional teams, solving technical challenges, "
-            f"and implementing maintainable software designs to support business objectives."
+            f"Proficient in leveraging {skills_snippet} to {prof_defaults['summary_focus']}. "
+            f"Skilled in collaborating with cross-functional partners, solving operational challenges, "
+            f"and coordinating workflows to support key organizational objectives."
         )
 
     # 2. Experience Bullets (polishing sentences, no invented numbers/metrics)
     improved_experience = []
     for exp in (resume.experience or []):
-        role = exp.get("role") or "Software Professional"
+        role = exp.get("role") or prof_defaults["role"]
         company = exp.get("company") or "Company"
         orig_desc = exp.get("description") or ""
 
@@ -132,7 +349,7 @@ def generate_resume_enhancements_local(resume: models.Resume) -> Dict[str, Any]:
                 continue
             words = s_clean.split()
             first_word = words[0].lower() if words else ""
-            action_verbs_set = {"developed", "designed", "implemented", "managed", "spearheaded", "built", "engineered", "optimized", "led", "created", "collaborated", "wrote", "tested"}
+            action_verbs_set = {"developed", "designed", "implemented", "managed", "spearheaded", "built", "engineered", "optimized", "led", "created", "collaborated", "wrote", "tested", "coordinated", "delivered", "provided", "assisted", "monitored"}
             if first_word not in action_verbs_set and len(words) > 1:
                 s_clean = s_clean[0].upper() + s_clean[1:]
             
@@ -140,9 +357,9 @@ def generate_resume_enhancements_local(resume: models.Resume) -> Dict[str, Any]:
             
         if not polished_bullets:
             polished_bullets = [
-                f"Contributed to core development and code maintenance as a {role} at {company}.",
-                f"Collaborated with product teams to design features and resolve defects.",
-                f"Applied best practices in software design and source control using industry standards."
+                f"Contributed to core tasks and {prof_defaults['experience_focus']} as a {role} at {company}.",
+                "Collaborated with project partners to execute key milestones.",
+                "Applied industry standards and best practices to ensure high-quality delivery."
             ]
             
         imp_desc = "\n".join(f"• {b}" for b in polished_bullets[:4])
@@ -160,13 +377,13 @@ def generate_resume_enhancements_local(resume: models.Resume) -> Dict[str, Any]:
         title = proj.get("title") or "Project"
         orig_desc = proj.get("description") or ""
         techs = proj.get("technologies") or []
-        tech_str = f" built on {', '.join(techs)}" if techs else ""
+        tech_str = f" utilizing {', '.join(techs)}" if techs else ""
 
         proj_sentences = [s.strip() for s in orig_desc.split(".") if s.strip()]
         if proj_sentences:
-            imp_desc = f"Engineered a {title} application{tech_str}. " + ". ".join(proj_sentences) + "."
+            imp_desc = f"Coordinated the {title} initiative{tech_str}. " + ". ".join(proj_sentences) + "."
         else:
-            imp_desc = f"Designed and engineered the {title} application{tech_str}, implementing functional modules and testing dependencies to ensure software quality."
+            imp_desc = f"Designed and managed the {title} initiative{tech_str}, implementing functional modules and tracking metrics to ensure quality outcomes."
 
         improved_projects.append({
             "title": title,
@@ -174,7 +391,7 @@ def generate_resume_enhancements_local(resume: models.Resume) -> Dict[str, Any]:
             "improved": imp_desc
         })
 
-    keyword_suggestions = ["CI/CD Pipelines", "Docker & Containerization", "Cloud Architectures (AWS/GCP)", "Automated Testing", "REST API Design"]
+    keyword_suggestions = prof_defaults["keywords"]
     if resume.skills:
         c_skills_lower = [s.lower() for s in resume.skills]
         keyword_suggestions = [ks for ks in keyword_suggestions if ks.lower() not in c_skills_lower]

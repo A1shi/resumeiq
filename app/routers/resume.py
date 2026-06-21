@@ -15,7 +15,12 @@ from app.services.parser import parse_resume_text
 from app.services.scoring import evaluate_resume_ats, generate_interview_prep_with_gemini, generate_interview_prep_local
 from app.services.security import get_current_verified_user
 from app.services.enhancement import generate_resume_enhancements
-from app.services.pdf_generator import generate_resume_pdf_report, generate_resume_template_pdf, generate_interview_prep_pdf
+from app.services.pdf_generator import (
+    generate_resume_pdf_report,
+    generate_resume_template_pdf,
+    generate_interview_prep_pdf,
+    validate_ats_report_sections
+)
 
 router = APIRouter(prefix="/resumes", tags=["Resumes"])
 logger = logging.getLogger("app.routers.resume")
@@ -111,12 +116,24 @@ async def upload_resume(
             name=parsed_data.name,
             email=parsed_data.email,
             phone=parsed_data.phone,
+            summary=parsed_data.summary,
             skills=parsed_data.skills,
             education=[edu.model_dump() for edu in parsed_data.education],
             experience=[exp.model_dump() for exp in parsed_data.experience],
             projects=[proj.model_dump() for proj in parsed_data.projects],
             certifications=[cert.model_dump() for cert in parsed_data.certifications],
-            languages=[lang.model_dump() for lang in parsed_data.languages]
+            languages=[lang.model_dump() for lang in parsed_data.languages],
+            leadership=parsed_data.leadership,
+            interests=parsed_data.interests,
+            referees=parsed_data.referees,
+            profession=parsed_data.profession,
+            industry=parsed_data.industry,
+            seniority=parsed_data.seniority,
+            experience_level=parsed_data.experience_level,
+            career_objective=parsed_data.career_objective,
+            profession_confidence=parsed_data.profession_confidence,
+            validation_passed=parsed_data.validation_passed,
+            validation_reason=parsed_data.validation_reason
         )
         db.add(db_resume)
         db.commit()
@@ -414,6 +431,9 @@ def export_resume_report_pdf(
             db.commit()
             db.refresh(resume)
             
+        # Validate the report contents
+        validate_ats_report_sections(resume)
+            
         enhancements = generate_resume_enhancements(resume)
         file_stream = generate_resume_pdf_report(resume, enhancements)
         filename = f"ResumeIQ_Report_{resume.name or 'Candidate'}.pdf"
@@ -425,6 +445,12 @@ def export_resume_report_pdf(
                 "Content-Disposition": f"attachment; filename={filename}",
                 "Access-Control-Expose-Headers": "Content-Disposition"
             }
+        )
+    except ValueError as val_err:
+        logger.error(f"Validation failed for PDF report: {str(val_err)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Report validation failed: {str(val_err)}"
         )
     except Exception as e:
         logger.error(f"Failed to export PDF report: {str(e)}")
@@ -460,6 +486,7 @@ def update_resume_details(
         resume.name = resume_data.name
         resume.email = resume_data.email
         resume.phone = resume_data.phone
+        resume.summary = resume_data.summary
         resume.skills = resume_data.skills
         
         # Serialize list fields using model_dump()
@@ -468,6 +495,19 @@ def update_resume_details(
         resume.projects = [proj.model_dump() for proj in resume_data.projects]
         resume.certifications = [cert.model_dump() for cert in resume_data.certifications]
         resume.languages = [lang.model_dump() for lang in resume_data.languages]
+        resume.leadership = resume_data.leadership
+        resume.interests = resume_data.interests
+        resume.referees = resume_data.referees
+        
+        # Update Phase 2 fields if changed/provided
+        resume.profession = resume_data.profession
+        resume.industry = resume_data.industry
+        resume.seniority = resume_data.seniority
+        resume.experience_level = resume_data.experience_level
+        resume.career_objective = resume_data.career_objective
+        resume.profession_confidence = resume_data.profession_confidence
+        resume.validation_passed = resume_data.validation_passed
+        resume.validation_reason = resume_data.validation_reason
         
         # Recalculate ATS scorecard on edit to ensure visual metrics update dynamically
         ats_analysis = evaluate_resume_ats(resume)
@@ -517,12 +557,16 @@ def export_resume_template(
                 "name": resume.name,
                 "email": resume.email,
                 "phone": resume.phone,
+                "summary": resume.summary,
                 "skills": resume.skills,
                 "education": resume.education,
                 "experience": resume.experience,
                 "projects": resume.projects,
                 "certifications": resume.certifications,
-                "languages": resume.languages
+                "languages": resume.languages,
+                "leadership": resume.leadership,
+                "interests": resume.interests,
+                "referees": resume.referees
             }
             
         fmt = request.format.lower()

@@ -60,12 +60,48 @@ def run_migrations(engine):
                 logger.info("Database migration: adding 'languages' column to resumes table...")
                 conn.execute(text("ALTER TABLE resumes ADD COLUMN languages JSON DEFAULT '[]'"))
                 logger.info("Database migration: resumes table updated successfully with 'languages'.")
+            if "summary" not in columns:
+                logger.info("Database migration: adding 'summary' column to resumes table...")
+                conn.execute(text("ALTER TABLE resumes ADD COLUMN summary TEXT NULL"))
+            if "leadership" not in columns:
+                logger.info("Database migration: adding 'leadership' column to resumes table...")
+                conn.execute(text("ALTER TABLE resumes ADD COLUMN leadership JSON DEFAULT '[]'"))
+            if "interests" not in columns:
+                logger.info("Database migration: adding 'interests' column to resumes table...")
+                conn.execute(text("ALTER TABLE resumes ADD COLUMN interests JSON DEFAULT '[]'"))
+            if "referees" not in columns:
+                logger.info("Database migration: adding 'referees' column to resumes table...")
+                conn.execute(text("ALTER TABLE resumes ADD COLUMN referees JSON DEFAULT '[]'"))
             if "ats_score" not in columns:
                 logger.info("Database migration: adding 'ats_score' column to resumes table...")
                 conn.execute(text("ALTER TABLE resumes ADD COLUMN ats_score INTEGER NULL"))
             if "ats_analysis" not in columns:
                 logger.info("Database migration: adding 'ats_analysis' column to resumes table...")
                 conn.execute(text("ALTER TABLE resumes ADD COLUMN ats_analysis JSON NULL"))
+            if "profession" not in columns:
+                logger.info("Database migration: adding 'profession' column to resumes table...")
+                conn.execute(text("ALTER TABLE resumes ADD COLUMN profession VARCHAR(255) NULL"))
+            if "industry" not in columns:
+                logger.info("Database migration: adding 'industry' column to resumes table...")
+                conn.execute(text("ALTER TABLE resumes ADD COLUMN industry VARCHAR(255) NULL"))
+            if "seniority" not in columns:
+                logger.info("Database migration: adding 'seniority' column to resumes table...")
+                conn.execute(text("ALTER TABLE resumes ADD COLUMN seniority VARCHAR(255) NULL"))
+            if "experience_level" not in columns:
+                logger.info("Database migration: adding 'experience_level' column to resumes table...")
+                conn.execute(text("ALTER TABLE resumes ADD COLUMN experience_level VARCHAR(255) NULL"))
+            if "career_objective" not in columns:
+                logger.info("Database migration: adding 'career_objective' column to resumes table...")
+                conn.execute(text("ALTER TABLE resumes ADD COLUMN career_objective TEXT NULL"))
+            if "profession_confidence" not in columns:
+                logger.info("Database migration: adding 'profession_confidence' column to resumes table...")
+                conn.execute(text("ALTER TABLE resumes ADD COLUMN profession_confidence INTEGER NULL"))
+            if "validation_passed" not in columns:
+                logger.info("Database migration: adding 'validation_passed' column to resumes table...")
+                conn.execute(text("ALTER TABLE resumes ADD COLUMN validation_passed BOOLEAN NULL"))
+            if "validation_reason" not in columns:
+                logger.info("Database migration: adding 'validation_reason' column to resumes table...")
+                conn.execute(text("ALTER TABLE resumes ADD COLUMN validation_reason TEXT NULL"))
             if "created_at" not in columns:
                 logger.info("Database migration: adding 'created_at' column to resumes table...")
                 conn.execute(text("ALTER TABLE resumes ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP"))

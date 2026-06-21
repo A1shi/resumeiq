@@ -14,6 +14,15 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = Field(default="")
     SECRET_KEY: str = Field(default="antigravity_secret_session_key_2026")
     UPLOAD_DIR: str = Field(default="uploads")
+    
+    # SMTP Configuration
+    SMTP_HOST: str = Field(default="")
+    SMTP_PORT: int = Field(default=587)
+    SMTP_USERNAME: str = Field(default="")
+    SMTP_PASSWORD: str = Field(default="")
+    SMTP_SENDER: str = Field(default="")
+    SMTP_USE_TLS: bool = Field(default=True)
+    SMTP_USE_SSL: bool = Field(default=False)
 
 # Instantiate settings
 settings = Settings()

@@ -1,5 +1,7 @@
 package com.aashi.resumeiq.ui.coverletter
 
+import com.aashi.resumeiq.ui.theme.getOutlinedTextFieldColors
+
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -99,14 +101,7 @@ fun CoverLetterScreen(
                             label = { Text("Target Job Title*") },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                focusedLabelColor = MaterialTheme.colorScheme.primary,
-                                unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
-                                unfocusedLabelColor = Color.White.copy(alpha = 0.5f),
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
-                            )
+                            colors = getOutlinedTextFieldColors()
                         )
 
                         OutlinedTextField(
@@ -115,14 +110,7 @@ fun CoverLetterScreen(
                             label = { Text("Company Name*") },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                focusedLabelColor = MaterialTheme.colorScheme.primary,
-                                unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
-                                unfocusedLabelColor = Color.White.copy(alpha = 0.5f),
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
-                            )
+                            colors = getOutlinedTextFieldColors()
                         )
 
                         OutlinedTextField(
@@ -131,14 +119,7 @@ fun CoverLetterScreen(
                             label = { Text("Industry (optional)") },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                focusedLabelColor = MaterialTheme.colorScheme.primary,
-                                unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
-                                unfocusedLabelColor = Color.White.copy(alpha = 0.5f),
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
-                            )
+                            colors = getOutlinedTextFieldColors()
                         )
 
                         Spacer(modifier = Modifier.weight(1f))

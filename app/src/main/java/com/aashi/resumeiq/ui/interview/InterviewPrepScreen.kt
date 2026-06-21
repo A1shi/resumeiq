@@ -1,5 +1,7 @@
 package com.aashi.resumeiq.ui.interview
 
+import com.aashi.resumeiq.ui.theme.getOutlinedTextFieldColors
+
 import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
@@ -158,12 +160,7 @@ fun InterviewPrepScreen(
                                         placeholder = { Text("Paste job description text here...", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)) },
                                         modifier = Modifier.fillMaxWidth().height(100.dp),
                                         shape = RoundedCornerShape(12.dp),
-                                        colors = OutlinedTextFieldDefaults.colors(
-                                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                            unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
-                                            focusedTextColor = Color.White,
-                                            unfocusedTextColor = Color.White
-                                        )
+                                        colors = getOutlinedTextFieldColors()
                                     )
                                     Spacer(modifier = Modifier.height(12.dp))
                                     Button(

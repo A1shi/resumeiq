@@ -20,7 +20,7 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
 
-    private const val BASE_URL = "http://192.168.1.3:8000/api/v1/"
+    private const val BASE_URL = "https://resumeiq-xga7.onrender.com/api/v1/"
 
     @Provides
     @Singleton
