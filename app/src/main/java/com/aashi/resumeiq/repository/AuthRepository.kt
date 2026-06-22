@@ -14,6 +14,16 @@ class AuthRepository(
     val userName: Flow<String?> = preferencesManager.userName
     val userEmail: Flow<String?> = preferencesManager.userEmail
     val isUserVerified: Flow<Boolean> = preferencesManager.isUserVerified
+    val rememberMe: Flow<Boolean> = preferencesManager.rememberMe
+    val sessionExpired: Flow<Boolean> = preferencesManager.sessionExpired
+
+    suspend fun setRememberMe(enabled: Boolean) {
+        preferencesManager.setRememberMe(enabled)
+    }
+
+    suspend fun setSessionExpired(expired: Boolean) {
+        preferencesManager.setSessionExpired(expired)
+    }
 
     suspend fun register(userCreate: UserCreate): Result<UserResponse> {
         return try {
@@ -52,10 +62,16 @@ class AuthRepository(
         }
     }
 
-    suspend fun verifyEmail(email: String, code: String): Result<MessageResponse> {
+    suspend fun verifyEmail(email: String, code: String): Result<LoginResponse> {
         return try {
             val response = apiService.verifyEmail(UserVerify(email, code))
-            preferencesManager.updateVerificationStatus(true)
+            preferencesManager.saveSession(
+                token = response.accessToken,
+                userId = response.user.id,
+                email = response.user.email,
+                name = response.user.fullName,
+                isVerified = response.user.isVerified
+            )
             Result.success(response)
         } catch (e: Exception) {
             Result.failure(e.toAppError())

@@ -40,12 +40,12 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     except Exception:
         return False
 
-def generate_token(user_id: int) -> str:
+def generate_token(user_id: int, max_age: int = 3600) -> str:
     """
     Generates a secure cryptographically-signed access token using HMAC-SHA256.
     """
-    timestamp = int(time.time())
-    payload = f"{user_id}.{timestamp}"
+    expiry = int(time.time()) + max_age
+    payload = f"{user_id}.{expiry}"
     signature = hmac.new(
         SECRET_KEY.encode(),
         payload.encode(),
@@ -66,17 +66,24 @@ def verify_token(token: str, max_age: int = 3600) -> int:
         parts = token_bytes.decode().split(".")
         if len(parts) != 3:
             raise ValueError("Invalid session token")
-        user_id_str, timestamp_str, signature = parts
+        user_id_str, expiry_or_ts_str, signature = parts
         
         try:
-            timestamp = int(timestamp_str)
+            val = int(expiry_or_ts_str)
         except ValueError:
             raise ValueError("Invalid session token")
             
-        if time.time() - timestamp > max_age:
-            raise ValueError("Token expired")
+        current_time = time.time()
+        # If val is a legacy timestamp (creation time), it is older than current_time - 30 days.
+        # Otherwise it is a future expiry timestamp.
+        if val < current_time - 2592000:
+            if current_time - val > max_age:
+                raise ValueError("Token expired")
+        else:
+            if current_time > val:
+                raise ValueError("Token expired")
             
-        payload = f"{user_id_str}.{timestamp_str}"
+        payload = f"{user_id_str}.{expiry_or_ts_str}"
         expected_signature = hmac.new(
             SECRET_KEY.encode(),
             payload.encode(),

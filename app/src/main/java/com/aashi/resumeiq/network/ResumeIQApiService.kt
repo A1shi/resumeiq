@@ -23,7 +23,7 @@ interface ResumeIQApiService {
     @POST("users/verify-email")
     suspend fun verifyEmail(
         @Body request: UserVerify
-    ): MessageResponse
+    ): LoginResponse
 
     @POST("users/resend-verification")
     suspend fun resendVerification(

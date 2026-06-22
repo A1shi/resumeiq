@@ -40,6 +40,11 @@ fun SplashScreen(
         delay(1000) // Ensure the splash screen displays for at least 1 second
 
         // Check local token state
+        val remember = viewModel.rememberMe.first()
+        if (!remember) {
+            viewModel.logout()
+        }
+
         val token = viewModel.isLoggedIn.first()
         val email = viewModel.userEmail.first() ?: ""
         val isVerified = viewModel.isUserVerified.first()

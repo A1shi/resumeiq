@@ -377,6 +377,14 @@ function App() {
   const [authFullName, setAuthFullName] = useState("");
   const [authError, setAuthError] = useState("");
   
+  // Custom auth states for QA verification, persistent session and password visibility
+  const [isSessionChecking, setIsSessionChecking] = useState(true);
+  const [rememberMe, setRememberMe] = useState(localStorage.getItem("remember_me") === "true");
+  const [verificationCountdown, setVerificationCountdown] = useState(0);
+  const [devOtp, setDevOtp] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  
   const [showProfile, setShowProfile] = useState(false);
   const [profileName, setProfileName] = useState("");
   const [profileEmail, setProfileEmail] = useState("");
@@ -470,6 +478,24 @@ function App() {
     }
   }, [currentUser]);
 
+  // Auth countdown timer for resend OTP
+  useEffect(() => {
+    let timer;
+    if (verificationCountdown > 0) {
+      timer = setInterval(() => {
+        setVerificationCountdown(prev => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [verificationCountdown]);
+
+  // Start countdown on loading verification view
+  useEffect(() => {
+    if (currentUser && !currentUser.is_verified) {
+      setVerificationCountdown(60);
+    }
+  }, [currentUser?.email, currentUser?.is_verified]);
+
   useEffect(() => {
     if (selectedResume) {
       setEditedResume({
@@ -488,6 +514,15 @@ function App() {
     }
   }, [selectedResume]);
 
+  const handleApiUnauthorized = () => {
+    if (currentUser) {
+      setCurrentUser(null);
+      addToast("Your session has expired. Please sign in again.", "error");
+      setAuthView("login");
+      setShowAuthModal(true);
+    }
+  };
+
   const checkSession = async () => {
     try {
       const res = await fetch("/api/v1/users/me");
@@ -501,12 +536,18 @@ function App() {
     } catch (err) {
       setCurrentUser(null);
       console.error("Failed to check session", err);
+    } finally {
+      setIsSessionChecking(false);
     }
   };
 
   const fetchDashboardStats = async () => {
     try {
       const res = await fetch("/api/v1/users/dashboard/stats");
+      if (res.status === 401) {
+        handleApiUnauthorized();
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         setDashboardStats(data);
@@ -538,6 +579,10 @@ function App() {
   const fetchHistory = async () => {
     try {
       const res = await fetch("/api/v1/resumes");
+      if (res.status === 401) {
+        handleApiUnauthorized();
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         setResumes(data);
@@ -1104,6 +1149,9 @@ function App() {
       if (res.ok) {
         addToast(data.message || "Reset code sent successfully.", "success");
         setAuthView("reset_password");
+        if (data.otp) {
+          setDevOtp(data.otp);
+        }
       } else {
         setAuthError(data.detail || "Failed to initiate password reset.");
       }
@@ -1153,7 +1201,7 @@ function App() {
       const data = await res.json();
       if (res.ok) {
         addToast("Email verified successfully!", "success");
-        setCurrentUser(prev => ({ ...prev, is_verified: true }));
+        setCurrentUser(data.user);
         setVerificationCode("");
         await Promise.all([fetchHistory(), fetchDashboardStats()]);
       } else {
@@ -1177,6 +1225,10 @@ function App() {
       const data = await res.json();
       if (res.ok) {
         addToast("Verification code resent to your email.", "success");
+        setVerificationCountdown(60);
+        if (data.otp) {
+          setDevOtp(data.otp);
+        }
       } else {
         addToast(data.detail || "Failed to resend code.", "error");
       }
@@ -1394,7 +1446,7 @@ function App() {
         const res = await fetch("/api/v1/users/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: authEmail, password: authPassword })
+          body: JSON.stringify({ email: authEmail, password: authPassword, remember_me: rememberMe })
         });
         if (res.ok) {
           const data = await res.json();
@@ -1413,12 +1465,16 @@ function App() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email: authEmail, full_name: authFullName, password: authPassword })
         });
+        const regData = await res.json();
         if (res.ok) {
+          if (regData.otp) {
+            setDevOtp(regData.otp);
+          }
           addToast("Account created successfully! Logging in...", "success");
           const loginRes = await fetch("/api/v1/users/login", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: authEmail, password: authPassword })
+            body: JSON.stringify({ email: authEmail, password: authPassword, remember_me: false })
           });
           if (loginRes.ok) {
             const loginData = await loginRes.json();
@@ -1568,6 +1624,12 @@ function App() {
     ),
     TrendingUp: () => (
       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+    ),
+    Eye: () => (
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+    ),
+    EyeOff: () => (
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
     ),
     Download: () => (
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -5001,6 +5063,56 @@ function App() {
     );
   };
 
+  if (isSessionChecking) {
+    return (
+      <div className="session-checking-overlay" style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "#0f172a",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 9999,
+        gap: "1.5rem"
+      }}>
+        <div className="logo-icon" style={{
+          width: "60px",
+          height: "60px",
+          borderRadius: "16px",
+          background: "linear-gradient(135deg, #3b82f6 0%, #6366f1 100%)",
+          color: "#ffffff",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: "2rem",
+          fontWeight: "bold",
+          boxShadow: "0 10px 25px -5px rgba(59, 130, 246, 0.4)"
+        }}>RI</div>
+        <div style={{
+          width: "40px",
+          height: "40px",
+          border: "4px solid rgba(255, 255, 255, 0.1)",
+          borderTopColor: "#3b82f6",
+          borderRadius: "50%",
+          animation: "spin 1s linear infinite"
+        }}></div>
+        <p style={{
+          color: "#94a3b8",
+          fontSize: "0.95rem",
+          letterSpacing: "0.05em",
+          fontWeight: "500"
+        }}>RESTORING SESSION...</p>
+        <style>{`
+          @keyframes spin { to { transform: rotate(360deg); } }
+        `}</style>
+      </div>
+    );
+  }
+
   if (!currentUser) {
     return (
       <div className="landing-page">
@@ -5235,11 +5347,30 @@ function App() {
                     {loading ? <div className="spinner-micro"></div> : "Send Reset Code"}
                   </button>
                   <div style={{ textAlign: "center", fontSize: "0.85rem", marginTop: "1rem" }}>
-                    <a href="#" className="auth-link" onClick={(e) => { e.preventDefault(); setAuthView("login"); }}>Back to Sign In</a>
+                    <a href="#" className="auth-link" onClick={(e) => { e.preventDefault(); setAuthView("login"); setAuthError(""); }}>Back to Sign In</a>
                   </div>
                 </form>
               ) : authView === "reset_password" ? (
                 <form className="auth-form" onSubmit={handleResetPassword}>
+                  {devOtp && (
+                    <div className="dev-otp-banner" style={{
+                      background: "rgba(16, 185, 129, 0.1)",
+                      border: "1px dashed #10b981",
+                      borderRadius: "8px",
+                      padding: "0.75rem",
+                      marginBottom: "1rem",
+                      color: "#10b981",
+                      fontSize: "0.85rem",
+                      fontWeight: "600",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.5rem",
+                      justifyContent: "center"
+                    }}>
+                      <Icons.Check style={{ stroke: "#10b981" }} />
+                      <span>Development Mode - OTP: <strong>{devOtp}</strong></span>
+                    </div>
+                  )}
                   <div className="auth-field">
                     <label htmlFor="reset-code-input" className="auth-label">6-Digit Reset Code</label>
                     <input 
@@ -5254,15 +5385,39 @@ function App() {
                   </div>
                   <div className="auth-field">
                     <label htmlFor="reset-pwd-input" className="auth-label">New Password (min 6 chars)</label>
-                    <input 
-                      id="reset-pwd-input"
-                      type="password" 
-                      className="auth-input" 
-                      placeholder="••••••••" 
-                      value={authPassword}
-                      onChange={(e) => setAuthPassword(e.target.value)}
-                      required 
-                    />
+                    <div style={{ position: "relative" }}>
+                      <input 
+                        id="reset-pwd-input"
+                        type={showResetPassword ? "text" : "password"} 
+                        className="auth-input" 
+                        placeholder="••••••••" 
+                        value={authPassword}
+                        onChange={(e) => setAuthPassword(e.target.value)}
+                        required 
+                        style={{ paddingRight: "2.5rem" }}
+                      />
+                      <button
+                        type="button"
+                        className="password-toggle-btn"
+                        onClick={() => setShowResetPassword(!showResetPassword)}
+                        style={{
+                          position: "absolute",
+                          right: "0.75rem",
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          background: "none",
+                          border: "none",
+                          color: "var(--color-text-muted, #a0aec0)",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          padding: 0
+                        }}
+                      >
+                        {showResetPassword ? <Icons.EyeOff /> : <Icons.Eye />}
+                      </button>
+                    </div>
                   </div>
                   {authError && (
                     <div className="auth-error-global">
@@ -5304,16 +5459,58 @@ function App() {
                   </div>
                   <div className="auth-field">
                     <label htmlFor="auth-password" className="auth-label">Password</label>
-                    <input 
-                      id="auth-password"
-                      type="password" 
-                      className="auth-input" 
-                      placeholder="••••••••" 
-                      value={authPassword}
-                      onChange={(e) => setAuthPassword(e.target.value)}
-                      required 
-                    />
+                    <div style={{ position: "relative" }}>
+                      <input 
+                        id="auth-password"
+                        type={showPassword ? "text" : "password"} 
+                        className="auth-input" 
+                        placeholder="••••••••" 
+                        value={authPassword}
+                        onChange={(e) => setAuthPassword(e.target.value)}
+                        required 
+                        style={{ paddingRight: "2.5rem" }}
+                      />
+                      <button
+                        type="button"
+                        className="password-toggle-btn"
+                        onClick={() => setShowPassword(!showPassword)}
+                        style={{
+                          position: "absolute",
+                          right: "0.75rem",
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          background: "none",
+                          border: "none",
+                          color: "var(--color-text-muted, #a0aec0)",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          padding: 0
+                        }}
+                      >
+                        {showPassword ? <Icons.EyeOff /> : <Icons.Eye />}
+                      </button>
+                    </div>
                   </div>
+                  {authView === "login" && (
+                    <div className="auth-field-row" style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem", marginTop: "0.5rem" }}>
+                      <input 
+                        id="auth-remember-me"
+                        type="checkbox" 
+                        checked={rememberMe}
+                        onChange={(e) => {
+                          const val = e.target.checked;
+                          setRememberMe(val);
+                          localStorage.setItem("remember_me", val ? "true" : "false");
+                        }} 
+                        style={{ width: "auto", cursor: "pointer" }}
+                      />
+                      <label htmlFor="auth-remember-me" className="auth-label" style={{ margin: 0, cursor: "pointer", fontSize: "0.85rem", fontWeight: "normal" }}>
+                        Remember me for 30 days
+                      </label>
+                    </div>
+                  )}
                   {authError && (
                     <div className="auth-error-global">
                       <Icons.AlertTriangle />
@@ -5327,11 +5524,11 @@ function App() {
                   <div className="auth-footer-links" style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", marginTop: "1rem" }}>
                     {authView === "login" ? (
                       <>
-                        <a href="#" className="auth-link" onClick={(e) => { e.preventDefault(); setAuthView("register"); }}>Create an account</a>
-                        <a href="#" className="auth-link" onClick={(e) => { e.preventDefault(); setAuthView("forgot_password"); }}>Forgot password?</a>
+                        <a href="#" className="auth-link" onClick={(e) => { e.preventDefault(); setAuthView("register"); setAuthError(""); }}>Create an account</a>
+                        <a href="#" className="auth-link" onClick={(e) => { e.preventDefault(); setAuthView("forgot_password"); setAuthError(""); }}>Forgot password?</a>
                       </>
                     ) : (
-                      <a href="#" className="auth-link" onClick={(e) => { e.preventDefault(); setAuthView("login"); }}>Already have an account? Sign In</a>
+                      <a href="#" className="auth-link" onClick={(e) => { e.preventDefault(); setAuthView("login"); setAuthError(""); }}>Already have an account? Sign In</a>
                     )}
                   </div>
                 </form>
@@ -5361,11 +5558,30 @@ function App() {
             <h2 className="auth-title">Verify Your Email</h2>
             <p className="auth-subtitle">
               A 6-digit verification code has been sent to <strong>{currentUser.email}</strong>. 
-              Please enter the code printed in the server logs to activate your account.
+              Please enter the code to activate your account.
             </p>
           </div>
           
           <form className="auth-form" onSubmit={handleVerifyEmail}>
+            {devOtp && (
+              <div className="dev-otp-banner" style={{
+                background: "rgba(16, 185, 129, 0.1)",
+                border: "1px dashed #10b981",
+                borderRadius: "8px",
+                padding: "0.75rem",
+                marginBottom: "1rem",
+                color: "#10b981",
+                fontSize: "0.85rem",
+                fontWeight: "600",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                justifyContent: "center"
+              }}>
+                <Icons.Check style={{ stroke: "#10b981" }} />
+                <span>Development Mode - OTP: <strong>{devOtp}</strong></span>
+              </div>
+            )}
             <div className="auth-field">
               <label htmlFor="verify-code-input" className="auth-label">6-Digit Verification Code</label>
               <input 
@@ -5396,9 +5612,9 @@ function App() {
               className="btn-secondary" 
               style={{ width: "100%", padding: "0.6rem" }} 
               onClick={handleResendVerification} 
-              disabled={loading}
+              disabled={loading || verificationCountdown > 0}
             >
-              Resend Code
+              {verificationCountdown > 0 ? `Resend Code (${verificationCountdown}s)` : "Resend Code"}
             </button>
             
             <a className="auth-link" style={{ fontSize: "0.85rem", color: "var(--color-danger)" }} onClick={handleSignOut}>

@@ -18,6 +18,8 @@ class PreferencesManager(private val context: Context) {
         private val USER_ID = intPreferencesKey("user_id")
         private val IS_VERIFIED = booleanPreferencesKey("is_verified")
         private val DARK_MODE = booleanPreferencesKey("dark_mode")
+        private val REMEMBER_ME = booleanPreferencesKey("remember_me")
+        private val SESSION_EXPIRED = booleanPreferencesKey("session_expired")
     }
 
     val sessionToken: Flow<String?> = context.dataStore.data.map { preferences ->
@@ -38,6 +40,14 @@ class PreferencesManager(private val context: Context) {
 
     val darkModeEnabled: Flow<Boolean?> = context.dataStore.data.map { preferences ->
         preferences[DARK_MODE]
+    }
+
+    val rememberMe: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[REMEMBER_ME] ?: false
+    }
+
+    val sessionExpired: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[SESSION_EXPIRED] ?: false
     }
 
     suspend fun saveSession(token: String, userId: Int, email: String, name: String, isVerified: Boolean) {
@@ -72,6 +82,18 @@ class PreferencesManager(private val context: Context) {
     suspend fun clearDarkMode() {
         context.dataStore.edit { preferences ->
             preferences.remove(DARK_MODE)
+        }
+    }
+
+    suspend fun setRememberMe(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[REMEMBER_ME] = enabled
+        }
+    }
+
+    suspend fun setSessionExpired(expired: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[SESSION_EXPIRED] = expired
         }
     }
 

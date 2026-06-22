@@ -39,12 +39,17 @@ def create_user(user_in: schemas.UserCreate, db: Session) -> models.User:
     if user_in.email.endswith("@test.com"):
         is_verified = True
 
+    now_utc = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+    verification_token_expires = now_utc + datetime.timedelta(hours=1)
+
     db_user = models.User(
         full_name=user_in.full_name,
         email=user_in.email,
         password_hash=password_hash,
         is_verified=is_verified,
-        verification_token=verification_code
+        verification_token=verification_code,
+        verification_token_expires=verification_token_expires,
+        verification_token_sent_at=now_utc
     )
     
     try:
@@ -73,9 +78,14 @@ def create_user(user_in: schemas.UserCreate, db: Session) -> models.User:
             </html>
             """
             send_email(db_user.email, "Verify Your ResumeIQ Account", html_content)
-
+ 
         db.commit()
         db.refresh(db_user)
+        
+        from app.config import settings
+        if getattr(settings, "ENVIRONMENT", "development") == "development" and not is_verified:
+            db_user.otp = verification_code
+            
         logger.info(f"User {db_user.email} registered successfully with ID {db_user.id}. Verification code: {verification_code}")
         return db_user
     except ValueError as e:
@@ -118,14 +128,17 @@ def login_user(response: Response, user_in: schemas.UserLogin, db: Session = Dep
             detail="Incorrect email or password"
         )
         
-    token = generate_token(user.id)
+    # Lifespan: 30 days if remember_me, 1 hour otherwise
+    max_age = 2592000 if user_in.remember_me else 3600
+    token = generate_token(user.id, max_age=max_age)
     
     # Set HTTP-only cookie for session tracking
+    cookie_max_age = 2592000 if user_in.remember_me else None  # None makes it a session-only cookie
     response.set_cookie(
         key="session_token",
         value=token,
         httponly=True,
-        max_age=3600,  # Enforce 1 hour session expiration
+        max_age=cookie_max_age,
         samesite="lax",
         secure=False  # Set to True in production over HTTPS
     )
@@ -153,9 +166,10 @@ def logout_user(response: Response):
 
 
 @router.post("/verify-email", status_code=status.HTTP_200_OK)
-def verify_email(payload: schemas.UserVerify, db: Session = Depends(get_db)):
+def verify_email(payload: schemas.UserVerify, response: Response, db: Session = Depends(get_db)):
     """
     Verify a user's email using their verification token.
+    On success, auto-authenticates the user and sets the session cookie.
     """
     user = db.query(models.User).filter(models.User.email == payload.email).first()
     if not user:
@@ -164,19 +178,65 @@ def verify_email(payload: schemas.UserVerify, db: Session = Depends(get_db)):
             detail="User not found"
         )
     if user.is_verified:
-        return {"message": "Email already verified"}
+        # Return a mock login response even if already verified to prevent duplicate verification crashes
+        token = generate_token(user.id, max_age=3600)
+        return {
+            "access_token": token,
+            "token_type": "bearer",
+            "user": {
+                "id": user.id,
+                "full_name": user.full_name,
+                "email": user.email,
+                "is_verified": user.is_verified,
+                "created_at": user.created_at
+            }
+        }
         
-    if user.verification_token != payload.token:
+    if not user.verification_token or user.verification_token != payload.token:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Incorrect verification code"
         )
+
+    # Check token expiration
+    now_utc = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+    if user.verification_token_expires and user.verification_token_expires < now_utc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Verification code has expired. Please request a new one."
+        )
         
     user.is_verified = True
     user.verification_token = None
+    user.verification_token_expires = None
+    
     try:
         db.commit()
-        return {"message": "Email verified successfully"}
+        
+        # Auto-login: generate 1-hour session token
+        token = generate_token(user.id, max_age=3600)
+        
+        # Set session cookie
+        response.set_cookie(
+            key="session_token",
+            value=token,
+            httponly=True,
+            max_age=None,  # session cookie (expires on close)
+            samesite="lax",
+            secure=False
+        )
+        
+        return {
+            "access_token": token,
+            "token_type": "bearer",
+            "user": {
+                "id": user.id,
+                "full_name": user.full_name,
+                "email": user.email,
+                "is_verified": user.is_verified,
+                "created_at": user.created_at
+            }
+        }
     except Exception as e:
         db.rollback()
         raise HTTPException(
@@ -199,8 +259,22 @@ def resend_verification(payload: schemas.ForgotPasswordRequest, db: Session = De
     if user.is_verified:
         return {"message": "Email already verified"}
         
+    now_utc = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+    
+    # Enforce 60s rate limit
+    if user.verification_token_sent_at:
+        elapsed = (now_utc - user.verification_token_sent_at).total_seconds()
+        if elapsed < 60:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Please wait 60 seconds before requesting a new code."
+            )
+            
     verification_code = f"{random.randint(100000, 999999)}"
     user.verification_token = verification_code
+    user.verification_token_expires = now_utc + datetime.timedelta(hours=1)
+    user.verification_token_sent_at = now_utc
+    
     try:
         html_content = f"""
         <html>
@@ -218,7 +292,12 @@ def resend_verification(payload: schemas.ForgotPasswordRequest, db: Session = De
         send_email(user.email, "Verify Your ResumeIQ Account - New Code", html_content)
         db.commit()
         logger.info(f"Resent verification code for {user.email}: {verification_code}")
-        return {"message": "Verification code resent successfully"}
+        
+        response_data = {"message": "Verification code resent successfully"}
+        from app.config import settings
+        if getattr(settings, "ENVIRONMENT", "development") == "development":
+            response_data["otp"] = verification_code
+        return response_data
     except ValueError as e:
         db.rollback()
         logger.error(f"SMTP configuration error for resending verification code to {user.email}: {str(e)}")
@@ -245,9 +324,21 @@ def forgot_password(payload: schemas.ForgotPasswordRequest, db: Session = Depend
         # Avoid user enumeration, return same response
         return {"message": "If this email is registered, a reset code has been sent."}
         
+    now_utc = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+    
+    # Enforce 60s rate limit
+    if user.reset_token_sent_at:
+        elapsed = (now_utc - user.reset_token_sent_at).total_seconds()
+        if elapsed < 60:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Please wait 60 seconds before requesting a new code."
+            )
+            
     reset_code = f"{random.randint(100000, 999999)}"
     user.reset_token = reset_code
-    user.reset_token_expires = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) + datetime.timedelta(hours=1)
+    user.reset_token_expires = now_utc + datetime.timedelta(hours=1)
+    user.reset_token_sent_at = now_utc
     
     try:
         html_content = f"""
@@ -266,7 +357,12 @@ def forgot_password(payload: schemas.ForgotPasswordRequest, db: Session = Depend
         send_email(user.email, "Reset Your ResumeIQ Password", html_content)
         db.commit()
         logger.info(f"Password reset token for {user.email}: {reset_code}")
-        return {"message": "If this email is registered, a reset code has been sent."}
+        
+        response_data = {"message": "If this email is registered, a reset code has been sent."}
+        from app.config import settings
+        if getattr(settings, "ENVIRONMENT", "development") == "development":
+            response_data["otp"] = reset_code
+        return response_data
     except ValueError as e:
         db.rollback()
         logger.error(f"SMTP configuration error for password reset to {user.email}: {str(e)}")

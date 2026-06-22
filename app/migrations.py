@@ -19,12 +19,21 @@ def run_migrations(engine):
             if "verification_token" not in user_columns:
                 logger.info("Database migration: adding 'verification_token' column to users table...")
                 conn.execute(text("ALTER TABLE users ADD COLUMN verification_token VARCHAR(255) NULL"))
+            if "verification_token_expires" not in user_columns:
+                logger.info("Database migration: adding 'verification_token_expires' column to users table...")
+                conn.execute(text("ALTER TABLE users ADD COLUMN verification_token_expires DATETIME NULL"))
+            if "verification_token_sent_at" not in user_columns:
+                logger.info("Database migration: adding 'verification_token_sent_at' column to users table...")
+                conn.execute(text("ALTER TABLE users ADD COLUMN verification_token_sent_at DATETIME NULL"))
             if "reset_token" not in user_columns:
                 logger.info("Database migration: adding 'reset_token' column to users table...")
                 conn.execute(text("ALTER TABLE users ADD COLUMN reset_token VARCHAR(255) NULL"))
             if "reset_token_expires" not in user_columns:
                 logger.info("Database migration: adding 'reset_token_expires' column to users table...")
                 conn.execute(text("ALTER TABLE users ADD COLUMN reset_token_expires DATETIME NULL"))
+            if "reset_token_sent_at" not in user_columns:
+                logger.info("Database migration: adding 'reset_token_sent_at' column to users table...")
+                conn.execute(text("ALTER TABLE users ADD COLUMN reset_token_sent_at DATETIME NULL"))
 
             # Fetch table columns info
             result = conn.execute(text("PRAGMA table_info(resumes)"))

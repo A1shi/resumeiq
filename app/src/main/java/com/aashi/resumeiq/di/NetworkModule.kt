@@ -59,6 +59,7 @@ object NetworkModule {
             if (response.code == 401) {
                 runBlocking {
                     preferencesManager.clearSession()
+                    preferencesManager.setSessionExpired(true)
                 }
             }
             response

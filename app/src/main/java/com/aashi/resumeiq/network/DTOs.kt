@@ -12,7 +12,8 @@ data class UserCreate(
 
 data class UserLogin(
     val email: String,
-    val password: String
+    val password: String,
+    @SerializedName("remember_me") val rememberMe: Boolean = false
 )
 
 data class UserResponse(
@@ -20,7 +21,8 @@ data class UserResponse(
     @SerializedName("full_name") val fullName: String,
     val email: String,
     @SerializedName("is_verified") val isVerified: Boolean,
-    @SerializedName("created_at") val createdAt: String
+    @SerializedName("created_at") val createdAt: String,
+    val otp: String? = null
 )
 
 data class LoginResponse(
@@ -55,7 +57,8 @@ data class UserUpdate(
 )
 
 data class MessageResponse(
-    val message: String
+    val message: String,
+    val otp: String? = null
 )
 
 // --- Resume DTOs ---

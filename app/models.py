@@ -16,8 +16,11 @@ class User(Base):
     # Email verification and password reset fields
     is_verified: Any = Column(Boolean, default=False, nullable=False)
     verification_token: Any = Column(String(255), nullable=True)
+    verification_token_expires: Any = Column(DateTime, nullable=True)
+    verification_token_sent_at: Any = Column(DateTime, nullable=True)
     reset_token: Any = Column(String(255), nullable=True)
     reset_token_expires: Any = Column(DateTime, nullable=True)
+    reset_token_sent_at: Any = Column(DateTime, nullable=True)
 
     # Relationships
     resumes = relationship("Resume", back_populates="user", cascade="all, delete-orphan")

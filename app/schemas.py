@@ -331,6 +331,7 @@ class UserResponse(BaseModel):
     email: str
     is_verified: bool
     created_at: datetime
+    otp: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -339,6 +340,7 @@ class UserResponse(BaseModel):
 class UserLogin(BaseModel):
     email: str = Field(..., description="Email address of the user")
     password: str = Field(..., description="Password of the user")
+    remember_me: Optional[bool] = Field(default=False, description="Whether to keep the session active for 30 days")
 
     @field_validator("email")
     @classmethod

@@ -93,8 +93,8 @@ fun NavGraph(
                 email = email,
                 viewModel = authViewModel,
                 onVerificationSuccess = {
-                    navController.navigate(Screen.Login.route) {
-                        popUpTo(Screen.Register.route) { inclusive = true }
+                    navController.navigate(Screen.Dashboard.route) {
+                        popUpTo(Screen.Welcome.route) { inclusive = true }
                     }
                 },
                 onNavigateToLogin = {

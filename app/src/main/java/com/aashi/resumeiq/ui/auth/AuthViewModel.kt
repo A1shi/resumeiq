@@ -37,6 +37,14 @@ class AuthViewModel @Inject constructor(
     val userEmail = authRepository.userEmail
     val isUserVerified = authRepository.isUserVerified
     val isLoggedIn = authRepository.sessionToken
+    val rememberMe = authRepository.rememberMe
+    val sessionExpired = authRepository.sessionExpired
+
+    fun setSessionExpired(expired: Boolean) {
+        viewModelScope.launch {
+            authRepository.setSessionExpired(expired)
+        }
+    }
 
     private val _authState = MutableStateFlow<UiState<UserResponse>>(UiState.Idle)
     val authState: StateFlow<UiState<UserResponse>> = _authState.asStateFlow()
@@ -47,6 +55,9 @@ class AuthViewModel @Inject constructor(
     private val _actionState = MutableStateFlow<UiState<String>>(UiState.Idle)
     val actionState: StateFlow<UiState<String>> = _actionState.asStateFlow()
 
+    private val _devOtp = MutableStateFlow<String?>(null)
+    val devOtp: StateFlow<String?> = _devOtp.asStateFlow()
+
     private val _statsState = MutableStateFlow<UiState<DashboardStatsResponse>>(UiState.Idle)
     val statsState: StateFlow<UiState<DashboardStatsResponse>> = _statsState.asStateFlow()
 
@@ -54,6 +65,7 @@ class AuthViewModel @Inject constructor(
         _authState.value = UiState.Idle
         _loginState.value = UiState.Idle
         _actionState.value = UiState.Idle
+        _devOtp.value = null
     }
 
     private fun Throwable.toUiError(): UiState.Error {
@@ -84,15 +96,19 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             _authState.value = UiState.Loading
             authRepository.register(UserCreate(email, fullName, pass))
-                .onSuccess { _authState.value = UiState.Success(it) }
+                .onSuccess { 
+                    _authState.value = UiState.Success(it)
+                    _devOtp.value = it.otp
+                }
                 .onFailure { _authState.value = it.toUiError() }
         }
     }
 
-    fun login(email: String, pass: String) {
+    fun login(email: String, pass: String, rememberMe: Boolean = false) {
         viewModelScope.launch {
             _loginState.value = UiState.Loading
-            authRepository.login(UserLogin(email, pass))
+            authRepository.setRememberMe(rememberMe)
+            authRepository.login(UserLogin(email, pass, rememberMe))
                 .onSuccess { _loginState.value = UiState.Success(it) }
                 .onFailure { _loginState.value = it.toUiError() }
         }
@@ -111,7 +127,10 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             _actionState.value = UiState.Loading
             authRepository.resendVerificationCode(email)
-                .onSuccess { _actionState.value = UiState.Success("Code sent successfully") }
+                .onSuccess { 
+                    _actionState.value = UiState.Success("Code sent successfully")
+                    _devOtp.value = it.otp
+                }
                 .onFailure { _actionState.value = it.toUiError() }
         }
     }
@@ -120,7 +139,10 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             _actionState.value = UiState.Loading
             authRepository.forgotPassword(email)
-                .onSuccess { _actionState.value = UiState.Success("Password reset instructions sent") }
+                .onSuccess { 
+                    _actionState.value = UiState.Success("Password reset instructions sent")
+                    _devOtp.value = it.otp
+                }
                 .onFailure { _actionState.value = it.toUiError() }
         }
     }

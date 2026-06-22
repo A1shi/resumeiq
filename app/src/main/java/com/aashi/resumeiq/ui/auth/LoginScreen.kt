@@ -9,6 +9,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -19,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -34,6 +37,23 @@ fun LoginScreen(
     var password by rememberSaveable { mutableStateOf("") }
     var emailError by rememberSaveable { mutableStateOf<String?>(null) }
     var passwordError by rememberSaveable { mutableStateOf<String?>(null) }
+    var isPasswordVisible by rememberSaveable { mutableStateOf(false) }
+    
+    val savedRememberMe by viewModel.rememberMe.collectAsState(initial = false)
+    var rememberMe by remember { mutableStateOf(false) }
+    LaunchedEffect(savedRememberMe) {
+        rememberMe = savedRememberMe
+    }
+
+    val sessionExpired by viewModel.sessionExpired.collectAsState(initial = false)
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(sessionExpired) {
+        if (sessionExpired) {
+            snackbarHostState.showSnackbar("Your session has expired. Please sign in again.")
+            viewModel.setSessionExpired(false)
+        }
+    }
     
     val emailPattern = "^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,6}$".toRegex()
 
@@ -140,7 +160,17 @@ fun LoginScreen(
                 },
                 label = { Text("Password") },
                 leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "Password") },
-                visualTransformation = PasswordVisualTransformation(),
+                trailingIcon = {
+                    val image = if (isPasswordVisible)
+                        Icons.Default.Visibility
+                    else
+                        Icons.Default.VisibilityOff
+                    
+                    IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
+                        Icon(image, contentDescription = if (isPasswordVisible) "Hide password" else "Show password")
+                    }
+                },
+                visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 isError = passwordError != null,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
@@ -158,15 +188,34 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            TextButton(
-                onClick = onNavigateToForgotPassword,
-                modifier = Modifier.align(Alignment.End)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    text = "Forgot Password?",
-                    color = MaterialTheme.colorScheme.primary,
-                    fontSize = 14.sp
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = rememberMe,
+                        onCheckedChange = { rememberMe = it }
+                    )
+                    Text(
+                        text = "Remember me",
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                        fontSize = 14.sp
+                    )
+                }
+
+                TextButton(
+                    onClick = onNavigateToForgotPassword
+                ) {
+                    Text(
+                        text = "Forgot Password?",
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 14.sp
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -234,7 +283,7 @@ fun LoginScreen(
             Button(
                 onClick = {
                     if (validateInputs()) {
-                        viewModel.login(email.trim(), password)
+                        viewModel.login(email.trim(), password, rememberMe)
                     }
                 },
                 modifier = Modifier
@@ -274,5 +323,10 @@ fun LoginScreen(
                 }
             }
         }
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
     }
 }

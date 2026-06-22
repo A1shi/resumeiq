@@ -29,6 +29,16 @@ fun VerifyScreen(
 ) {
     var code by rememberSaveable { mutableStateOf("") }
     var codeError by rememberSaveable { mutableStateOf<String?>(null) }
+    
+    val devOtp by viewModel.devOtp.collectAsState()
+    
+    var countdown by remember { mutableStateOf(60) }
+    LaunchedEffect(key1 = countdown) {
+        if (countdown > 0) {
+            kotlinx.coroutines.delay(1000)
+            countdown -= 1
+        }
+    }
 
     fun validateInputs(): Boolean {
         var isValid = true
@@ -89,6 +99,30 @@ fun VerifyScreen(
                 fontSize = 14.sp
             )
 
+            if (!devOtp.isNullOrEmpty()) {
+                Surface(
+                    color = Color(0x1A10B981),
+                    shape = RoundedCornerShape(8.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.3f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "Development Mode - OTP: $devOtp",
+                            color = Color(0xFF10B981),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(32.dp))
 
             OutlinedTextField(
@@ -123,8 +157,18 @@ fun VerifyScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                TextButton(onClick = { viewModel.resendCode(email) }) {
-                    Text("Resend Code", color = MaterialTheme.colorScheme.primary, fontSize = 14.sp)
+                TextButton(
+                    onClick = { 
+                        viewModel.resendCode(email) 
+                        countdown = 60
+                    },
+                    enabled = countdown == 0
+                ) {
+                    Text(
+                        text = if (countdown > 0) "Resend Code (${countdown}s)" else "Resend Code",
+                        color = if (countdown > 0) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f) else MaterialTheme.colorScheme.primary,
+                        fontSize = 14.sp
+                    )
                 }
                 
                 TextButton(onClick = onNavigateToLogin) {

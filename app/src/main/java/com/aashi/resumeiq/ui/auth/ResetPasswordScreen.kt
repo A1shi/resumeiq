@@ -8,6 +8,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -18,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -32,6 +35,8 @@ fun ResetPasswordScreen(
     var newPassword by rememberSaveable { mutableStateOf("") }
     var tokenError by rememberSaveable { mutableStateOf<String?>(null) }
     var passwordError by rememberSaveable { mutableStateOf<String?>(null) }
+    var isPasswordVisible by rememberSaveable { mutableStateOf(false) }
+    val devOtp by viewModel.devOtp.collectAsState()
 
     fun validateInputs(): Boolean {
         var isValid = true
@@ -102,6 +107,30 @@ fun ResetPasswordScreen(
                 fontSize = 14.sp
             )
 
+            if (!devOtp.isNullOrEmpty()) {
+                Surface(
+                    color = Color(0x1A10B981),
+                    shape = RoundedCornerShape(8.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.3f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "Development Mode - OTP: $devOtp",
+                            color = Color(0xFF10B981),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(32.dp))
 
             // Reset Token
@@ -141,7 +170,17 @@ fun ResetPasswordScreen(
                 },
                 label = { Text("New Password (min 6 chars)") },
                 leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "New Password") },
-                visualTransformation = PasswordVisualTransformation(),
+                trailingIcon = {
+                    val image = if (isPasswordVisible)
+                        Icons.Default.Visibility
+                    else
+                        Icons.Default.VisibilityOff
+                    
+                    IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
+                        Icon(image, contentDescription = if (isPasswordVisible) "Hide password" else "Show password")
+                    }
+                },
+                visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 isError = passwordError != null,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
