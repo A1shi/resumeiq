@@ -111,13 +111,57 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    fun provideRenderRetryInterceptor(): Interceptor {
+        return Interceptor { chain ->
+            val request = chain.request()
+            var response: okhttp3.Response? = null
+            var exception: java.io.IOException? = null
+            var tryCount = 0
+            val maxLimit = 3
+            
+            while (tryCount < maxLimit) {
+                try {
+                    response = chain.proceed(request)
+                    if (response.isSuccessful || response.code in 400..499) {
+                        break
+                    }
+                    if (tryCount < maxLimit - 1) {
+                        response.close()
+                        Thread.sleep(2000L * (tryCount + 1))
+                    }
+                } catch (e: java.io.IOException) {
+                    exception = e
+                    if (tryCount < maxLimit - 1) {
+                        Thread.sleep(2000L * (tryCount + 1))
+                    }
+                }
+                tryCount++
+            }
+            
+            if (response != null) {
+                response
+            } else if (exception != null) {
+                throw exception
+            } else {
+                throw java.io.IOException("Unknown network error during retry")
+            }
+        }
+    }
+
+    @Provides
+    @Singleton
     fun provideOkHttpClient(
         loggingInterceptor: HttpLoggingInterceptor,
         authInterceptor: Interceptor,
         @javax.inject.Named("ResponseInterceptor") responseInterceptor: Interceptor,
-        @javax.inject.Named("DetailLoggingInterceptor") detailLoggingInterceptor: Interceptor
+        @javax.inject.Named("DetailLoggingInterceptor") detailLoggingInterceptor: Interceptor,
+        renderRetryInterceptor: Interceptor
     ): OkHttpClient {
         return OkHttpClient.Builder()
+            .connectTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+            .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+            .addInterceptor(renderRetryInterceptor)
             .addInterceptor(authInterceptor)
             .addInterceptor(responseInterceptor)
             .addInterceptor(detailLoggingInterceptor)

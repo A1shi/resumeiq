@@ -64,7 +64,8 @@ class AuthRepository(
 
     suspend fun verifyEmail(email: String, code: String): Result<LoginResponse> {
         return try {
-            val response = apiService.verifyEmail(UserVerify(email, code))
+            val remember = kotlinx.coroutines.flow.first(preferencesManager.rememberMe)
+            val response = apiService.verifyEmail(UserVerify(email, code, remember))
             preferencesManager.saveSession(
                 token = response.accessToken,
                 userId = response.user.id,

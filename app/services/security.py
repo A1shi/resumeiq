@@ -74,15 +74,8 @@ def verify_token(token: str, max_age: int = 3600) -> int:
             raise ValueError("Invalid session token")
             
         current_time = time.time()
-        # If val is a legacy timestamp (creation time), it is older than current_time - 30 days.
-        # Otherwise it is a future expiry timestamp.
-        if val < current_time - 2592000:
-            if current_time - val > max_age:
-                raise ValueError("Token expired")
-        else:
-            if current_time > val:
-                raise ValueError("Token expired")
-            
+        
+        # Check signature first to prevent timing/tampering attacks
         payload = f"{user_id_str}.{expiry_or_ts_str}"
         expected_signature = hmac.new(
             SECRET_KEY.encode(),
@@ -92,6 +85,10 @@ def verify_token(token: str, max_age: int = 3600) -> int:
         
         if not hmac.compare_digest(signature, expected_signature):
             raise ValueError("Invalid session token")
+            
+        # val is the future expiry timestamp. If current time is past val, it is expired.
+        if current_time > val:
+            raise ValueError("Token expired")
             
         return int(user_id_str)
     except ValueError as ve:

@@ -33,7 +33,8 @@ data class LoginResponse(
 
 data class UserVerify(
     val email: String,
-    val token: String
+    val token: String,
+    @SerializedName("remember_me") val rememberMe: Boolean = false
 )
 
 data class ForgotPasswordRequest(

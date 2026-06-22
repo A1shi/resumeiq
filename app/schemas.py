@@ -377,6 +377,7 @@ class PasswordChange(BaseModel):
 class UserVerify(BaseModel):
     email: str = Field(..., description="Email address of the user")
     token: str = Field(..., description="6-digit verification code")
+    remember_me: Optional[bool] = Field(default=False, description="Whether to keep the session active for 30 days")
 
     @field_validator("email")
     @classmethod

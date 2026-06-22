@@ -1196,7 +1196,7 @@ function App() {
       const res = await fetch("/api/v1/users/verify-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: currentUser.email, token: verificationCode })
+        body: JSON.stringify({ email: currentUser.email, token: verificationCode, remember_me: rememberMe })
       });
       const data = await res.json();
       if (res.ok) {

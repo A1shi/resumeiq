@@ -13,6 +13,21 @@ from app.services.email import send_email
 router = APIRouter(prefix="/users", tags=["Users"])
 logger = logging.getLogger("app.routers.users")
 
+def should_skip_email() -> bool:
+    from app.config import settings
+    if settings.ENVIRONMENT == "production":
+        return False
+    is_smtp_setup = bool(
+        settings.SMTP_HOST and 
+        settings.SMTP_PORT and 
+        settings.SMTP_USERNAME and 
+        settings.SMTP_PASSWORD and 
+        settings.SMTP_SENDER
+    )
+    if settings.ENVIRONMENT == "development" or not is_smtp_setup:
+        return True
+    return False
+
 def create_user(user_in: schemas.UserCreate, db: Session) -> models.User:
     """
     Validates email uniqueness, hashes the password, and stores the user in the database.
@@ -64,20 +79,23 @@ def create_user(user_in: schemas.UserCreate, db: Session) -> models.User:
             logger.info(f"First user registered. Migrated {num_resumes} resumes, {num_matches} matches, and {num_sims} simulations to user ID {db_user.id}")
             
         if not is_verified:
-            html_content = f"""
-            <html>
-                <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #1F2937;">
-                    <h2 style="color: #4F46E5;">Verify Your ResumeIQ Account</h2>
-                    <p>Thank you for registering. Please use the following One-Time Password (OTP) to complete your registration:</p>
-                    <div style="font-size: 24px; font-weight: bold; letter-spacing: 2px; color: #4F46E5; margin: 20px 0; background: #F3F4F6; padding: 10px 20px; display: inline-block; border-radius: 8px;">
-                        {verification_code}
-                    </div>
-                    <p>This code is valid for 1 hour.</p>
-                    <p>If you did not request this, please ignore this email.</p>
-                </body>
-            </html>
-            """
-            send_email(db_user.email, "Verify Your ResumeIQ Account", html_content)
+            if should_skip_email():
+                logger.info(f"Skipping verification email sending for {db_user.email} (Development/missing SMTP). OTP: {verification_code}")
+            else:
+                html_content = f"""
+                <html>
+                    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #1F2937;">
+                        <h2 style="color: #4F46E5;">Verify Your ResumeIQ Account</h2>
+                        <p>Thank you for registering. Please use the following One-Time Password (OTP) to complete your registration:</p>
+                        <div style="font-size: 24px; font-weight: bold; letter-spacing: 2px; color: #4F46E5; margin: 20px 0; background: #F3F4F6; padding: 10px 20px; display: inline-block; border-radius: 8px;">
+                            {verification_code}
+                        </div>
+                        <p>This code is valid for 1 hour.</p>
+                        <p>If you did not request this, please ignore this email.</p>
+                    </body>
+                </html>
+                """
+                send_email(db_user.email, "Verify Your ResumeIQ Account", html_content)
  
         db.commit()
         db.refresh(db_user)
@@ -213,20 +231,23 @@ def verify_email(payload: schemas.UserVerify, response: Response, db: Session = 
     try:
         db.commit()
         
-        # Auto-login: generate 1-hour session token
-        token = generate_token(user.id, max_age=3600)
+        # Auto-login: generate session token
+        max_age = 2592000 if payload.remember_me else 3600
+        token = generate_token(user.id, max_age=max_age)
         
         # Set session cookie
+        cookie_max_age = 2592000 if payload.remember_me else None
         response.set_cookie(
             key="session_token",
             value=token,
             httponly=True,
-            max_age=None,  # session cookie (expires on close)
+            max_age=cookie_max_age,
             samesite="lax",
             secure=False
         )
         
         return {
+            "message": "Email verified successfully",
             "access_token": token,
             "token_type": "bearer",
             "user": {
@@ -276,20 +297,23 @@ def resend_verification(payload: schemas.ForgotPasswordRequest, db: Session = De
     user.verification_token_sent_at = now_utc
     
     try:
-        html_content = f"""
-        <html>
-            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #1F2937;">
-                <h2 style="color: #4F46E5;">Verify Your ResumeIQ Account</h2>
-                <p>You requested to resend the verification code. Please use the following One-Time Password (OTP) to complete your registration:</p>
-                <div style="font-size: 24px; font-weight: bold; letter-spacing: 2px; color: #4F46E5; margin: 20px 0; background: #F3F4F6; padding: 10px 20px; display: inline-block; border-radius: 8px;">
-                    {verification_code}
-                </div>
-                <p>This code is valid for 1 hour.</p>
-                <p>If you did not request this, please ignore this email.</p>
-            </body>
-        </html>
-        """
-        send_email(user.email, "Verify Your ResumeIQ Account - New Code", html_content)
+        if should_skip_email():
+            logger.info(f"Skipping resend verification email for {user.email} (Development/missing SMTP). OTP: {verification_code}")
+        else:
+            html_content = f"""
+            <html>
+                <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #1F2937;">
+                    <h2 style="color: #4F46E5;">Verify Your ResumeIQ Account</h2>
+                    <p>You requested to resend the verification code. Please use the following One-Time Password (OTP) to complete your registration:</p>
+                    <div style="font-size: 24px; font-weight: bold; letter-spacing: 2px; color: #4F46E5; margin: 20px 0; background: #F3F4F6; padding: 10px 20px; display: inline-block; border-radius: 8px;">
+                        {verification_code}
+                    </div>
+                    <p>This code is valid for 1 hour.</p>
+                    <p>If you did not request this, please ignore this email.</p>
+                </body>
+            </html>
+            """
+            send_email(user.email, "Verify Your ResumeIQ Account - New Code", html_content)
         db.commit()
         logger.info(f"Resent verification code for {user.email}: {verification_code}")
         
@@ -341,20 +365,23 @@ def forgot_password(payload: schemas.ForgotPasswordRequest, db: Session = Depend
     user.reset_token_sent_at = now_utc
     
     try:
-        html_content = f"""
-        <html>
-            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #1F2937;">
-                <h2 style="color: #4F46E5;">Reset Your ResumeIQ Password</h2>
-                <p>A password reset has been requested for your ResumeIQ account. Please use the following One-Time Password (OTP) to reset your password:</p>
-                <div style="font-size: 24px; font-weight: bold; letter-spacing: 2px; color: #4F46E5; margin: 20px 0; background: #F3F4F6; padding: 10px 20px; display: inline-block; border-radius: 8px;">
-                    {reset_code}
-                </div>
-                <p>This code is valid for 1 hour.</p>
-                <p>If you did not request this password reset, please ignore this email. Your password will remain secure.</p>
-            </body>
-        </html>
-        """
-        send_email(user.email, "Reset Your ResumeIQ Password", html_content)
+        if should_skip_email():
+            logger.info(f"Skipping password reset email for {user.email} (Development/missing SMTP). OTP: {reset_code}")
+        else:
+            html_content = f"""
+            <html>
+                <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #1F2937;">
+                    <h2 style="color: #4F46E5;">Reset Your ResumeIQ Password</h2>
+                    <p>A password reset has been requested for your ResumeIQ account. Please use the following One-Time Password (OTP) to reset your password:</p>
+                    <div style="font-size: 24px; font-weight: bold; letter-spacing: 2px; color: #4F46E5; margin: 20px 0; background: #F3F4F6; padding: 10px 20px; display: inline-block; border-radius: 8px;">
+                        {reset_code}
+                    </div>
+                    <p>This code is valid for 1 hour.</p>
+                    <p>If you did not request this password reset, please ignore this email. Your password will remain secure.</p>
+                </body>
+            </html>
+            """
+            send_email(user.email, "Reset Your ResumeIQ Password", html_content)
         db.commit()
         logger.info(f"Password reset token for {user.email}: {reset_code}")
         
@@ -454,20 +481,27 @@ def update_profile(
         if not is_verified:
             verification_code = f"{random.randint(100000, 999999)}"
             current_user.verification_token = verification_code
-            html_content = f"""
-            <html>
-                <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #1F2937;">
-                    <h2 style="color: #4F46E5;">Verify Your New ResumeIQ Email Address</h2>
-                    <p>You requested to change your email address. Please use the following One-Time Password (OTP) to verify your new email address:</p>
-                    <div style="font-size: 24px; font-weight: bold; letter-spacing: 2px; color: #4F46E5; margin: 20px 0; background: #F3F4F6; padding: 10px 20px; display: inline-block; border-radius: 8px;">
-                        {verification_code}
-                    </div>
-                    <p>This code is valid for 1 hour.</p>
-                    <p>If you did not request this email change, please secure your account immediately.</p>
-                </body>
-            </html>
-            """
-            send_email(current_user.email, "Verify Your New ResumeIQ Email Address", html_content)
+            if should_skip_email():
+                logger.info(f"Skipping verification email sending for new email {current_user.email} (Development/missing SMTP). OTP: {verification_code}")
+            else:
+                html_content = f"""
+                <html>
+                    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #1F2937;">
+                        <h2 style="color: #4F46E5;">Verify Your New ResumeIQ Email Address</h2>
+                        <p>You requested to change your email address. Please use the following One-Time Password (OTP) to verify your new email address:</p>
+                        <div style="font-size: 24px; font-weight: bold; letter-spacing: 2px; color: #4F46E5; margin: 20px 0; background: #F3F4F6; padding: 10px 20px; display: inline-block; border-radius: 8px;">
+                            {verification_code}
+                        </div>
+                        <p>This code is valid for 1 hour.</p>
+                        <p>If you did not request this email change, please secure your account immediately.</p>
+                    </body>
+                </html>
+                """
+                send_email(current_user.email, "Verify Your New ResumeIQ Email Address", html_content)
+            
+            from app.config import settings
+            if getattr(settings, "ENVIRONMENT", "development") == "development":
+                current_user.otp = verification_code
             logger.info(f"User changed email to {user_update.email}. New verification code generated: {verification_code}")
         else:
             current_user.verification_token = None

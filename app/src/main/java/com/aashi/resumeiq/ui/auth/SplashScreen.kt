@@ -43,6 +43,9 @@ fun SplashScreen(
         val remember = viewModel.rememberMe.first()
         if (!remember) {
             viewModel.logout()
+            while (!viewModel.isLoggedIn.first().isNullOrEmpty()) {
+                delay(10)
+            }
         }
 
         val token = viewModel.isLoggedIn.first()
