@@ -41,33 +41,65 @@ def send_email(to_email: str, subject: str, html_content: str):
 
     server = None
     try:
-        logger.info(f"Connecting to SMTP server {settings.SMTP_HOST}:{settings.SMTP_PORT}...")
-        server = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=30)
-        logger.info("SMTP connection established successfully.")
-        
-        logger.info("Calling EHLO...")
-        server.ehlo()
-        
-        if settings.SMTP_USE_TLS:
-            logger.info("Starting TLS...")
-            server.starttls()
-            logger.info("TLS started successfully. Calling EHLO again...")
+        # Step 1: Creating SMTP client
+        try:
+            logger.info("Creating SMTP client...")
+            server = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=30)
+            logger.info("SMTP client created.")
+        except Exception as e:
+            logger.error(f"Error during SMTP client creation: {e}", exc_info=True)
+            raise
+
+        # Step 2: Calling EHLO
+        try:
+            logger.info("Calling EHLO...")
             server.ehlo()
+            logger.info("EHLO successful.")
+        except Exception as e:
+            logger.error(f"Error during EHLO: {e}", exc_info=True)
+            raise
+
+        # Step 3: Starting STARTTLS
+        if settings.SMTP_USE_TLS:
+            try:
+                logger.info("Starting STARTTLS...")
+                server.starttls()
+                logger.info("STARTTLS successful.")
+            except Exception as e:
+                logger.error(f"Error during STARTTLS: {e}", exc_info=True)
+                raise
             
-        logger.info("Logging into SMTP server...")
-        server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
-        logger.info("Login successful.")
-        
-        logger.info(f"Sending email to {to_email}...")
-        server.send_message(msg)
-        logger.info(f"Email sent successfully to {to_email}")
+            try:
+                logger.info("Calling EHLO...")
+                server.ehlo()
+                logger.info("EHLO successful.")
+            except Exception as e:
+                logger.error(f"Error during EHLO after STARTTLS: {e}", exc_info=True)
+                raise
+
+        # Step 4: Logging into Gmail
+        try:
+            logger.info("Logging into Gmail...")
+            server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
+            logger.info("Login successful.")
+        except Exception as e:
+            logger.error(f"Error during Gmail login: {e}", exc_info=True)
+            raise
+
+        # Step 5: Sending email
+        try:
+            logger.info("Sending email...")
+            server.send_message(msg)
+            logger.info("Email sent successfully.")
+        except Exception as e:
+            logger.error(f"Error during sending email: {e}", exc_info=True)
+            raise
+
     except smtplib.SMTPException as e:
         error_msg = f"SMTP error occurred while sending email: {str(e)}"
-        logger.error(error_msg, exc_info=True)
         raise RuntimeError(error_msg) from e
     except Exception as e:
         error_msg = f"Unexpected error occurred while sending email: {str(e)}"
-        logger.error(error_msg, exc_info=True)
         raise RuntimeError(error_msg) from e
     finally:
         if server:
