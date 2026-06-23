@@ -43,18 +43,23 @@ def send_email(to_email: str, subject: str, html_content: str):
         if settings.SMTP_USE_SSL:
             logger.info(f"Connecting to SMTP server {settings.SMTP_HOST}:{settings.SMTP_PORT} via SSL...")
             server = smtplib.SMTP_SSL(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10)
+            logger.info("SSL connection established successfully.")
         else:
             logger.info(f"Connecting to SMTP server {settings.SMTP_HOST}:{settings.SMTP_PORT}...")
             server = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10)
+            logger.info("SMTP connection established successfully.")
             if settings.SMTP_USE_TLS:
                 logger.info("Starting TLS...")
                 server.starttls()
+                logger.info("TLS started successfully.")
         
         logger.info("Logging into SMTP server...")
         server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
+        logger.info("Login successful.")
         
         logger.info(f"Sending email to {to_email}...")
         server.sendmail(settings.SMTP_SENDER, [to_email], msg.as_string())
+        logger.info("Email sent successfully from sendmail.")
         server.quit()
         logger.info(f"Email sent successfully to {to_email}")
     except smtplib.SMTPException as e:

@@ -1,6 +1,6 @@
 import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field
+from pydantic import Field, field_validator
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -24,6 +24,13 @@ class Settings(BaseSettings):
     SMTP_SENDER: str = Field(default="")
     SMTP_USE_TLS: bool = Field(default=True)
     SMTP_USE_SSL: bool = Field(default=False)
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def strip_strings(cls, v):
+        if isinstance(v, str):
+            return v.strip().replace("\r", "").replace("\n", "")
+        return v
 
 # Instantiate settings
 settings = Settings()
