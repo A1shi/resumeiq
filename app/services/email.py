@@ -30,6 +30,8 @@ def send_email(to_email: str, subject: str, html_content: str):
         logger.error(error_msg)
         raise ValueError(error_msg)
 
+    logger.info("SMTP configuration loaded")
+
     # Construct the message
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
@@ -41,70 +43,67 @@ def send_email(to_email: str, subject: str, html_content: str):
 
     server = None
     try:
-        # Step 1: Creating SMTP client
+        # Create SMTP client
         try:
-            logger.info("Creating SMTP client...")
-            server = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=30)
-            logger.info("SMTP client created.")
+            logger.info("Creating SMTP client")
+            if getattr(settings, "SMTP_USE_SSL", False):
+                server = smtplib.SMTP_SSL(settings.SMTP_HOST, settings.SMTP_PORT, timeout=30)
+            else:
+                server = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=30)
+            logger.info("SMTP client created")
         except Exception as e:
-            logger.error(f"Error during SMTP client creation: {e}", exc_info=True)
-            raise
+            logger.error(f"Failed to create SMTP client: {e}", exc_info=True)
+            raise RuntimeError(f"Failed to create SMTP client: {e}") from e
 
-        # Step 2: Calling EHLO
+        # Call EHLO
         try:
-            logger.info("Calling EHLO...")
+            logger.info("Calling EHLO")
             server.ehlo()
-            logger.info("EHLO successful.")
+            logger.info("EHLO successful")
         except Exception as e:
-            logger.error(f"Error during EHLO: {e}", exc_info=True)
-            raise
+            logger.error(f"Failed during initial EHLO: {e}", exc_info=True)
+            raise RuntimeError(f"Failed during initial EHLO: {e}") from e
 
-        # Step 3: Starting STARTTLS
-        if settings.SMTP_USE_TLS:
+        # STARTTLS
+        if getattr(settings, "SMTP_USE_TLS", True):
             try:
-                logger.info("Starting STARTTLS...")
+                logger.info("Starting STARTTLS")
                 server.starttls()
-                logger.info("STARTTLS successful.")
+                logger.info("STARTTLS successful")
             except Exception as e:
-                logger.error(f"Error during STARTTLS: {e}", exc_info=True)
-                raise
-            
+                logger.error(f"Failed during STARTTLS handshake: {e}", exc_info=True)
+                raise RuntimeError(f"Failed during STARTTLS handshake: {e}") from e
+
             try:
-                logger.info("Calling EHLO...")
+                logger.info("Calling EHLO")
                 server.ehlo()
-                logger.info("EHLO successful.")
+                logger.info("EHLO successful")
             except Exception as e:
-                logger.error(f"Error during EHLO after STARTTLS: {e}", exc_info=True)
-                raise
+                logger.error(f"Failed during EHLO after STARTTLS: {e}", exc_info=True)
+                raise RuntimeError(f"Failed during EHLO after STARTTLS: {e}") from e
 
-        # Step 4: Logging into Gmail
+        # Login
         try:
-            logger.info("Logging into Gmail...")
+            logger.info("Logging in")
             server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
-            logger.info("Login successful.")
+            logger.info("Login successful")
         except Exception as e:
-            logger.error(f"Error during Gmail login: {e}", exc_info=True)
-            raise
+            logger.error(f"Failed to log into SMTP server: {e}", exc_info=True)
+            raise RuntimeError(f"Failed to log into SMTP server: {e}") from e
 
-        # Step 5: Sending email
+        # Send
         try:
-            logger.info("Sending email...")
+            logger.info("Sending email")
             server.send_message(msg)
-            logger.info("Email sent successfully.")
+            logger.info("Email sent successfully")
         except Exception as e:
-            logger.error(f"Error during sending email: {e}", exc_info=True)
-            raise
+            logger.error(f"Failed to send email message: {e}", exc_info=True)
+            raise RuntimeError(f"Failed to send email message: {e}") from e
 
-    except smtplib.SMTPException as e:
-        error_msg = f"SMTP error occurred while sending email: {str(e)}"
-        raise RuntimeError(error_msg) from e
-    except Exception as e:
-        error_msg = f"Unexpected error occurred while sending email: {str(e)}"
-        raise RuntimeError(error_msg) from e
     finally:
         if server:
             try:
-                logger.info("Quitting SMTP server connection...")
                 server.quit()
+                logger.info("SMTP connection closed")
             except Exception as e:
-                logger.warning(f"Error during SMTP quit: {e}")
+                logger.warning(f"Error while closing SMTP connection: {e}")
