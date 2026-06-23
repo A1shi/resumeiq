@@ -11,3 +11,4 @@ google-generativeai
 jinja2
 reportlab
 Pillow
+requests
