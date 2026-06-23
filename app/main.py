@@ -130,3 +130,59 @@ def health_check():
         "gemini_api_configured": True,
         "database": settings.DATABASE_URL.split("://")[0]
     }
+
+
+@app.get("/network-test")
+def network_test():
+    import socket
+    import time
+    
+    targets = [
+        ("smtp-relay.brevo.com", 587),
+        ("smtp.gmail.com", 587),
+        ("google.com", 443)
+    ]
+    
+    results = []
+    for host, port in targets:
+        resolved_ips = []
+        success = False
+        exception_msg = ""
+        conn_time = None
+        
+        # 1. Resolve host
+        try:
+            addr_info = socket.getaddrinfo(host, port, proto=socket.IPPROTO_TCP)
+            resolved_ips = list(set([item[4][0] for item in addr_info]))
+        except Exception as e:
+            exception_msg = f"DNS Resolution failed: {str(e)}"
+            results.append({
+                "host": f"{host}:{port}",
+                "resolved_ips": [],
+                "status": "failure",
+                "exception_message": exception_msg,
+                "connection_time_ms": None
+            })
+            continue
+
+        # 2. Attempt TCP connection
+        start_time = time.perf_counter()
+        try:
+            conn = socket.create_connection((host, port), timeout=10)
+            conn.close()
+            success = True
+            conn_time = round((time.perf_counter() - start_time) * 1000, 2)
+        except Exception as e:
+            exception_msg = str(e)
+            conn_time = round((time.perf_counter() - start_time) * 1000, 2)
+            
+        results.append({
+            "host": f"{host}:{port}",
+            "resolved_ips": resolved_ips,
+            "status": "success" if success else "failure",
+            "exception_message": exception_msg if not success else "",
+            "connection_time_ms": conn_time
+        })
+        
+    return {"results": results}
+
