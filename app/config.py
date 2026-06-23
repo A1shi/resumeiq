@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = Field(default="development")
     DATABASE_URL: str = Field(default="sqlite:///./resumes.db")
     GEMINI_API_KEY: str = Field(default="")
+    BREVO_API_KEY: str = Field(default="")
     SECRET_KEY: str = Field(default="antigravity_secret_session_key_2026")
     UPLOAD_DIR: str = Field(default="uploads")
     

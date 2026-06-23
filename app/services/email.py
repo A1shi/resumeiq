@@ -11,12 +11,10 @@ def send_email(to_email: str, subject: str, html_content: str):
     Sends an email using the Brevo REST API over HTTPS.
     Reads BREVO_API_KEY from environment variables and parses SMTP_SENDER for verified email.
     """
-    # 1. Read BREVO_API_KEY from environment variables
-    brevo_api_key = os.environ.get("BREVO_API_KEY", "")
-    if not brevo_api_key:
-        error_msg = "BREVO_API_KEY is not configured in the environment variables."
-        logger.error(error_msg)
-        raise ValueError(error_msg)
+    # 1. Validate BREVO_API_KEY from settings
+    if not settings.BREVO_API_KEY:
+        raise ValueError("BREVO_API_KEY is not configured.")
+    logger.info("BREVO_API_KEY loaded successfully.")
 
     # 2. Extract verified sender email from settings.SMTP_SENDER
     sender_raw = settings.SMTP_SENDER
@@ -33,7 +31,7 @@ def send_email(to_email: str, subject: str, html_content: str):
     # 3. Post request to Brevo SMTP email API
     url = "https://api.brevo.com/v3/smtp/email"
     headers = {
-        "api-key": brevo_api_key,
+        "api-key": settings.BREVO_API_KEY,
         "Content-Type": "application/json"
     }
 
