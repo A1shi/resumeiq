@@ -1,109 +1,68 @@
-import smtplib
+import os
+import re
 import logging
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import requests
 from app.config import settings
 
 logger = logging.getLogger("app.services.email")
 
 def send_email(to_email: str, subject: str, html_content: str):
     """
-    Sends an email using the configured SMTP settings.
-    Validates environment variables and raises exceptions if SMTP is not configured
-    or if sending fails.
+    Sends an email using the Brevo REST API over HTTPS.
+    Reads BREVO_API_KEY from environment variables and parses SMTP_SENDER for verified email.
     """
-    # Validate environment variables
-    missing_vars = []
-    if not settings.SMTP_HOST:
-        missing_vars.append("SMTP_HOST")
-    if not settings.SMTP_PORT:
-        missing_vars.append("SMTP_PORT")
-    if not settings.SMTP_USERNAME:
-        missing_vars.append("SMTP_USERNAME")
-    if not settings.SMTP_PASSWORD:
-        missing_vars.append("SMTP_PASSWORD")
-    if not settings.SMTP_SENDER:
-        missing_vars.append("SMTP_SENDER")
-
-    if missing_vars:
-        error_msg = f"SMTP configuration is incomplete. Missing variables: {', '.join(missing_vars)}"
+    # 1. Read BREVO_API_KEY from environment variables
+    brevo_api_key = os.environ.get("BREVO_API_KEY", "")
+    if not brevo_api_key:
+        error_msg = "BREVO_API_KEY is not configured in the environment variables."
         logger.error(error_msg)
         raise ValueError(error_msg)
 
-    logger.info("SMTP configuration loaded")
+    # 2. Extract verified sender email from settings.SMTP_SENDER
+    sender_raw = settings.SMTP_SENDER
+    if not sender_raw:
+        error_msg = "SMTP_SENDER is not configured."
+        logger.error(error_msg)
+        raise ValueError(error_msg)
 
-    # Construct the message
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"] = settings.SMTP_SENDER
-    msg["To"] = to_email
+    sender_email = sender_raw
+    email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', sender_raw)
+    if email_match:
+        sender_email = email_match.group(0)
 
-    part = MIMEText(html_content, "html")
-    msg.attach(part)
+    # 3. Post request to Brevo SMTP email API
+    url = "https://api.brevo.com/v3/smtp/email"
+    headers = {
+        "api-key": brevo_api_key,
+        "Content-Type": "application/json"
+    }
 
-    server = None
+    payload = {
+        "sender": {
+            "name": "ResumeIQ",
+            "email": sender_email
+        },
+        "to": [
+            {
+                "email": to_email
+            }
+        ],
+        "subject": subject,
+        "htmlContent": html_content
+    }
+
     try:
-        # Create SMTP client
-        try:
-            logger.info("Creating SMTP client")
-            if getattr(settings, "SMTP_USE_SSL", False):
-                server = smtplib.SMTP_SSL(settings.SMTP_HOST, settings.SMTP_PORT, timeout=30)
-            else:
-                server = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=30)
-            logger.info("SMTP client created")
-        except Exception as e:
-            logger.error(f"Failed to create SMTP client: {e}", exc_info=True)
-            raise RuntimeError(f"Failed to create SMTP client: {e}") from e
-
-        # Call EHLO
-        try:
-            logger.info("Calling EHLO")
-            server.ehlo()
-            logger.info("EHLO successful")
-        except Exception as e:
-            logger.error(f"Failed during initial EHLO: {e}", exc_info=True)
-            raise RuntimeError(f"Failed during initial EHLO: {e}") from e
-
-        # STARTTLS
-        if getattr(settings, "SMTP_USE_TLS", True):
-            try:
-                logger.info("Starting STARTTLS")
-                server.starttls()
-                logger.info("STARTTLS successful")
-            except Exception as e:
-                logger.error(f"Failed during STARTTLS handshake: {e}", exc_info=True)
-                raise RuntimeError(f"Failed during STARTTLS handshake: {e}") from e
-
-            try:
-                logger.info("Calling EHLO")
-                server.ehlo()
-                logger.info("EHLO successful")
-            except Exception as e:
-                logger.error(f"Failed during EHLO after STARTTLS: {e}", exc_info=True)
-                raise RuntimeError(f"Failed during EHLO after STARTTLS: {e}") from e
-
-        # Login
-        try:
-            logger.info("Logging in")
-            server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
-            logger.info("Login successful")
-        except Exception as e:
-            logger.error(f"Failed to log into SMTP server: {e}", exc_info=True)
-            raise RuntimeError(f"Failed to log into SMTP server: {e}") from e
-
-        # Send
-        try:
-            logger.info("Sending email")
-            server.send_message(msg)
-            logger.info("Email sent successfully")
-        except Exception as e:
-            logger.error(f"Failed to send email message: {e}", exc_info=True)
-            raise RuntimeError(f"Failed to send email message: {e}") from e
-
-    finally:
-        if server:
-            try:
-                server.quit()
-                logger.info("SMTP connection closed")
-            except Exception as e:
-                logger.warning(f"Error while closing SMTP connection: {e}")
+        logger.info(f"Sending email via Brevo REST API to {to_email}...")
+        response = requests.post(url, json=payload, headers=headers, timeout=10)
+        
+        # If response status is not 201, log HTTP status, body, and exception details
+        if response.status_code == 201:
+            logger.info(f"Email sent successfully to {to_email}")
+        else:
+            error_detail = f"Brevo API error: HTTP Status {response.status_code}, Body: {response.text}"
+            logger.error(error_detail)
+            raise RuntimeError(error_detail)
+    except Exception as e:
+        error_detail = f"Failed to send email via Brevo REST API: {str(e)}"
+        logger.error(error_detail, exc_info=True)
+        raise RuntimeError(error_detail) from e
