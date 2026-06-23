@@ -4,6 +4,7 @@ import com.aashi.resumeiq.data.PreferencesManager
 import com.aashi.resumeiq.network.*
 import com.aashi.resumeiq.utils.toAppError
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 
 class AuthRepository(
     private val apiService: ResumeIQApiService,
@@ -64,7 +65,7 @@ class AuthRepository(
 
     suspend fun verifyEmail(email: String, code: String): Result<LoginResponse> {
         return try {
-            val remember = kotlinx.coroutines.flow.first(preferencesManager.rememberMe)
+            val remember = preferencesManager.rememberMe.first()
             val response = apiService.verifyEmail(UserVerify(email, code, remember))
             preferencesManager.saveSession(
                 token = response.accessToken,

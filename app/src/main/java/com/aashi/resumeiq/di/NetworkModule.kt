@@ -15,6 +15,23 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import javax.inject.Singleton
+import javax.inject.Qualifier
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class AuthInterceptor
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class ResponseInterceptor
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class DetailLoggingInterceptor
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class RenderRetryInterceptor
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -32,6 +49,7 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    @AuthInterceptor
     fun provideAuthInterceptor(preferencesManager: PreferencesManager): Interceptor {
         return Interceptor { chain ->
             val originalRequest = chain.request()
@@ -51,7 +69,7 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    @javax.inject.Named("ResponseInterceptor")
+    @ResponseInterceptor
     fun provideResponseInterceptor(preferencesManager: PreferencesManager): Interceptor {
         return Interceptor { chain ->
             val request = chain.request()
@@ -68,7 +86,7 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    @javax.inject.Named("DetailLoggingInterceptor")
+    @DetailLoggingInterceptor
     fun provideDetailLoggingInterceptor(): Interceptor {
         return Interceptor { chain ->
             val request = chain.request()
@@ -111,6 +129,7 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    @RenderRetryInterceptor
     fun provideRenderRetryInterceptor(): Interceptor {
         return Interceptor { chain ->
             val request = chain.request()
@@ -152,10 +171,10 @@ object NetworkModule {
     @Singleton
     fun provideOkHttpClient(
         loggingInterceptor: HttpLoggingInterceptor,
-        authInterceptor: Interceptor,
-        @javax.inject.Named("ResponseInterceptor") responseInterceptor: Interceptor,
-        @javax.inject.Named("DetailLoggingInterceptor") detailLoggingInterceptor: Interceptor,
-        renderRetryInterceptor: Interceptor
+        @AuthInterceptor authInterceptor: Interceptor,
+        @ResponseInterceptor responseInterceptor: Interceptor,
+        @DetailLoggingInterceptor detailLoggingInterceptor: Interceptor,
+        @RenderRetryInterceptor renderRetryInterceptor: Interceptor
     ): OkHttpClient {
         return OkHttpClient.Builder()
             .connectTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
