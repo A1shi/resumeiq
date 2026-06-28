@@ -973,6 +973,34 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
         font_family = "DejaVuSans"
         font_bold = "DejaVuSans-Bold"
         font_italic = "DejaVuSans-Oblique"
+    elif template_name in ["ATS Clean", "ATS Clean Resume"]:
+        primary_color = colors.HexColor("#0f172a")
+        accent_color = colors.HexColor("#475569")
+        divider_color = colors.HexColor("#0f172a")
+        font_family = "DejaVuSans"
+        font_bold = "DejaVuSans-Bold"
+        font_italic = "DejaVuSans-Oblique"
+    elif template_name in ["Blue Sidebar", "Blue Sidebar Resume"]:
+        primary_color = colors.HexColor("#1e3a8a")
+        accent_color = colors.HexColor("#3b82f6")
+        divider_color = colors.HexColor("#cbd5e1")
+        font_family = "DejaVuSans"
+        font_bold = "DejaVuSans-Bold"
+        font_italic = "DejaVuSans-Oblique"
+    elif template_name in ["Elegant", "Elegant Resume"]:
+        primary_color = colors.HexColor("#7c2d12")
+        accent_color = colors.HexColor("#ea580c")
+        divider_color = colors.HexColor("#ea580c")
+        font_family = "DejaVuSerif"
+        font_bold = "DejaVuSerif-Bold"
+        font_italic = "DejaVuSerif-Italic"
+    elif template_name in ["Compact One Page", "Compact"]:
+        primary_color = colors.HexColor("#0f172a")
+        accent_color = colors.HexColor("#475569")
+        divider_color = colors.HexColor("#475569")
+        font_family = "DejaVuSans"
+        font_bold = "DejaVuSans-Bold"
+        font_italic = "DejaVuSans-Oblique"
 
     # Font Family Customization
     cust_font = customization.get("fontFamily")
@@ -1123,8 +1151,8 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
         story_list.append(div_table)
         story_list.append(Spacer(1, 4))
  
-    # Dual Column layouts: Modern Professional
-    if template_name == "Modern Professional":
+    # Dual Column layouts: Modern Professional / Blue Sidebar
+    if template_name in ["Modern Professional", "Blue Sidebar"]:
         left_row1 = []
         left_row2 = []
         left_row3 = []
@@ -1135,13 +1163,17 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
         right_row3 = []
         right_row4 = []
         
+        # Sidebar text custom colors
+        side_body_color = colors.white if template_name == "Blue Sidebar" else colors.HexColor("#334155")
+        side_title_color = colors.HexColor("#38bdf8") if template_name == "Blue Sidebar" else accent_color
+
         # Sidebar text styling
         side_sec_title = ParagraphStyle(
             'SideSecTitle',
             parent=section_title_style,
             fontSize=10.5,
             leading=13.5,
-            textColor=accent_color,
+            textColor=side_title_color,
             spaceBefore=6,
             spaceAfter=3
         )
@@ -1151,6 +1183,7 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
             parent=body_style,
             fontSize=8.5,
             leading=11.5,
+            textColor=side_body_color,
             spaceAfter=3
         )
         
@@ -1315,6 +1348,8 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
             right_row4.append(Spacer(1, 4))
             
         # Build multi-row table to allow ReportLab to split across pages
+        sidebar_bg_hex = "#1e3a8a" if template_name == "Blue Sidebar" else "#f8fafc"
+        sidebar_line_color = colors.HexColor("#3b82f6") if template_name == "Blue Sidebar" else colors.HexColor("#cbd5e1")
         sidebar_on_right = customization.get("sidebarLayout") == "right"
         if sidebar_on_right:
             table_data = [
@@ -1327,8 +1362,8 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
             style_cmds = [
                 ('PADDING', (0,0), (-1,-1), 6),
                 ('VALIGN', (0,0), (-1,-1), 'TOP'),
-                ('BACKGROUND', (1,0), (1,-1), colors.HexColor("#f8fafc")), # sidebar background on right
-                ('LINEBEFORE', (1,0), (1,-1), 1, colors.HexColor("#cbd5e1")),
+                ('BACKGROUND', (1,0), (1,-1), colors.HexColor(sidebar_bg_hex)), # sidebar background on right
+                ('LINEBEFORE', (1,0), (1,-1), 1, sidebar_line_color),
             ]
         else:
             table_data = [
@@ -1341,8 +1376,8 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
             style_cmds = [
                 ('PADDING', (0,0), (-1,-1), 6),
                 ('VALIGN', (0,0), (-1,-1), 'TOP'),
-                ('BACKGROUND', (0,0), (0,-1), colors.HexColor("#f8fafc")), # sidebar background on left
-                ('LINEAFTER', (0,0), (0,-1), 1, colors.HexColor("#cbd5e1")),
+                ('BACKGROUND', (0,0), (0,-1), colors.HexColor(sidebar_bg_hex)), # sidebar background on left
+                ('LINEAFTER', (0,0), (0,-1), 1, sidebar_line_color),
             ]
         
         # Filter out rows where both left and right are empty
@@ -1662,6 +1697,7 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
         if sec == "experience" and experience:
             story.append(Paragraph("WORK EXPERIENCE", section_title_style))
             for exp in experience:
+                exp_flowables = []
                 role = exp.get("role") or "Role"
                 company = exp.get("company") or "Company"
                 start = exp.get("start_date") or "N/A"
@@ -1677,36 +1713,39 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
                     ('PADDING', (0,0), (-1,-1), 0),
                     ('VALIGN', (0,0), (-1,-1), 'MIDDLE')
                 ]))
-                story.append(job_table)
-                story.append(Spacer(1, 2))
+                exp_flowables.append(job_table)
+                exp_flowables.append(Spacer(1, 2))
                 
                 if desc:
                     for bullet in desc.split("\n"):
                         if bullet.strip():
                             b_text = bullet.strip().lstrip("-").lstrip("•").strip()
-                            story.append(Paragraph(f"• {b_text}", bullet_style))
-                story.append(Spacer(1, 4))
+                            exp_flowables.append(Paragraph(f"• {b_text}", bullet_style))
+                exp_flowables.append(Spacer(1, 4))
+                story.append(KeepTogether(exp_flowables))
             add_divider(story, divider_color)
             
         elif sec == "projects" and projects:
             story.append(Paragraph("REPRESENTATIVE PROJECTS", section_title_style))
             for proj in projects:
+                proj_flowables = []
                 title = proj.get("title") or "Project Title"
                 desc = proj.get("description") or ""
                 tech = ", ".join(proj.get("technologies") or [])
                 
                 if template_name == "Software Engineer":
-                    story.append(Paragraph(f"<b>{title}</b> <font face='Courier' color='{accent_color.hexval()}'>[{tech}]</font>", job_header_left))
+                    proj_flowables.append(Paragraph(f"<b>{title}</b> <font face='Courier' color='{accent_color.hexval()}'>[{tech}]</font>", job_header_left))
                 else:
                     tech_suffix = f" ({tech})" if tech else ""
-                    story.append(Paragraph(f"<b>{title}</b>{tech_suffix}", job_header_left))
+                    proj_flowables.append(Paragraph(f"<b>{title}</b>{tech_suffix}", job_header_left))
                     
                 if desc:
                     for bullet in desc.split("\n"):
                         if bullet.strip():
                             b_text = bullet.strip().lstrip("-").lstrip("•").strip()
-                            story.append(Paragraph(f"• {b_text}", bullet_style))
-                story.append(Spacer(1, 4))
+                            proj_flowables.append(Paragraph(f"• {b_text}", bullet_style))
+                proj_flowables.append(Spacer(1, 4))
+                story.append(KeepTogether(proj_flowables))
             add_divider(story, divider_color)
             
         elif sec == "skills" and skills:

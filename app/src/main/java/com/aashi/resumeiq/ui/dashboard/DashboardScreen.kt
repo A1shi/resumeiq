@@ -238,28 +238,32 @@ fun DashboardScreen(
                             .padding(16.dp)
                     ) {
                         // Greeting and Welcome Banner
+                        val welcomeGradient = if (isDark) {
+                            Brush.horizontalGradient(
+                                colors = listOf(Color(0xFF162D2C), Color(0xFF0F1F1E))
+                            )
+                        } else {
+                            Brush.horizontalGradient(
+                                colors = listOf(Color(0xFF0F766E), Color(0xFF0D9488))
+                            )
+                        }
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(
-                                    Brush.horizontalGradient(
-                                        colors = listOf(Color(0xFF162D2C), Color(0xFF0F1F1E))
-                                    ),
-                                    RoundedCornerShape(16.dp)
-                                )
+                                .background(welcomeGradient, RoundedCornerShape(16.dp))
                                 .padding(20.dp)
                         ) {
                             Column {
                                 Text(
                                     text = "Welcome Back, $userName!",
-                                    color = MaterialTheme.colorScheme.onSurface,
+                                    color = Color.White,
                                     fontSize = 20.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = "Let's optimize your professional profile today.",
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                    color = Color.White.copy(alpha = 0.85f),
                                     fontSize = 13.sp
                                 )
                             }
@@ -341,7 +345,7 @@ fun DashboardScreen(
                             ActionItem("Resume Templates", "Pick premium designed themes", Icons.Default.Create, if (isDark) Color(0xFFAB47BC) else Color(0xFF7B1FA2), if (isDark) Color(0xFF221A30) else Color(0xFFF3E5F5), { showTemplatesDialog = true }),
                             ActionItem("Job Matcher", "Compare resume to job post", Icons.Default.Done, if (isDark) Color(0xFFFF9100) else Color(0xFFE65100), if (isDark) Color(0xFF2C2216) else Color(0xFFFFF3E0), { handleNavAction("match") }),
                             ActionItem("Interview Prep", "Practice mock recruiter Q&A", Icons.Default.PlayArrow, if (isDark) Color(0xFFE91E63) else Color(0xFFC2185B), if (isDark) Color(0xFF2E1724) else Color(0xFFFCE4EC), { handleNavAction("simulation") }),
-                            ActionItem("Cover Letter", "Generate custom letter variations", Icons.Default.Email, if (isDark) Color(0xFFFFD600) else Color(0xFFFBC02D), if (isDark) Color(0xFF2C2A15) else Color(0xFFFFFDE7), { handleNavAction("cover_letter") }),
+                            ActionItem("Cover Letter", "Generate custom letter variations", Icons.Default.Description, if (isDark) Color(0xFFFFD600) else Color(0xFFFBC02D), if (isDark) Color(0xFF2C2A15) else Color(0xFFFFFDE7), { handleNavAction("cover_letter") }),
                             ActionItem("Resume History", "View all previous uploads", Icons.Default.List, if (isDark) Color(0xFF26A69A) else Color(0xFF00796B), if (isDark) Color(0xFF132B28) else Color(0xFFE0F2F1), { onNavigateToHistory() }),
                             ActionItem("Settings & Profile", "Manage password & themes", Icons.Default.Settings, if (isDark) Color(0xFF78909C) else Color(0xFF455A64), if (isDark) Color(0xFF1E282C) else Color(0xFFECEFF1), { onNavigateToProfile() })
                         )
@@ -777,8 +781,9 @@ fun ActionCard(
 ) {
     Card(
         onClick = onClick,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = backgroundColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp, pressedElevation = 4.dp),
         modifier = modifier
             .fillMaxWidth()
             .height(115.dp)
@@ -792,7 +797,7 @@ fun ActionCard(
             Box(
                 modifier = Modifier
                     .size(36.dp)
-                    .background(iconColor.copy(alpha = 0.15f), RoundedCornerShape(8.dp)),
+                    .background(iconColor.copy(alpha = 0.12f), RoundedCornerShape(8.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(icon, contentDescription = title, tint = iconColor, modifier = Modifier.size(20.dp))

@@ -177,11 +177,21 @@ def generate_resume_template_docx(resume_data: Dict[str, Any], template_name: st
         primary_color = RGBColor(0x0f, 0x17, 0x2a)
         accent_color = RGBColor(0x33, 0x41, 0x55)
         border_color_hex = "CBD5E1"
+    elif template_name in ["ATS Clean", "ATS Clean Resume"]:
+        font_name = 'Arial'
+        primary_color = RGBColor(0x0f, 0x17, 0x2a)
+        accent_color = RGBColor(0x47, 0x55, 0x69)
+        border_color_hex = "0F172A"
     elif template_name == "Modern Professional":
         font_name = 'Calibri'
         primary_color = RGBColor(0x0f, 0x17, 0x2a)
         accent_color = RGBColor(0x25, 0x63, 0xeb)
         border_color_hex = "93C5FD"
+    elif template_name in ["Blue Sidebar", "Blue Sidebar Resume"]:
+        font_name = 'Arial'
+        primary_color = RGBColor(0x1e, 0x3a, 0x8a)
+        accent_color = RGBColor(0x3b, 0x82, 0xf6)
+        border_color_hex = "CBD5E1"
     elif template_name in ["Creative", "Creative Designer", "Creative Resume"]:
         font_name = 'Arial'
         primary_color = RGBColor(0x1e, 0x1b, 0x4b)
@@ -202,6 +212,16 @@ def generate_resume_template_docx(resume_data: Dict[str, Any], template_name: st
         primary_color = RGBColor(0x0f, 0x17, 0x2a)
         accent_color = RGBColor(0x1e, 0x3a, 0x8a)
         border_color_hex = "D97706" # Gold
+    elif template_name in ["Elegant", "Elegant Resume"]:
+        font_name = 'Times New Roman'
+        primary_color = RGBColor(0x7c, 0x2d, 0x12)
+        accent_color = RGBColor(0xea, 0x58, 0x0c)
+        border_color_hex = "EA580C"
+    elif template_name in ["Compact One Page", "Compact"]:
+        font_name = 'Arial'
+        primary_color = RGBColor(0x0f, 0x17, 0x2a)
+        accent_color = RGBColor(0x47, 0x55, 0x69)
+        border_color_hex = "475569"
     elif template_name == "Minimal Elegant":
         font_name = 'Georgia'
         primary_color = RGBColor(0x09, 0x09, 0x0b)
@@ -225,19 +245,20 @@ def generate_resume_template_docx(resume_data: Dict[str, Any], template_name: st
     languages = safe_get(resume_data, "languages") or []
     summary_text = safe_get(resume_data, "professional_summary") or ""
 
-    # Dual column layouts (Modern Professional & Creative Designer / Creative Resume)
-    if template_name in ["Modern Professional", "Creative", "Creative Designer", "Creative Resume"]:
+    # Dual column layouts (Modern Professional, Creative Designer, Creative Resume, Blue Sidebar)
+    if template_name in ["Modern Professional", "Creative", "Creative Designer", "Creative Resume", "Blue Sidebar"]:
         table = doc.add_table(rows=1, cols=2)
         table.autofit = False
         
-        # Modern: sidebar left (2.2 in), content right (5.3 in). Creative: content left (5.0 in), sidebar right (2.5 in).
-        if template_name == "Modern Professional":
+        # Modern & Blue Sidebar: sidebar left (2.2 in), content right (5.3 in). Creative: content left (5.0 in), sidebar right (2.5 in).
+        if template_name in ["Modern Professional", "Blue Sidebar"]:
             table.columns[0].width = Inches(2.2)
             table.columns[1].width = Inches(5.3)
             left_cell = table.cell(0, 0)
             right_cell = table.cell(0, 1)
             
-            set_cell_shading(left_cell, "F8FAFC")
+            shd_color = "1E3A8A" if template_name == "Blue Sidebar" else "F8FAFC"
+            set_cell_shading(left_cell, shd_color)
             set_cell_margins(left_cell, top=144, bottom=144, left=150, right=150)
             set_cell_margins(right_cell, top=144, bottom=144, left=200, right=150)
         else:
@@ -250,6 +271,10 @@ def generate_resume_template_docx(resume_data: Dict[str, Any], template_name: st
             set_cell_margins(left_cell, top=144, bottom=144, left=150, right=150)
             set_cell_margins(right_cell, top=144, bottom=144, left=150, right=200)
         
+        # Define sidebar custom colors
+        sidebar_text_color = RGBColor(0xff, 0xff, 0xff) if template_name == "Blue Sidebar" else primary_color
+        sidebar_accent_color = RGBColor(0x38, 0xbd, 0xf8) if template_name == "Blue Sidebar" else accent_color
+
         # Helper to add paragraph in a cell
         def add_cell_p(cell, text="", bold=False, size=10, color=primary_color, space_before=0, space_after=2, italic=False):
             p = cell.add_paragraph()
@@ -266,36 +291,36 @@ def generate_resume_template_docx(resume_data: Dict[str, Any], template_name: st
             return p
             
         # Add sidebar content (left_cell)
-        add_cell_p(left_cell, "CONTACT INFO", bold=True, size=10.5, color=accent_color, space_before=6, space_after=4)
-        add_cell_p(left_cell, f"✉ {email}", size=9, space_after=3)
-        add_cell_p(left_cell, f"☎ {phone}", size=9, space_after=12)
+        add_cell_p(left_cell, "CONTACT INFO", bold=True, size=10.5, color=sidebar_accent_color, space_before=6, space_after=4)
+        add_cell_p(left_cell, f"✉ {email}", size=9, color=sidebar_text_color, space_after=3)
+        add_cell_p(left_cell, f"☎ {phone}", size=9, color=sidebar_text_color, space_after=12)
         
         if skills:
-            add_cell_p(left_cell, "SKILLS", bold=True, size=10.5, color=accent_color, space_before=10, space_after=4)
-            if template_name == "Modern Professional":
+            add_cell_p(left_cell, "SKILLS", bold=True, size=10.5, color=sidebar_accent_color, space_before=10, space_after=4)
+            if template_name in ["Modern Professional", "Blue Sidebar"]:
                 for idx, s in enumerate(skills):
                     percentages = [90, 85, 80, 75, 95]
                     pct = percentages[idx % len(percentages)]
                     bar_len = int(pct / 10)
                     bar_str = "█" * bar_len + "░" * (10 - bar_len)
-                    add_cell_p(left_cell, f"• {s} [{bar_str}] {pct}%", size=8.5, space_after=3)
+                    add_cell_p(left_cell, f"• {s} [{bar_str}] {pct}%", size=8.5, color=sidebar_text_color, space_after=3)
             else:
                 for s in skills:
-                    add_cell_p(left_cell, f"• {s}", size=9, space_after=3)
+                    add_cell_p(left_cell, f"• {s}", size=9, color=sidebar_text_color, space_after=3)
                 
         if languages:
-            add_cell_p(left_cell, "LANGUAGES", bold=True, size=10.5, color=accent_color, space_before=10, space_after=4)
+            add_cell_p(left_cell, "LANGUAGES", bold=True, size=10.5, color=sidebar_accent_color, space_before=10, space_after=4)
             for lang in languages:
                 l_name = safe_get(lang, "language")
                 prof = safe_get(lang, "proficiency")
                 prof_str = f" ({prof})" if prof else ""
-                add_cell_p(left_cell, f"• {l_name}{prof_str}", size=9, space_after=3)
+                add_cell_p(left_cell, f"• {l_name}{prof_str}", size=9, color=sidebar_text_color, space_after=3)
                 
         if certifications:
-            add_cell_p(left_cell, "CERTIFICATIONS", bold=True, size=10.5, color=accent_color, space_before=10, space_after=4)
+            add_cell_p(left_cell, "CERTIFICATIONS", bold=True, size=10.5, color=sidebar_accent_color, space_before=10, space_after=4)
             for cert in certifications:
                 c_name = safe_get(cert, "name")
-                add_cell_p(left_cell, f"• {c_name}", size=9, space_after=3)
+                add_cell_p(left_cell, f"• {c_name}", size=9, color=sidebar_text_color, space_after=3)
                 
         # Add main column content (right_cell)
         if template_name == "Modern Professional":

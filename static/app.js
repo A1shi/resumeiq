@@ -289,6 +289,34 @@ const templatesList = [
     badge: "ATS: 94%", 
     bestFor: "Scrum masters, PMs, operations managers, and coordinators.",
     accent: "#6366f1"
+  },
+  { 
+    name: "ATS Clean", 
+    icon: "📄", 
+    badge: "ATS: 99%", 
+    bestFor: "Maximized parsing compliance, clean minimal corporate styling.",
+    accent: "#1e293b"
+  },
+  { 
+    name: "Blue Sidebar", 
+    icon: "🟦", 
+    badge: "ATS: 82%", 
+    bestFor: "Tech managers, sales specialists, and design consultancies.",
+    accent: "#1e40af"
+  },
+  { 
+    name: "Elegant", 
+    icon: "✒️", 
+    badge: "ATS: 92%", 
+    bestFor: "Academic researchers, writers, and lawyers.",
+    accent: "#78350f"
+  },
+  { 
+    name: "Compact One Page", 
+    icon: "🗜️", 
+    badge: "ATS: 96%", 
+    bestFor: "Entry-level and dense profiles fitting on one page.",
+    accent: "#0f172a"
   }
 ];
 
@@ -383,6 +411,8 @@ function App() {
   const [isCompareMode, setIsCompareMode] = useState(false);
   const [compareTemplate, setCompareTemplate] = useState("Modern Professional");
   const [isDummyPreview, setIsDummyPreview] = useState(false);
+  const [showAtsChecklist, setShowAtsChecklist] = useState(false);
+  const [editingPath, setEditingPath] = useState(null);
   const [expandedSections, setExpandedSections] = useState({
     contact: true,
     skills: false,
@@ -2143,6 +2173,64 @@ function App() {
     const section_order = customization.section_order || ["summary", "skills", "experience", "projects", "education", "certifications", "languages", "achievements", "interests", "referees"];
     const scale = customization.scale || 1.0;
 
+    const sectionTitles = customization.sectionTitles || {
+      summary: "SUMMARY",
+      skills: "SKILLS",
+      experience: "EXPERIENCE",
+      projects: "PROJECTS",
+      education: "EDUCATION",
+      certifications: "CERTIFICATIONS",
+      languages: "LANGUAGES",
+      achievements: "ACHIEVEMENTS",
+      leadership: "LEADERSHIP",
+      interests: "INTERESTS",
+      referees: "REFERENCES"
+    };
+
+    const getEditableProps = (field, index, subfield, customOnBlur) => {
+      const elementKey = `${field}-${index !== undefined ? index : 'x'}-${subfield || 'y'}`;
+      const isEditing = editMode || editingPath === elementKey;
+      
+      return {
+        contentEditable: isEditing,
+        suppressContentEditableWarning: true,
+        className: `preview-editable-element ${isEditing ? "editing" : ""}`,
+        onDoubleClick: (e) => {
+          e.stopPropagation();
+          setEditingPath(elementKey);
+          setTimeout(() => {
+            if (e.target) {
+              e.target.focus();
+              try {
+                const range = document.createRange();
+                range.selectNodeContents(e.target);
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
+              } catch (err) {}
+            }
+          }, 50);
+        },
+        onBlur: (e) => {
+          const newVal = e.target.innerText;
+          if (customOnBlur) {
+            customOnBlur(newVal);
+          } else {
+            handleInlineBlur(field, index, subfield, newVal);
+          }
+          if (editingPath === elementKey) {
+            setEditingPath(null);
+          }
+        },
+        onKeyDown: (e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            e.target.blur();
+          }
+        }
+      };
+    };
+
     const fontMapping = {
       "DejaVuSans": "'Inter', 'DejaVu Sans', sans-serif",
       "DejaVuSerif": "'Outfit', 'DejaVu Serif', 'Georgia', serif",
@@ -2211,30 +2299,21 @@ function App() {
             className="preview-header-center"
           >
             <h1 
-              contentEditable={editMode}
-              suppressContentEditableWarning={true}
-              onBlur={e => handleInlineBlur("name", undefined, undefined, e.target.innerText)}
-              className={`preview-editable-element ${editMode ? "editing" : ""}`}
+              {...getEditableProps("name")}
               style={{ color: pColor, margin: "0 0 0.35rem 0", fontSize: "1.8rem", fontWeight: "800", outline: "none" }}
             >
               {name || "Candidate Name"}
             </h1>
             <div style={{ fontSize: "0.85rem", color: "#64748b", display: "flex", justifyContent: "center", gap: "1rem", flexWrap: "wrap" }}>
               <span 
-                contentEditable={editMode}
-                suppressContentEditableWarning={true}
-                onBlur={e => handleInlineBlur("email", undefined, undefined, e.target.innerText)}
-                className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                {...getEditableProps("email")}
                 style={{ outline: "none" }}
               >
                 {email || "email@example.com"}
               </span>
               <span>•</span>
               <span 
-                contentEditable={editMode}
-                suppressContentEditableWarning={true}
-                onBlur={e => handleInlineBlur("phone", undefined, undefined, e.target.innerText)}
-                className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                {...getEditableProps("phone")}
                 style={{ outline: "none" }}
               >
                 {phone || "123-456-7890"}
@@ -2252,10 +2331,7 @@ function App() {
           >
             <div>
               <h1 
-                contentEditable={editMode}
-                suppressContentEditableWarning={true}
-                onBlur={e => handleInlineBlur("name", undefined, undefined, e.target.innerText)}
-                className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                {...getEditableProps("name")}
                 style={{ color: pColor, margin: 0, fontSize: "1.9rem", fontWeight: "800", outline: "none" }}
               >
                 {name || "Candidate Name"}
@@ -2263,19 +2339,13 @@ function App() {
             </div>
             <div style={{ textAlign: "right", fontSize: "0.85rem", color: "#64748b" }}>
               <div 
-                contentEditable={editMode}
-                suppressContentEditableWarning={true}
-                onBlur={e => handleInlineBlur("email", undefined, undefined, e.target.innerText)}
-                className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                {...getEditableProps("email")}
                 style={{ outline: "none" }}
               >
                 {email || "email@example.com"}
               </div>
               <div 
-                contentEditable={editMode}
-                suppressContentEditableWarning={true}
-                onBlur={e => handleInlineBlur("phone", undefined, undefined, e.target.innerText)}
-                className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                {...getEditableProps("phone")}
                 style={{ marginTop: "0.15rem", outline: "none" }}
               >
                 {phone || "123-456-7890"}
@@ -2292,30 +2362,21 @@ function App() {
           className="preview-header-left"
         >
           <h1 
-            contentEditable={editMode}
-            suppressContentEditableWarning={true}
-            onBlur={e => handleInlineBlur("name", undefined, undefined, e.target.innerText)}
-            className={`preview-editable-element ${editMode ? "editing" : ""}`}
+            {...getEditableProps("name")}
             style={{ color: pColor, margin: "0 0 0.25rem 0", fontSize: "2rem", fontWeight: "800", outline: "none" }}
           >
             {name || "Candidate Name"}
           </h1>
           <div style={{ fontSize: "0.85rem", color: "#64748b", display: "flex", gap: "1rem", flexWrap: "wrap" }}>
             <span 
-              contentEditable={editMode}
-              suppressContentEditableWarning={true}
-              onBlur={e => handleInlineBlur("email", undefined, undefined, e.target.innerText)}
-              className={`preview-editable-element ${editMode ? "editing" : ""}`}
+              {...getEditableProps("email")}
               style={{ outline: "none" }}
             >
               {email || "email@example.com"}
             </span>
             <span>|</span>
             <span 
-              contentEditable={editMode}
-              suppressContentEditableWarning={true}
-              onBlur={e => handleInlineBlur("phone", undefined, undefined, e.target.innerText)}
-              className={`preview-editable-element ${editMode ? "editing" : ""}`}
+              {...getEditableProps("phone")}
               style={{ outline: "none" }}
             >
               {phone || "123-456-7890"}
@@ -2333,12 +2394,20 @@ function App() {
           if (!summary_text && !editMode) return null;
           return (
             <div key="summary" style={spacingStyle} className="preview-section-container">
-              <div className="res-sec-title" style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "4px" }}>SUMMARY</div>
+              <div 
+                {...getEditableProps("sectionTitle", undefined, "summary", (newTitle) => {
+                  pushToHistory(editedResume);
+                  setEditedResume(prev => {
+                    const titles = { ...(prev.customization?.sectionTitles || {}), summary: newTitle };
+                    return { ...prev, customization: { ...(prev.customization || {}), sectionTitles: titles } };
+                  });
+                })}
+                style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "4px", outline: "none" }}
+              >
+                {sectionTitles.summary}
+              </div>
               <p 
-                contentEditable={editMode}
-                suppressContentEditableWarning={true}
-                onBlur={e => handleInlineBlur("summary", undefined, undefined, e.target.innerText)}
-                className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                {...getEditableProps("summary")}
                 style={{ margin: "4px 0", whiteSpace: "pre-line", fontSize: "0.85rem", outline: "none" }}
               >
                 {summary_text || "Summarize your career highlights..."}
@@ -2349,15 +2418,24 @@ function App() {
           if ((!skills || skills.length === 0) && !editMode) return null;
           return (
             <div key="skills" style={spacingStyle} className="preview-section-container">
-              <div className="res-sec-title" style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px" }}>SKILLS</div>
+              <div 
+                {...getEditableProps("sectionTitle", undefined, "skills", (newTitle) => {
+                  pushToHistory(editedResume);
+                  setEditedResume(prev => {
+                    const titles = { ...(prev.customization?.sectionTitles || {}), skills: newTitle };
+                    return { ...prev, customization: { ...(prev.customization || {}), sectionTitles: titles } };
+                  });
+                })}
+                style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px", outline: "none" }}
+              >
+                {sectionTitles.skills}
+              </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", marginTop: "4px" }}>
                 {skills.map((s, i) => (
                   <span 
                     key={i} 
-                    contentEditable={editMode}
-                    suppressContentEditableWarning={true}
-                    onBlur={e => handleInlineBlur("skills", i, undefined, e.target.innerText)}
-                    className={`preview-skill-tag preview-editable-element ${editMode ? "editing" : ""}`} 
+                    {...getEditableProps("skills", i)}
+                    className={`preview-skill-tag preview-editable-element ${editingPath === `skills-${i}-y` ? "editing" : ""}`} 
                     style={{ background: `${aColor}12`, color: aColor, border: `1px solid ${aColor}22`, borderRadius: "4px", padding: "0.15rem 0.45rem", fontSize: "0.75rem", fontWeight: "600", outline: "none" }}
                   >
                     {s}
@@ -2370,26 +2448,31 @@ function App() {
           if ((!experience || experience.length === 0) && !editMode) return null;
           return (
             <div key="experience" style={spacingStyle} className="preview-section-container">
-              <div className="res-sec-title" style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px" }}>EXPERIENCE</div>
+              <div 
+                {...getEditableProps("sectionTitle", undefined, "experience", (newTitle) => {
+                  pushToHistory(editedResume);
+                  setEditedResume(prev => {
+                    const titles = { ...(prev.customization?.sectionTitles || {}), experience: newTitle };
+                    return { ...prev, customization: { ...(prev.customization || {}), sectionTitles: titles } };
+                  });
+                })}
+                style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px", outline: "none" }}
+              >
+                {sectionTitles.experience}
+              </div>
               {experience.map((exp, i) => (
                 <div key={i} style={{ marginTop: "0.5rem" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold", fontSize: "0.85rem" }}>
                     <span style={{ color: pColor }}>
                       <span 
-                        contentEditable={editMode}
-                        suppressContentEditableWarning={true}
-                        onBlur={e => handleInlineBlur("experience", i, "role", e.target.innerText)}
-                        className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                        {...getEditableProps("experience", i, "role")}
                         style={{ outline: "none" }}
                       >
                         {exp.role}
                       </span>
                       <span> at </span>
                       <span 
-                        contentEditable={editMode}
-                        suppressContentEditableWarning={true}
-                        onBlur={e => handleInlineBlur("experience", i, "company", e.target.innerText)}
-                        className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                        {...getEditableProps("experience", i, "company")}
                         style={{ outline: "none" }}
                       >
                         {exp.company}
@@ -2397,20 +2480,14 @@ function App() {
                     </span>
                     <span style={{ fontWeight: "normal", color: "#64748b" }}>
                       <span 
-                        contentEditable={editMode}
-                        suppressContentEditableWarning={true}
-                        onBlur={e => handleInlineBlur("experience", i, "start_date", e.target.innerText)}
-                        className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                        {...getEditableProps("experience", i, "start_date")}
                         style={{ outline: "none" }}
                       >
                         {exp.start_date}
                       </span>
                       <span> - </span>
                       <span 
-                        contentEditable={editMode}
-                        suppressContentEditableWarning={true}
-                        onBlur={e => handleInlineBlur("experience", i, "end_date", e.target.innerText)}
-                        className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                        {...getEditableProps("experience", i, "end_date")}
                         style={{ outline: "none" }}
                       >
                         {exp.end_date}
@@ -2422,15 +2499,11 @@ function App() {
                       {exp.description.split("\n").filter(Boolean).map((bullet, bulletIdx) => (
                         <li 
                           key={bulletIdx} 
-                          contentEditable={editMode}
-                          suppressContentEditableWarning={true}
-                          onBlur={e => {
-                            const newBullet = e.target.innerText;
+                          {...getEditableProps("exp-bullet", i, `${bulletIdx}`, (newBullet) => {
                             const bullets = exp.description.split("\n").filter(Boolean);
                             bullets[bulletIdx] = newBullet;
                             handleInlineBlur("experience", i, "description", bullets.join("\n"));
-                          }}
-                          className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                          })}
                           style={{ marginBottom: "2px", outline: "none" }}
                         >
                           {bullet.replace(/^-*\s*/, "").replace(/^•\s*/, "")}
@@ -2446,37 +2519,39 @@ function App() {
           if ((!projects || projects.length === 0) && !editMode) return null;
           return (
             <div key="projects" style={spacingStyle} className="preview-section-container">
-              <div className="res-sec-title" style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px" }}>PROJECTS</div>
+              <div 
+                {...getEditableProps("sectionTitle", undefined, "projects", (newTitle) => {
+                  pushToHistory(editedResume);
+                  setEditedResume(prev => {
+                    const titles = { ...(prev.customization?.sectionTitles || {}), projects: newTitle };
+                    return { ...prev, customization: { ...(prev.customization || {}), sectionTitles: titles } };
+                  });
+                })}
+                style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px", outline: "none" }}
+              >
+                {sectionTitles.projects}
+              </div>
               {projects.map((proj, i) => (
                 <div key={i} style={{ marginTop: "0.5rem" }}>
                   <div style={{ fontWeight: "bold", display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
                     <span 
-                      contentEditable={editMode}
-                      suppressContentEditableWarning={true}
-                      onBlur={e => handleInlineBlur("projects", i, "title", e.target.innerText)}
-                      className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                      {...getEditableProps("projects", i, "title")}
                       style={{ color: pColor, outline: "none" }}
                     >
                       {proj.title}
                     </span>
                     <span 
-                      contentEditable={editMode}
-                      suppressContentEditableWarning={true}
-                      onBlur={e => {
-                        const newTech = e.target.innerText.split(",").map(t => t.trim());
+                      {...getEditableProps("projects", i, "technologies", (val) => {
+                        const newTech = val.split(",").map(t => t.trim());
                         handleInlineBlur("projects", i, "technologies", newTech);
-                      }}
-                      className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                      })}
                       style={{ fontWeight: "normal", fontSize: "0.75rem", color: aColor, fontFamily: "monospace", outline: "none" }}
                     >
                       {Array.isArray(proj.technologies) ? proj.technologies.join(", ") : proj.technologies}
                     </span>
                   </div>
                   <p 
-                    contentEditable={editMode}
-                    suppressContentEditableWarning={true}
-                    onBlur={e => handleInlineBlur("projects", i, "description", e.target.innerText)}
-                    className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                    {...getEditableProps("projects", i, "description")}
                     style={{ margin: "2px 0", fontSize: "0.82rem", outline: "none" }}
                   >
                     {proj.description}
@@ -2489,45 +2564,44 @@ function App() {
           if ((!education || education.length === 0) && !editMode) return null;
           return (
             <div key="education" style={spacingStyle} className="preview-section-container">
-              <div className="res-sec-title" style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px" }}>EDUCATION</div>
+              <div 
+                {...getEditableProps("sectionTitle", undefined, "education", (newTitle) => {
+                  pushToHistory(editedResume);
+                  setEditedResume(prev => {
+                    const titles = { ...(prev.customization?.sectionTitles || {}), education: newTitle };
+                    return { ...prev, customization: { ...(prev.customization || {}), sectionTitles: titles } };
+                  });
+                })}
+                style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px", outline: "none" }}
+              >
+                {sectionTitles.education}
+              </div>
               {education.map((edu, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", marginTop: "0.35rem", fontSize: "0.85rem" }}>
                   <span>
                     <strong 
-                      contentEditable={editMode}
-                      suppressContentEditableWarning={true}
-                      onBlur={e => handleInlineBlur("education", i, "degree", e.target.innerText)}
-                      className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                      {...getEditableProps("education", i, "degree")}
                       style={{ outline: "none" }}
                     >
                       {edu.degree}
                     </strong>
                     <span> in </span>
                     <span 
-                      contentEditable={editMode}
-                      suppressContentEditableWarning={true}
-                      onBlur={e => handleInlineBlur("education", i, "field_of_study", e.target.innerText)}
-                      className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                      {...getEditableProps("education", i, "field_of_study")}
                       style={{ outline: "none" }}
                     >
                       {edu.field_of_study}
                     </span>
                     <span> — </span>
                     <span 
-                      contentEditable={editMode}
-                      suppressContentEditableWarning={true}
-                      onBlur={e => handleInlineBlur("education", i, "school", e.target.innerText)}
-                      className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                      {...getEditableProps("education", i, "school")}
                       style={{ outline: "none" }}
                     >
                       {edu.school}
                     </span>
                   </span>
                   <span 
-                    contentEditable={editMode}
-                    suppressContentEditableWarning={true}
-                    onBlur={e => handleInlineBlur("education", i, "end_date", e.target.innerText)}
-                    className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                    {...getEditableProps("education", i, "end_date")}
                     style={{ color: "#64748b", outline: "none" }}
                   >
                     {edu.end_date}
@@ -2540,26 +2614,31 @@ function App() {
           if ((!certifications || certifications.length === 0) && !editMode) return null;
           return (
             <div key="certifications" style={spacingStyle} className="preview-section-container">
-              <div className="res-sec-title" style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px" }}>CERTIFICATIONS</div>
+              <div 
+                {...getEditableProps("sectionTitle", undefined, "certifications", (newTitle) => {
+                  pushToHistory(editedResume);
+                  setEditedResume(prev => {
+                    const titles = { ...(prev.customization?.sectionTitles || {}), certifications: newTitle };
+                    return { ...prev, customization: { ...(prev.customization || {}), sectionTitles: titles } };
+                  });
+                })}
+                style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px", outline: "none" }}
+              >
+                {sectionTitles.certifications}
+              </div>
               {certifications.map((cert, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", marginTop: "0.25rem", fontSize: "0.85rem" }}>
                   <span>
                     🏆 
                     <strong 
-                      contentEditable={editMode}
-                      suppressContentEditableWarning={true}
-                      onBlur={e => handleInlineBlur("certifications", i, "name", e.target.innerText)}
-                      className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                      {...getEditableProps("certifications", i, "name")}
                       style={{ outline: "none", marginLeft: "4px" }}
                     >
                       {cert.name}
                     </strong>
                   </span>
                   <span 
-                    contentEditable={editMode}
-                    suppressContentEditableWarning={true}
-                    onBlur={e => handleInlineBlur("certifications", i, "date", e.target.innerText)}
-                    className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                    {...getEditableProps("certifications", i, "date")}
                     style={{ color: "#64748b", outline: "none" }}
                   >
                     {cert.date}
@@ -2572,21 +2651,29 @@ function App() {
           if ((!languages || languages.length === 0) && !editMode) return null;
           return (
             <div key="languages" style={spacingStyle} className="preview-section-container">
-              <div className="res-sec-title" style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px" }}>LANGUAGES</div>
+              <div 
+                {...getEditableProps("sectionTitle", undefined, "languages", (newTitle) => {
+                  pushToHistory(editedResume);
+                  setEditedResume(prev => {
+                    const titles = { ...(prev.customization?.sectionTitles || {}), languages: newTitle };
+                    return { ...prev, customization: { ...(prev.customization || {}), sectionTitles: titles } };
+                  });
+                })}
+                style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px", outline: "none" }}
+              >
+                {sectionTitles.languages}
+              </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", marginTop: "4px" }}>
                 {(languages || []).map((l, i) => (
                   <span 
                     key={i} 
-                    contentEditable={editMode}
-                    suppressContentEditableWarning={true}
-                    onBlur={e => {
-                      const text = e.target.innerText;
+                    {...getEditableProps("languages", i, undefined, (text) => {
                       const parts = text.split(":");
                       const language = parts[0]?.trim() || "";
                       const proficiency = parts[1]?.trim() || "";
                       handleInlineBlur("languages", i, undefined, { language, proficiency });
-                    }}
-                    className={`preview-skill-tag preview-editable-element ${editMode ? "editing" : ""}`} 
+                    })}
+                    className={`preview-skill-tag preview-editable-element ${editingPath === `languages-${i}-y` ? "editing" : ""}`} 
                     style={{ background: "#f1f5f9", padding: "0.15rem 0.45rem", fontSize: "0.75rem", outline: "none", borderRadius: "4px" }}
                   >
                     {l.language}{l.proficiency ? `: ${l.proficiency}` : ""}
@@ -2599,15 +2686,23 @@ function App() {
           if ((!achievements || achievements.length === 0) && !editMode) return null;
           return (
             <div key="achievements" style={spacingStyle} className="preview-section-container">
-              <div className="res-sec-title" style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px" }}>ACHIEVEMENTS</div>
+              <div 
+                {...getEditableProps("sectionTitle", undefined, "achievements", (newTitle) => {
+                  pushToHistory(editedResume);
+                  setEditedResume(prev => {
+                    const titles = { ...(prev.customization?.sectionTitles || {}), achievements: newTitle };
+                    return { ...prev, customization: { ...(prev.customization || {}), sectionTitles: titles } };
+                  });
+                })}
+                style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px", outline: "none" }}
+              >
+                {sectionTitles.achievements}
+              </div>
               <ul style={{ paddingLeft: "1.2rem", marginTop: "4px", fontSize: "0.82rem" }}>
                 {(achievements || []).map((ach, i) => (
                   <li 
                     key={i}
-                    contentEditable={editMode}
-                    suppressContentEditableWarning={true}
-                    onBlur={e => handleInlineBlur("achievements", i, undefined, e.target.innerText)}
-                    className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                    {...getEditableProps("achievements", i)}
                     style={{ marginBottom: "2px", outline: "none" }}
                   >
                     {ach}
@@ -2620,15 +2715,23 @@ function App() {
           if ((!leadership || leadership.length === 0) && !editMode) return null;
           return (
             <div key="leadership" style={spacingStyle} className="preview-section-container">
-              <div className="res-sec-title" style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px" }}>LEADERSHIP</div>
+              <div 
+                {...getEditableProps("sectionTitle", undefined, "leadership", (newTitle) => {
+                  pushToHistory(editedResume);
+                  setEditedResume(prev => {
+                    const titles = { ...(prev.customization?.sectionTitles || {}), leadership: newTitle };
+                    return { ...prev, customization: { ...(prev.customization || {}), sectionTitles: titles } };
+                  });
+                })}
+                style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px", outline: "none" }}
+              >
+                {sectionTitles.leadership}
+              </div>
               <ul style={{ paddingLeft: "1.2rem", marginTop: "4px", fontSize: "0.82rem" }}>
                 {(leadership || []).map((lead, i) => (
                   <li 
                     key={i}
-                    contentEditable={editMode}
-                    suppressContentEditableWarning={true}
-                    onBlur={e => handleInlineBlur("leadership", i, undefined, e.target.innerText)}
-                    className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                    {...getEditableProps("leadership", i)}
                     style={{ marginBottom: "2px", outline: "none" }}
                   >
                     {lead}
@@ -2641,15 +2744,24 @@ function App() {
           if ((!interests || interests.length === 0) && !editMode) return null;
           return (
             <div key="interests" style={spacingStyle} className="preview-section-container">
-              <div className="res-sec-title" style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px" }}>INTERESTS</div>
+              <div 
+                {...getEditableProps("sectionTitle", undefined, "interests", (newTitle) => {
+                  pushToHistory(editedResume);
+                  setEditedResume(prev => {
+                    const titles = { ...(prev.customization?.sectionTitles || {}), interests: newTitle };
+                    return { ...prev, customization: { ...(prev.customization || {}), sectionTitles: titles } };
+                  });
+                })}
+                style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px", outline: "none" }}
+              >
+                {sectionTitles.interests}
+              </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", marginTop: "4px" }}>
                 {(interests || []).map((int, i) => (
                   <span 
                     key={i} 
-                    contentEditable={editMode}
-                    suppressContentEditableWarning={true}
-                    onBlur={e => handleInlineBlur("interests", i, undefined, e.target.innerText)}
-                    className={`preview-skill-tag preview-editable-element ${editMode ? "editing" : ""}`} 
+                    {...getEditableProps("interests", i)}
+                    className={`preview-skill-tag preview-editable-element ${editingPath === `interests-${i}-y` ? "editing" : ""}`} 
                     style={{ background: "#f8fafc", color: "#475569", border: "1px solid #e2e8f0", padding: "0.15rem 0.45rem", fontSize: "0.75rem", outline: "none", borderRadius: "4px" }}
                   >
                     {int}
@@ -2662,15 +2774,23 @@ function App() {
           if ((!referees || referees.length === 0) && !editMode) return null;
           return (
             <div key="referees" style={spacingStyle} className="preview-section-container">
-              <div className="res-sec-title" style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px" }}>REFERENCES</div>
+              <div 
+                {...getEditableProps("sectionTitle", undefined, "referees", (newTitle) => {
+                  pushToHistory(editedResume);
+                  setEditedResume(prev => {
+                    const titles = { ...(prev.customization?.sectionTitles || {}), referees: newTitle };
+                    return { ...prev, customization: { ...(prev.customization || {}), sectionTitles: titles } };
+                  });
+                })}
+                style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px", outline: "none" }}
+              >
+                {sectionTitles.referees}
+              </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", marginTop: "4px" }}>
                 {(referees || []).map((ref, i) => (
                   <div 
                     key={i} 
-                    contentEditable={editMode}
-                    suppressContentEditableWarning={true}
-                    onBlur={e => handleInlineBlur("referees", i, undefined, e.target.innerText)}
-                    className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                    {...getEditableProps("referees", i)}
                     style={{ outline: "none", padding: "0.35rem", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "0.8rem", background: "#f8fafc", whiteSpace: "pre-line" }}
                   >
                     {ref}
@@ -2692,50 +2812,60 @@ function App() {
       return (
         <div
           key={secName}
-          draggable={editMode}
+          draggable={true}
           onDragStart={(e) => handleDragStart(e, idx)}
           onDragOver={handleDragOver}
           onDrop={(e) => handleCanvasDrop(e, idx)}
           style={{
-            position: "relative",
-            border: editMode ? "1px dashed rgba(79, 70, 229, 0.15)" : "none",
-            borderRadius: "4px",
-            padding: editMode ? "6px" : "0",
-            margin: editMode ? "6px 0" : "0",
-            cursor: editMode ? "grab" : "default"
+            position: "relative"
           }}
-          className={editMode ? "draggable-canvas-section" : ""}
+          className="preview-section-container"
         >
-          {editMode && (
-            <div style={{ position: "absolute", right: "2px", top: "-10px", fontSize: "8px", background: "var(--color-primary)", color: "#ffffff", padding: "1px 4px", borderRadius: "3px", zIndex: 100, opacity: 0.8, pointerEvents: "none" }}>
-              ☰ {secName.toUpperCase()}
-            </div>
-          )}
+          {/* Spacing drag line on hover */}
+          <div 
+            className="section-spacing-handle"
+            onMouseDown={(e) => handleSpacingMouseDown(e, "sectionSpacing")}
+            title="Drag vertically to adjust section gap"
+          />
           {innerSec}
         </div>
       );
     };
 
-    // Sidebar-focused Template Layout (Modern / Creative)
-    if (templateName === "Modern Professional" || templateName === "Creative") {
+    // Sidebar-focused Template Layout (Modern / Creative / Blue Sidebar)
+    if (templateName === "Modern Professional" || templateName === "Creative" || templateName === "Blue Sidebar") {
       const isCreative = templateName === "Creative";
-      const actualAccentColor = isCreative ? "#db2777" : aColor;
-      const actualPrimaryColor = isCreative ? "#1e1b4b" : pColor;
-      const tClass = isCreative ? "preview-creative" : "preview-modern";
+      const isBlueSidebar = templateName === "Blue Sidebar";
+      const actualAccentColor = isCreative ? "#db2777" : (isBlueSidebar ? "#38bdf8" : aColor);
+      const actualPrimaryColor = isCreative ? "#1e1b4b" : (isBlueSidebar ? "#ffffff" : pColor);
+      const tClass = isCreative ? "preview-creative" : (isBlueSidebar ? "preview-blue-sidebar" : "preview-modern");
 
       return (
         <div style={{ position: "relative" }}>
-          {editMode && (
-            <ResumeRuler 
-              marginSize={marginSize} 
-              setMarginSize={(val) => updateCustomizationField("marginSize", val)} 
-              scale={scale} 
-            />
-          )}
+          <ResumeRuler 
+            marginSize={marginSize} 
+            setMarginSize={(val) => updateCustomizationField("marginSize", val)} 
+            scale={scale} 
+          />
           <div style={containerStyle} className={tClass}>
             <div style={{ display: "flex", flexDirection: sidebarLayout === "right" ? "row-reverse" : "row", gap: "1.5rem" }}>
               {/* Sidebar Column */}
-              <div style={{ width: "32%", borderRight: sidebarLayout === "left" ? "1px solid #cbd5e1" : "none", borderLeft: sidebarLayout === "right" ? "1px solid #cbd5e1" : "none", paddingRight: sidebarLayout === "left" ? "1rem" : "0", paddingLeft: sidebarLayout === "right" ? "1rem" : "0" }}>
+              <div style={isBlueSidebar ? {
+                width: "32%",
+                background: "#1e3a8a",
+                color: "#ffffff",
+                padding: "1.25rem",
+                borderRadius: "8px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "1.25rem"
+              } : {
+                width: "32%",
+                borderRight: sidebarLayout === "left" ? "1px solid #cbd5e1" : "none",
+                borderLeft: sidebarLayout === "right" ? "1px solid #cbd5e1" : "none",
+                paddingRight: sidebarLayout === "left" ? "1rem" : "0",
+                paddingLeft: sidebarLayout === "right" ? "1rem" : "0"
+              }}>
                 
                 {/* Profile Photo Uploader (Part 8) */}
                 <div style={{ marginBottom: "1rem", textAlign: "center", position: "relative" }} className="profile-photo-canvas-container">
@@ -2834,19 +2964,13 @@ function App() {
                 <div style={{ marginBottom: "1rem" }}>
                   <h3 style={{ color: actualAccentColor, fontSize: "0.78rem", fontWeight: "700", letterSpacing: "0.05em", marginBottom: "0.35rem" }}>CONTACT</h3>
                   <div 
-                    contentEditable={editMode}
-                    suppressContentEditableWarning={true}
-                    onBlur={e => handleInlineBlur("email", undefined, undefined, e.target.innerText)}
-                    className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                    {...getEditableProps("email")}
                     style={{ fontSize: "0.78rem", wordBreak: "break-all", marginBottom: "4px", outline: "none" }}
                   >
                     {email || "N/A"}
                   </div>
                   <div 
-                    contentEditable={editMode}
-                    suppressContentEditableWarning={true}
-                    onBlur={e => handleInlineBlur("phone", undefined, undefined, e.target.innerText)}
-                    className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                    {...getEditableProps("phone")}
                     style={{ fontSize: "0.78rem", outline: "none" }}
                   >
                     {phone || "N/A"}
@@ -2877,18 +3001,14 @@ function App() {
               {/* Main Content Column */}
               <div style={{ width: "68%" }}>
                 <div style={{ marginBottom: "1rem" }}>
-                  <h1 style={{ color: actualPrimaryColor, fontSize: "1.8rem", fontWeight: "800", margin: "0 0 0.15rem 0" }}>{name || "Candidate"}</h1>
+                  <h1 
+                    {...getEditableProps("name")}
+                    style={{ color: actualPrimaryColor, fontSize: "1.8rem", fontWeight: "800", margin: "0 0 0.15rem 0", outline: "none" }}
+                  >
+                    {name || "Candidate"}
+                  </h1>
                   <div style={{ color: actualAccentColor, fontSize: "0.8rem", fontWeight: "700", textTransform: "uppercase" }}>Professional Profile</div>
                 </div>
-
-                {/* Section spacing drag line (Part 6) */}
-                {editMode && (
-                  <div 
-                    style={{ height: "6px", cursor: "ns-resize", background: "rgba(79, 70, 229, 0.15)", borderRadius: "3px", margin: "8px 0" }} 
-                    onMouseDown={(e) => handleSpacingMouseDown(e, "sectionSpacing")}
-                    title="Drag vertically to adjust sections gap"
-                  />
-                )}
 
                 {section_order.filter(s => !["skills", "languages", "certifications"].includes(s)).map((sec, idx) => renderPreviewSectionWithDrag(sec, idx))}
               </div>
@@ -2909,34 +3029,25 @@ function App() {
     // Default Customizer Template Layout
     let templateClass = "preview-customizer-container";
     if (templateName === "ATS Professional") templateClass = "preview-ats";
+    else if (templateName === "ATS Clean") templateClass = "preview-ats-clean";
     else if (templateName === "Software Engineer") templateClass = "preview-software";
     else if (templateName === "Data Analyst") templateClass = "preview-data";
     else if (templateName === "Executive") templateClass = "preview-executive";
-    else if (templateName === "Minimal Elegant") templateClass = "preview-minimal";
+    else if (templateName === "Minimal Elegant" || templateName === "Minimal") templateClass = "preview-minimal";
+    else if (templateName === "Elegant") templateClass = "preview-elegant";
+    else if (templateName === "Compact One Page") templateClass = "preview-compact";
     else if (templateName === "Student/Fresher") templateClass = "preview-student";
     else if (templateName === "Healthcare Professional") templateClass = "preview-healthcare";
 
     return (
       <div style={{ position: "relative" }}>
-        {editMode && (
-          <ResumeRuler 
-            marginSize={marginSize} 
-            setMarginSize={(val) => updateCustomizationField("marginSize", val)} 
-            scale={scale} 
-          />
-        )}
+        <ResumeRuler 
+          marginSize={marginSize} 
+          setMarginSize={(val) => updateCustomizationField("marginSize", val)} 
+          scale={scale} 
+        />
         <div style={containerStyle} className={templateClass}>
           {renderHeaderBlock()}
-          
-          {/* Section spacing drag line (Part 6) */}
-          {editMode && (
-            <div 
-              style={{ height: "6px", cursor: "ns-resize", background: "rgba(79, 70, 229, 0.15)", borderRadius: "3px", margin: "8px 0" }} 
-              onMouseDown={(e) => handleSpacingMouseDown(e, "sectionSpacing")}
-              title="Drag vertically to adjust sections gap"
-            />
-          )}
-
           {section_order.map((secName, idx) => renderPreviewSectionWithDrag(secName, idx))}
         </div>
         
@@ -4051,7 +4162,7 @@ function App() {
       <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
         
         {/* Visual Header Workspace Toolbar (Part 9 Clean Toolbar) */}
-        <div className="glass-panel" style={{ padding: "0.85rem 1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
+        <div className="sticky-workspace-toolbar" style={{ padding: "0.85rem 1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
           <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
             <button 
               className={`btn-secondary ${editMode ? "active-indigo" : ""}`} 
@@ -4076,6 +4187,23 @@ function App() {
                 <option value="1.2">120%</option>
               </select>
             </div>
+            {!isMobile && (
+              <button 
+                className={`btn-secondary ${showAtsChecklist ? "active-indigo" : ""}`} 
+                onClick={() => {
+                  setShowAtsChecklist(!showAtsChecklist);
+                }}
+                style={{ padding: "0.4rem 0.75rem", fontSize: "0.75rem", display: "flex", alignItems: "center", gap: "0.35rem", fontWeight: "700" }}
+                title="Toggle real-time ATS compliance checklist"
+              >
+                <span>🎯 ATS Checklist</span>
+                {editedResume?.ats_analysis?.ats_score !== undefined && (
+                  <span style={{ background: "var(--color-primary)", color: "white", padding: "0.05rem 0.35rem", borderRadius: "4px", fontSize: "0.68rem" }}>
+                    {editedResume.ats_analysis.ats_score}%
+                  </span>
+                )}
+              </button>
+            )}
           </div>
 
           {/* Center: Undo/Redo */}
@@ -4111,6 +4239,94 @@ function App() {
             <button className="btn-secondary" onClick={() => handleExportTemplate("docx")} style={{ padding: "0.4rem 0.75rem", fontSize: "0.75rem", minHeight: "auto" }} title="Export Word">
               Word Export
             </button>
+          </div>
+
+          {/* Design formatting bar (Canva/FlowCV style direct customizer) */}
+          <div style={{ width: "100%", display: "flex", alignItems: "center", gap: "1rem", borderTop: "1px dashed var(--glass-border)", paddingTop: "0.6rem", marginTop: "0.4rem", flexWrap: "wrap", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+              {/* Font Selector */}
+              <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                <span style={{ fontSize: "0.72rem", fontWeight: "bold" }}>Font:</span>
+                <select 
+                  value={editedResume.customization?.fontFamily || "DejaVuSans"} 
+                  onChange={e => updateCustomizationField("fontFamily", e.target.value)} 
+                  className="builder-input" 
+                  style={{ padding: "0.25rem 0.5rem", fontSize: "0.72rem", width: "auto", minHeight: "auto", height: "28px" }}
+                >
+                  <option value="DejaVuSans">Sans-Serif (Inter)</option>
+                  <option value="DejaVuSerif">Serif (Outfit)</option>
+                  <option value="Courier">Monospace (Courier)</option>
+                </select>
+              </div>
+
+              {/* Font Size slider */}
+              <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                <span style={{ fontSize: "0.72rem", fontWeight: "bold" }}>Size:</span>
+                <input 
+                  type="range" 
+                  min="8" 
+                  max="14" 
+                  step="0.5" 
+                  value={editedResume.customization?.fontSize || 9.5} 
+                  onChange={e => updateCustomizationField("fontSize", parseFloat(e.target.value))} 
+                  style={{ width: "70px", cursor: "pointer", height: "4px", padding: 0 }}
+                />
+                <span style={{ fontSize: "0.72rem", fontWeight: "bold" }}>{editedResume.customization?.fontSize || 9.5}pt</span>
+              </div>
+
+              {/* Spacing alignment */}
+              <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                <span style={{ fontSize: "0.72rem", fontWeight: "bold" }}>Align:</span>
+                <select 
+                  value={editedResume.customization?.headerLayout || "left"} 
+                  onChange={e => updateCustomizationField("headerLayout", e.target.value)} 
+                  className="builder-input" 
+                  style={{ padding: "0.25rem 0.5rem", fontSize: "0.72rem", width: "auto", minHeight: "auto", height: "28px" }}
+                >
+                  <option value="left">Left</option>
+                  <option value="center">Center</option>
+                  <option value="split">Split</option>
+                </select>
+              </div>
+
+              {/* Line height slider */}
+              <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                <span style={{ fontSize: "0.72rem", fontWeight: "bold" }}>Spacing:</span>
+                <input 
+                  type="range" 
+                  min="1.0" 
+                  max="2.0" 
+                  step="0.05" 
+                  value={editedResume.customization?.lineSpacing || 1.15} 
+                  onChange={e => updateCustomizationField("lineSpacing", parseFloat(e.target.value))} 
+                  style={{ width: "70px", cursor: "pointer", height: "4px", padding: 0 }}
+                />
+                <span style={{ fontSize: "0.72rem", fontWeight: "bold" }}>{editedResume.customization?.lineSpacing || 1.15}</span>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+              {/* Color pickers */}
+              <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                <span style={{ fontSize: "0.72rem", fontWeight: "bold" }}>Primary Color:</span>
+                <input 
+                  type="color" 
+                  value={editedResume.customization?.primaryColor || "#0f172a"} 
+                  onChange={e => updateCustomizationField("primaryColor", e.target.value)} 
+                  style={{ width: "24px", height: "24px", padding: 0, border: "1px solid var(--card-border)", borderRadius: "4px", cursor: "pointer" }}
+                />
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                <span style={{ fontSize: "0.72rem", fontWeight: "bold" }}>Accent:</span>
+                <input 
+                  type="color" 
+                  value={editedResume.customization?.accentColor || "#2563eb"} 
+                  onChange={e => updateCustomizationField("accentColor", e.target.value)} 
+                  style={{ width: "24px", height: "24px", padding: 0, border: "1px solid var(--card-border)", borderRadius: "4px", cursor: "pointer" }}
+                />
+              </div>
+            </div>
           </div>
         </div>
 
@@ -4163,8 +4379,8 @@ function App() {
           <div 
             style={{ 
               display: "grid", 
-              gridTemplateColumns: isMobile ? "1fr" : "1.1fr 1.2fr 0.8fr", 
-              gap: "1.25rem" 
+              gridTemplateColumns: isMobile ? "1fr" : (showAtsChecklist ? "420px 1fr 310px" : "420px 1fr"), 
+              gap: "1.5rem" 
             }} 
             className="ats-dashboard-grid"
           >
@@ -4629,17 +4845,7 @@ function App() {
 
             {/* Center Column: Live preview document canvas */}
             {(!isMobile || mobileTab === "preview") && (
-              <div 
-                style={{ 
-                  border: "1px solid var(--card-border)", 
-                  borderRadius: "12px", 
-                  background: "#ffffff", 
-                  boxShadow: "0 10px 15px -3px rgba(0,0,0,0.05)",
-                  overflowX: "auto",
-                  padding: "0.5rem"
-                }} 
-                className="live-canvas-preview-wrapper"
-              >
+              <div className="live-canvas-preview-wrapper">
                 <div style={{ transform: `scale(${zoomScale})`, transformOrigin: "top left", width: `${100 / zoomScale}%` }}>
                   {renderLivePreview(selectedTemplate)}
                 </div>
@@ -4647,12 +4853,19 @@ function App() {
             )}
 
             {/* Right Column: ATS suggestions sidebar panel */}
-            {!isMobile && (
+            {showAtsChecklist && !isMobile && (
               <AtsSuggestionsPanel 
-                atsAnalysis={selectedResume ? selectedResume.ats_analysis : null}
+                atsAnalysis={editedResume?.ats_analysis || (selectedResume ? selectedResume.ats_analysis : null)}
                 editedResume={editedResume}
                 setEditedResume={setEditedResume}
                 addToast={addToast}
+                aiImproveResults={aiImproveResults}
+                setAiImproveResults={setAiImproveResults}
+                onAiImprove={handleImproveResumeAI}
+                aiImproveLoading={aiImproveLoading}
+                updateCustomizationField={updateCustomizationField}
+                selectedTemplate={selectedTemplate}
+                setSelectedTemplate={setSelectedTemplate}
               />
             )}
 

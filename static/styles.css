@@ -4198,6 +4198,97 @@ select:-webkit-autofill:focus {
     justify-content: center;
   }
   
+
+/* ==========================================
+   Phase 6 Upgraded Resume Editor Styling
+   ========================================== */
+
+.preview-clickable-section {
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 6px;
+  padding: 4px;
+  margin: -4px;
+}
+
+.preview-clickable-section:hover {
+  background-color: rgba(79, 70, 229, 0.04);
+  outline: 1.5px dashed rgba(79, 70, 229, 0.4);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.02);
+}
+
+@keyframes editorPulse {
+  0% {
+    box-shadow: 0 0 0 0px rgba(79, 70, 229, 0.5);
+    border-color: var(--color-primary);
+    transform: scale(1.01);
+  }
+  50% {
+    transform: scale(1);
+  }
+  100% {
+    box-shadow: 0 0 0 12px rgba(79, 70, 229, 0);
+    border-color: var(--card-border);
+  }
+}
+
+.editor-section-pulse {
+  animation: editorPulse 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+  border-color: var(--color-primary) !important;
+}
+
+.tab-btn-mini {
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55rem 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border-radius: 6px;
+  outline: none;
+}
+
+.tab-btn-mini:hover {
+  color: var(--color-primary);
+  background: rgba(79, 70, 229, 0.06);
+}
+
+.tab-btn-mini.active {
+  background: #ffffff !important;
+  color: var(--color-primary) !important;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+}
+
+/* Touch targets and responsiveness for Android/Mobile */
+@media (max-width: 1024px) {
+  .ats-dashboard-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1.25rem !important;
+  }
+  
+  .preview-customizer-container, .preview-modern, .preview-creative, .preview-software, .preview-data, .preview-executive, .preview-minimal, .preview-student, .preview-ats {
+    padding: 24px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .tab-btn-mini {
+    min-height: 48px;
+    font-size: 0.85rem !important;
+  }
+  
+  .btn-primary, .btn-secondary, .btn-delete-all, .tab-btn {
+    min-height: 48px;
+    font-size: 0.88rem !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
   .auth-input, select, textarea {
     min-height: 48px;
     font-size: 0.88rem !important;
@@ -4206,4 +4297,347 @@ select:-webkit-autofill:focus {
   .template-gallery-grid {
     grid-template-columns: 1fr !important;
   }
+}
+
+/* Premium Resume Builder UI Enhancements */
+h1, h2, h3, h4, .panel-title, .builder-section-header, .sticky-workspace-toolbar {
+  font-family: 'Outfit', sans-serif !important;
+}
+
+body, input, select, textarea, button, label, .keyword-chip {
+  font-family: 'Inter', sans-serif !important;
+}
+
+/* Glassmorphic Sticky Toolbar */
+.sticky-workspace-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background: var(--glass-bg) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid var(--glass-border) !important;
+  box-shadow: var(--shadow-md) !important;
+  margin-bottom: 1.5rem;
+  border-radius: 12px;
+  transition: var(--transition-smooth);
+}
+
+/* Figma-style Live Canvas preview window */
+.live-canvas-preview-wrapper {
+  background: #f1f5f9;
+  padding: 2.25rem !important;
+  border-radius: 16px;
+  border: 1px solid var(--card-border);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.06) !important;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  overflow: auto;
+  max-height: calc(100vh - 160px);
+  transition: var(--transition-smooth);
+}
+
+/* Dark mode overrides for document canvas */
+:root[data-theme="dark"] .live-canvas-preview-wrapper,
+body.dark-theme .live-canvas-preview-wrapper {
+  background: #0b0f19;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Softer, SaaS-grade Cards & Accordions */
+.builder-section-card {
+  border-radius: 12px !important;
+  border: 1px solid var(--card-border) !important;
+  box-shadow: var(--shadow-sm) !important;
+  margin-bottom: 0.75rem;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  background: var(--card-bg) !important;
+  overflow: hidden;
+}
+
+.builder-section-card:hover {
+  box-shadow: var(--shadow-md) !important;
+  border-color: var(--color-primary) !important;
+}
+
+.builder-section-header {
+  background: transparent !important;
+  padding: 1.15rem 1.4rem !important;
+  border-bottom: none !important;
+  transition: var(--transition-smooth);
+}
+
+.builder-section-header:hover {
+  background: rgba(79, 70, 229, 0.02) !important;
+}
+
+.builder-section-body {
+  border-top: 1px solid var(--card-border);
+  padding: 1.5rem !important;
+  animation: premiumFadeInScale 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes premiumFadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.985) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Modern inputs & textareas */
+.builder-input, .builder-textarea, .auth-input {
+  padding: 0.6rem 0.9rem !important;
+  border-radius: 8px !important;
+  border: 1px solid var(--card-border) !important;
+  background: var(--card-bg) !important;
+  color: var(--color-text-main) !important;
+  font-size: 0.88rem !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.builder-input:focus, .builder-textarea:focus, .auth-input:focus {
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.12) !important;
+  outline: none !important;
+}
+
+.auth-label, .builder-field label {
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.05em !important;
+  color: var(--color-text-muted) !important;
+  margin-bottom: 0.4rem !important;
+  text-transform: uppercase;
+}
+
+/* Sleek draggable items/sub-blocks */
+.builder-item-block {
+  border-radius: 10px !important;
+  border: 1px solid var(--card-border) !important;
+  background: rgba(15, 23, 42, 0.01) !important;
+  padding: 1.25rem !important;
+  margin-bottom: 0.75rem;
+  transition: var(--transition-smooth);
+}
+
+.builder-item-block:hover {
+  background: rgba(79, 70, 229, 0.01) !important;
+  border-color: rgba(79, 70, 229, 0.15) !important;
+}
+
+/* Premium overrides for builder accordion containers and headers using attribute selectors to bypass inline style overrides */
+.ats-dashboard-grid div[style*="border: 1px solid var(--card-border)"] {
+  border-radius: 12px !important;
+  border: 1px solid var(--card-border) !important;
+  box-shadow: var(--shadow-sm) !important;
+  margin-bottom: 0.75rem !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  background: var(--card-bg) !important;
+  overflow: hidden !important;
+}
+
+.ats-dashboard-grid div[style*="border: 1px solid var(--card-border)"]:hover {
+  box-shadow: var(--shadow-md) !important;
+  border-color: var(--color-primary) !important;
+}
+
+.ats-dashboard-grid div[style*="border: 1px solid var(--card-border)"] > div:first-child {
+  background: transparent !important;
+  padding: 1.15rem 1.4rem !important;
+  border-bottom: none !important;
+  transition: var(--transition-smooth) !important;
+  font-family: 'Outfit', sans-serif !important;
+  font-size: 0.88rem !important;
+  cursor: pointer !important;
+  color: var(--color-text-main) !important;
+}
+
+.ats-dashboard-grid div[style*="border: 1px solid var(--card-border)"] > div:first-child:hover {
+  background: rgba(79, 70, 229, 0.02) !important;
+}
+
+.ats-dashboard-grid div[style*="border: 1px solid var(--card-border)"] > div:nth-child(2) {
+  border-top: 1px solid var(--card-border) !important;
+  padding: 1.5rem !important;
+  background: var(--card-bg) !important;
+  animation: premiumFadeInScale 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
+}
+
+/* Drag and Drop reordering section layout */
+.preview-section-container {
+  cursor: grab;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px dashed transparent !important;
+}
+
+.preview-section-container:hover {
+  border-color: rgba(79, 70, 229, 0.2) !important;
+  background-color: rgba(79, 70, 229, 0.005) !important;
+}
+
+.preview-section-container:active {
+  cursor: grabbing;
+  opacity: 0.7;
+}
+
+/* Hover-activated section spacing handles */
+.section-spacing-handle {
+  height: 6px;
+  background: transparent;
+  cursor: ns-resize;
+  transition: background 0.2s ease;
+  position: absolute;
+  top: -3px;
+  left: 0;
+  right: 0;
+  z-index: 10;
+}
+
+.preview-section-container:hover .section-spacing-handle,
+.section-spacing-handle:hover {
+  background: var(--color-primary) !important;
+  box-shadow: 0 0 4px var(--color-primary);
+}
+
+/* Ruler visual designs */
+.resume-ruler-container {
+  border-radius: 8px 8px 0 0;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  background: #f1f5f9 !important;
+  border-bottom: 1px solid var(--card-border) !important;
+}
+
+:root[data-theme="dark"] .resume-ruler-container,
+body.dark-theme .resume-ruler-container {
+  background: #1e293b !important;
+}
+
+/* Inline text editing highlight indicators */
+.preview-editable-element {
+  transition: all 0.2s ease;
+  border-radius: 4px;
+}
+
+.preview-editable-element:hover {
+  background: rgba(79, 70, 229, 0.05);
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.15);
+  cursor: pointer;
+}
+
+.preview-editable-element.editing {
+  background: #ffffff !important;
+  color: #000000 !important;
+  box-shadow: 0 0 0 3px var(--color-primary) !important;
+  outline: none !important;
+  cursor: text;
+}
+
+/* ==========================================
+   Premium Resume Templates Stylesheet
+   ========================================== */
+
+/* Template 1: ATS Clean (Corporate Compliance) */
+.preview-ats-clean {
+  font-family: 'Inter', -apple-system, sans-serif;
+  color: #0f172a;
+}
+.preview-ats-clean .res-name {
+  font-family: 'Inter', sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  color: #0f172a;
+}
+.preview-ats-clean .res-sec-title {
+  font-family: 'Inter', sans-serif;
+  font-weight: 700;
+  text-transform: uppercase;
+  border-bottom: 1.5px solid #0f172a;
+  color: #0f172a;
+  letter-spacing: 0.05em;
+  font-size: 0.85rem;
+}
+
+/* Template 2: Blue Sidebar layout */
+.preview-blue-sidebar {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: #334155;
+}
+.preview-blue-sidebar .res-name {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 800;
+  color: #1e3a8a;
+  font-size: 1.85rem;
+}
+.preview-blue-sidebar .main-sec-title {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  color: #1e3a8a;
+  border-bottom: 1.5px solid #cbd5e1;
+  letter-spacing: 0.02em;
+  font-size: 0.9rem;
+}
+.preview-blue-sidebar .preview-skill-tag {
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+}
+
+/* Template 3: Elegant Serif */
+.preview-elegant {
+  font-family: 'Georgia', Garamond, serif;
+  color: #1c1917;
+  line-height: 1.45;
+}
+.preview-elegant .res-name {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  color: #7c2d12;
+  font-size: 2.1rem;
+}
+.preview-elegant .res-sec-title {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600;
+  font-style: italic;
+  text-transform: capitalize;
+  border-bottom: 1px solid #ea580c;
+  color: #7c2d12;
+  letter-spacing: 0.03em;
+  font-size: 0.95rem;
+}
+
+/* Template 4: Compact One Page */
+.preview-compact {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.8rem !important;
+  line-height: 1.25 !important;
+  color: #1e293b;
+}
+.preview-compact .res-name {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 800;
+  font-size: 1.6rem !important;
+  color: #0f172a;
+}
+.preview-compact .res-sec-title {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  text-transform: uppercase;
+  border-bottom: 1px solid #475569;
+  color: #0f172a;
+  letter-spacing: 0.04em;
+  font-size: 0.8rem !important;
+  margin-bottom: 2px !important;
+}
+.preview-compact .preview-section-container {
+  margin-top: 6px !important;
+  margin-bottom: 6px !important;
 }

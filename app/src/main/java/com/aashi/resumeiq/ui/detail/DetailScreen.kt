@@ -92,9 +92,6 @@ fun DetailScreen(
                 actions = {
                     if (detailState is UiState.Success) {
                         val resume = (detailState as UiState.Success).data
-                        IconButton(onClick = { onNavigateToTemplates(resume.id) }) {
-                            Icon(Icons.Default.Create, contentDescription = "Templates", tint = MaterialTheme.colorScheme.onSurface)
-                        }
                         IconButton(onClick = { onNavigateToBuilder(resume.id) }) {
                             Icon(Icons.Default.Edit, contentDescription = "Edit Details", tint = MaterialTheme.colorScheme.onSurface)
                         }
@@ -122,11 +119,11 @@ fun DetailScreen(
                 is UiState.Success -> {
                     val resume = state.data
                     val ats = (atsState as? UiState.Success)?.data
-
+ 
                     Column(modifier = Modifier.fillMaxSize()) {
                         // Header Score Card
                         ScoreHeader(resume = resume, ats = ats)
-
+ 
                         // Tabs
                         TabRow(
                             selectedTabIndex = selectedTab,
@@ -142,20 +139,20 @@ fun DetailScreen(
                             Tab(
                                 selected = selectedTab == 0,
                                 onClick = { selectedTab = 0 },
-                                text = { Text("Overview", color = if (selectedTab == 0) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.6f)) }
+                                text = { Text("Overview", color = if (selectedTab == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)) }
                             )
                             Tab(
                                 selected = selectedTab == 1,
                                 onClick = { selectedTab = 1 },
-                                text = { Text("ATS Analysis", color = if (selectedTab == 1) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.6f)) }
+                                text = { Text("ATS Analysis", color = if (selectedTab == 1) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)) }
                             )
                             Tab(
                                 selected = selectedTab == 2,
                                 onClick = { selectedTab = 2 },
-                                text = { Text("Roadmaps", color = if (selectedTab == 2) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.6f)) }
+                                text = { Text("Roadmaps", color = if (selectedTab == 2) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)) }
                             )
                         }
-
+ 
                         // Tab Content
                         Box(
                             modifier = Modifier
@@ -170,6 +167,7 @@ fun DetailScreen(
                                     onSimulateRecruiter = { onNavigateToSim(resume.id) },
                                     onGenerateCoverLetter = { onNavigateToCoverLetter(resume.id) },
                                     onNavigateToInterviewPrep = { onNavigateToInterviewPrep(resume.id) },
+                                    onNavigateToTemplates = { onNavigateToTemplates(resume.id) },
                                     onDownloadReport = { viewModel.downloadResumeReport(context, resume.id) }
                                 )
                                 1 -> AtsTab(
@@ -286,6 +284,7 @@ fun OverviewTab(
     onSimulateRecruiter: () -> Unit,
     onGenerateCoverLetter: () -> Unit,
     onNavigateToInterviewPrep: () -> Unit,
+    onNavigateToTemplates: () -> Unit,
     onDownloadReport: () -> Unit
 ) {
     LazyColumn(
@@ -294,58 +293,106 @@ fun OverviewTab(
     ) {
         // Actions
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(text = "AI Workkits", color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = "AI Toolkit & Customization",
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Button(
+                    ElevatedButton(
                         onClick = onCompareJd,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary),
-                        shape = RoundedCornerShape(10.dp)
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp),
+                        colors = ButtonDefaults.elevatedButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        ),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
                         Text("Compare JD", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
-                    Button(
+                    ElevatedButton(
                         onClick = onSimulateRecruiter,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary, contentColor = MaterialTheme.colorScheme.onTertiary),
-                        shape = RoundedCornerShape(10.dp)
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp),
+                        colors = ButtonDefaults.elevatedButtonColors(
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                        ),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
                         Text("Recruiter Sim", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Button(
+                    ElevatedButton(
                         onClick = onGenerateCoverLetter,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary, contentColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
-                        shape = RoundedCornerShape(10.dp)
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp),
+                        colors = ButtonDefaults.elevatedButtonColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        ),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
                         Text("Cover Letter", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
-                    Button(
+                    ElevatedButton(
                         onClick = onNavigateToInterviewPrep,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary),
-                        shape = RoundedCornerShape(10.dp)
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp),
+                        colors = ButtonDefaults.elevatedButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
                         Text("Interview Prep", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
-                Spacer(modifier = Modifier.height(10.dp))
-                Button(
-                    onClick = onDownloadReport,
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary),
-                    shape = RoundedCornerShape(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text("Download PDF Evaluation Report", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    ElevatedButton(
+                        onClick = onNavigateToTemplates,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp),
+                        colors = ButtonDefaults.elevatedButtonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Style Templates", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                    ElevatedButton(
+                        onClick = onDownloadReport,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp),
+                        colors = ButtonDefaults.elevatedButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Evaluation PDF", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
