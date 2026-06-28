@@ -107,30 +107,6 @@ fun ResetPasswordScreen(
                 fontSize = 14.sp
             )
 
-            if (!devOtp.isNullOrEmpty()) {
-                Surface(
-                    color = Color(0x1A10B981),
-                    shape = RoundedCornerShape(8.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.3f)),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = "Development Mode - OTP: $devOtp",
-                            color = Color(0xFF10B981),
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-
             Spacer(modifier = Modifier.height(32.dp))
 
             // Reset Token

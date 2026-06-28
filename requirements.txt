@@ -12,3 +12,4 @@ jinja2
 reportlab
 Pillow
 requests
+psycopg2-binary==2.9.10

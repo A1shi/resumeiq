@@ -190,12 +190,19 @@ class DetailViewModel @Inject constructor(
         }
     }
 
-    fun generateInterviewPrep(resumeId: Int, jdText: String? = null) {
+    fun generateInterviewPrep(resumeId: Int, jdText: String? = null, jobRole: String? = null) {
         viewModelScope.launch {
             _atsState.value = UiState.Loading
-            resumeRepository.generateInterviewPrep(resumeId, jdText)
+            resumeRepository.generateInterviewPrep(resumeId, jdText, jobRole)
                 .onSuccess { _atsState.value = UiState.Success(it) }
                 .onFailure { _atsState.value = UiState.Error(it.message ?: "Failed to generate interview prep") }
+        }
+    }
+
+    fun toggleInterviewQuestionStatus(resumeId: Int, category: String, questionIdx: Int, statusType: String) {
+        viewModelScope.launch {
+            resumeRepository.toggleInterviewQuestionStatus(resumeId, category, questionIdx, statusType)
+                .onSuccess { _atsState.value = UiState.Success(it) }
         }
     }
 

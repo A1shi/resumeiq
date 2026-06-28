@@ -122,8 +122,9 @@ data class JobRoleMatchSchema(
 data class InterviewQuestion2Schema(
     val question: String,
     val difficulty: String,
-    @SerializedName("key_points") val keyPoints: List<String> = emptyList(),
-    @SerializedName("sample_answer_structure") val sampleAnswerStructure: String = ""
+    val completed: Boolean = false,
+    val favorite: Boolean = false,
+    @SerializedName("needs_practice") val needsPractice: Boolean = false
 )
 
 data class InterviewPrepSchema(
@@ -136,7 +137,9 @@ data class InterviewPrepSchema(
     @SerializedName("jd_questions") val jdQuestions: List<InterviewQuestion2Schema> = emptyList(),
     @SerializedName("project_questions") val projectQuestions: List<InterviewQuestion2Schema> = emptyList(),
     @SerializedName("resume_questions") val resumeQuestions: List<InterviewQuestion2Schema> = emptyList(),
-    @SerializedName("behavioral_questions") val behavioralQuestions: List<InterviewQuestion2Schema> = emptyList()
+    @SerializedName("behavioral_questions") val behavioralQuestions: List<InterviewQuestion2Schema> = emptyList(),
+    @SerializedName("scenario_questions") val scenarioQuestions: List<InterviewQuestion2Schema> = emptyList(),
+    @SerializedName("problem_solving_questions") val problemSolvingQuestions: List<InterviewQuestion2Schema> = emptyList()
 )
 
 data class ATSAnalysisSchema(
@@ -257,7 +260,14 @@ data class ResumeListResponse(
 )
 
 data class JDMatchRequest(
-    @SerializedName("jd_text") val jdText: String
+    @SerializedName("jd_text") val jdText: String? = null,
+    @SerializedName("job_role") val jobRole: String? = null
+)
+
+data class ToggleStatusRequest(
+    val category: String,
+    @SerializedName("question_idx") val questionIdx: Int,
+    @SerializedName("status_type") val statusType: String
 )
 
 data class ResumeExportRequest(

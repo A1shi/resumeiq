@@ -12,10 +12,11 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -46,11 +47,22 @@ fun InterviewPrepScreen(
     val downloadState by viewModel.prepDownloadState.collectAsState()
 
     var jdText by rememberSaveable { mutableStateOf("") }
+    var jobRole by rememberSaveable { mutableStateOf("") }
     var selectedTabIdx by rememberSaveable { mutableStateOf(0) }
     var activeDifficulty by rememberSaveable { mutableStateOf("ALL") }
-    var expandedIndex by rememberSaveable { mutableStateOf(-1) }
+    var isPracticeMode by rememberSaveable { mutableStateOf(false) }
+    var currentQuestionIndex by rememberSaveable { mutableStateOf(0) }
 
-    val tabs = listOf("HR Questions", "Technical", "Behavioral", "JD Specific")
+    val tabs = listOf(
+        "Resume-Based",
+        "Job Description-Based",
+        "Technical",
+        "HR",
+        "Behavioral",
+        "Scenario-Based",
+        "Project-Based",
+        "Problem Solving"
+    )
     val difficulties = listOf("ALL", "EASY", "MEDIUM", "HARD")
 
     LaunchedEffect(resumeId) {
@@ -102,7 +114,7 @@ fun InterviewPrepScreen(
                     ) {
                         CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                         Spacer(modifier = Modifier.height(16.dp))
-                        Text("Generating preparation guide...", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+                        Text("Generating preparation questions...", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
                     }
                 }
                 is UiState.Error -> {
@@ -129,11 +141,18 @@ fun InterviewPrepScreen(
                     val analysis = state.data
                     val prep = analysis.interviewPrep
 
+                    // Sync target role if loaded
+                    LaunchedEffect(analysis) {
+                        if (jobRole.isBlank() && !analysis.profession.isNullOrBlank()) {
+                            jobRole = analysis.profession
+                        }
+                    }
+
                     LazyColumn(
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        // JD Input Configuration panel
+                        // JD & Target Role Configuration panel
                         item {
                             Card(
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -142,29 +161,47 @@ fun InterviewPrepScreen(
                             ) {
                                 Column(modifier = Modifier.padding(16.dp)) {
                                     Text(
-                                        text = "🎯 Target Job Description",
+                                        text = "🎯 Target Setup for Preparation",
                                         color = MaterialTheme.colorScheme.onSurface,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 15.sp
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = "Paste the job description (JD) below to customize study materials and readiness scores directly to its requirements.",
+                                        text = "Define your target Job Role and paste the Job Description (JD) below to customize mock interview questions and readiness scores.",
                                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                                         fontSize = 12.sp
                                     )
                                     Spacer(modifier = Modifier.height(12.dp))
+                                    
+                                    OutlinedTextField(
+                                        value = jobRole,
+                                        onValueChange = { jobRole = it },
+                                        placeholder = { Text("e.g. Senior Software Engineer", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)) },
+                                        label = { Text("Target Job Role") },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = getOutlinedTextFieldColors()
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
                                     OutlinedTextField(
                                         value = jdText,
                                         onValueChange = { jdText = it },
-                                        placeholder = { Text("Paste job description text here...", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)) },
+                                        placeholder = { Text("Paste job description text here (optional)...", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)) },
+                                        label = { Text("Job Description") },
                                         modifier = Modifier.fillMaxWidth().height(100.dp),
                                         shape = RoundedCornerShape(12.dp),
                                         colors = getOutlinedTextFieldColors()
                                     )
                                     Spacer(modifier = Modifier.height(12.dp))
                                     Button(
-                                        onClick = { viewModel.generateInterviewPrep(resumeId, jdText.trim().ifBlank { null }) },
+                                        onClick = { 
+                                            viewModel.generateInterviewPrep(
+                                                resumeId = resumeId, 
+                                                jdText = jdText.trim().ifBlank { null },
+                                                jobRole = jobRole.trim().ifBlank { null }
+                                            ) 
+                                        },
                                         modifier = Modifier.fillMaxWidth(),
                                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary),
                                         shape = RoundedCornerShape(8.dp)
@@ -172,7 +209,7 @@ fun InterviewPrepScreen(
                                         Icon(Icons.Default.Refresh, contentDescription = "CPU", modifier = Modifier.size(18.dp))
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text(
-                                            text = if (prep != null) "Re-Generate Guide & Scores" else "Generate Interview Guide",
+                                            text = if (prep != null) "Re-Generate Questions" else "Generate Questions",
                                             fontWeight = FontWeight.Bold
                                         )
                                     }
@@ -181,6 +218,32 @@ fun InterviewPrepScreen(
                         }
 
                         if (prep != null) {
+                            val categoryKey = when (selectedTabIdx) {
+                                0 -> "resume_questions"
+                                1 -> "jd_questions"
+                                2 -> "technical_questions"
+                                3 -> "hr_questions"
+                                4 -> "behavioral_questions"
+                                5 -> "scenario_questions"
+                                6 -> "project_questions"
+                                else -> "problem_solving_questions"
+                            }
+
+                            val currentQuestions = when (selectedTabIdx) {
+                                0 -> prep.resumeQuestions
+                                1 -> prep.jdQuestions
+                                2 -> prep.technicalQuestions
+                                3 -> prep.hrQuestions
+                                4 -> prep.behavioralQuestions
+                                5 -> prep.scenarioQuestions
+                                6 -> prep.projectQuestions
+                                else -> prep.problemSolvingQuestions
+                            }
+
+                            val filteredQuestions = currentQuestions.filter { q ->
+                                activeDifficulty == "ALL" || q.difficulty.equals(activeDifficulty, ignoreCase = true)
+                            }
+
                             // Readiness Scores Dashboard
                             item {
                                 Card(
@@ -209,7 +272,7 @@ fun InterviewPrepScreen(
                                         Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
                                         Spacer(modifier = Modifier.height(12.dp))
                                         
-                                        // PDF Export / Download / Share Section
+                                        // Action Row
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -221,164 +284,176 @@ fun InterviewPrepScreen(
                                                 shape = RoundedCornerShape(8.dp),
                                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
                                             ) {
-                                                Text("Download Qs", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                Text("Download Sheet (PDF)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                             }
                                             Button(
-                                                onClick = { viewModel.downloadInterviewPrep(context, resumeId, "guide") },
+                                                onClick = { 
+                                                    isPracticeMode = !isPracticeMode
+                                                    currentQuestionIndex = 0
+                                                },
                                                 modifier = Modifier.weight(1f),
-                                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant, contentColor = MaterialTheme.colorScheme.primary),
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = if (isPracticeMode) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                                                    contentColor = Color.White
+                                                ),
                                                 shape = RoundedCornerShape(8.dp),
                                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
                                             ) {
-                                                Text("Download Guide", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                            }
-                                        }
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            Button(
-                                                onClick = { viewModel.shareInterviewPrep(context, resumeId, "questions") },
-                                                modifier = Modifier.weight(1f),
-                                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant, contentColor = MaterialTheme.colorScheme.secondary),
-                                                shape = RoundedCornerShape(8.dp),
-                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
-                                            ) {
-                                                Icon(Icons.Default.Share, contentDescription = "Share", modifier = Modifier.size(16.dp))
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                                Text("Share Qs", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                            }
-                                            Button(
-                                                onClick = { viewModel.shareInterviewPrep(context, resumeId, "guide") },
-                                                modifier = Modifier.weight(1f),
-                                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant, contentColor = MaterialTheme.colorScheme.secondary),
-                                                shape = RoundedCornerShape(8.dp),
-                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
-                                            ) {
-                                                Icon(Icons.Default.Share, contentDescription = "Share", modifier = Modifier.size(16.dp))
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                                Text("Share Guide", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                Text(if (isPracticeMode) "Exit Practice" else "Start Practice", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                             }
                                         }
                                     }
                                 }
                             }
 
-                            // Personalized Question Explorer Card
-                            item {
-                                Card(
-                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                    shape = RoundedCornerShape(16.dp),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Column(modifier = Modifier.padding(16.dp)) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text(
-                                                text = "📚 Question Explorer",
-                                                color = MaterialTheme.colorScheme.onSurface,
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 15.sp
-                                            )
-                                            // Difficulty selector chips
+                            if (!isPracticeMode) {
+                                // Personalized Question Explorer Card
+                                item {
+                                    Card(
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                        shape = RoundedCornerShape(16.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Column(modifier = Modifier.padding(16.dp)) {
                                             Row(
-                                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
-                                                difficulties.forEach { diff ->
-                                                    val isSelected = activeDifficulty == diff
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .clip(RoundedCornerShape(6.dp))
-                                                            .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
-                                                            .clickable {
-                                                                activeDifficulty = diff
-                                                                expandedIndex = -1
-                                                            }
-                                                            .padding(horizontal = 6.dp, vertical = 4.dp)
-                                                    ) {
-                                                        Text(
-                                                            text = diff,
-                                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else Color.White.copy(alpha = 0.7f),
-                                                            fontSize = 9.sp,
-                                                            fontWeight = FontWeight.Bold
-                                                        )
+                                                Text(
+                                                    text = "📚 Question Explorer",
+                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 15.sp
+                                                )
+                                                // Difficulty selector chips
+                                                Row(
+                                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    difficulties.forEach { diff ->
+                                                        val isSelected = activeDifficulty == diff
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .clip(RoundedCornerShape(6.dp))
+                                                                .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
+                                                                .clickable { activeDifficulty = diff }
+                                                                .padding(horizontal = 6.dp, vertical = 4.dp)
+                                                        ) {
+                                                            Text(
+                                                                text = diff,
+                                                                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                                                fontSize = 9.sp,
+                                                                fontWeight = FontWeight.Bold
+                                                            )
+                                                        }
                                                     }
                                                 }
                                             }
-                                        }
-                                        Spacer(modifier = Modifier.height(12.dp))
+                                            Spacer(modifier = Modifier.height(12.dp))
 
-                                        // Category Tabs
-                                        ScrollableTabRow(
-                                            selectedTabIndex = selectedTabIdx,
-                                            containerColor = Color.Transparent,
-                                            contentColor = MaterialTheme.colorScheme.primary,
-                                            edgePadding = 0.dp,
-                                            divider = {}
-                                        ) {
-                                            tabs.forEachIndexed { index, title ->
-                                                Tab(
-                                                    selected = selectedTabIdx == index,
-                                                    onClick = {
-                                                        selectedTabIdx = index
-                                                        expandedIndex = -1
-                                                    },
-                                                    text = {
-                                                        Text(
-                                                            text = title,
-                                                            fontWeight = FontWeight.Bold,
-                                                            fontSize = 12.sp
-                                                        )
-                                                    },
-                                                    selectedContentColor = MaterialTheme.colorScheme.primary,
-                                                    unselectedContentColor = Color.White.copy(alpha = 0.5f)
-                                                )
+                                            // Category Tabs
+                                            ScrollableTabRow(
+                                                selectedTabIndex = selectedTabIdx,
+                                                containerColor = Color.Transparent,
+                                                contentColor = MaterialTheme.colorScheme.primary,
+                                                edgePadding = 0.dp,
+                                                divider = {}
+                                            ) {
+                                                tabs.forEachIndexed { index, title ->
+                                                    Tab(
+                                                        selected = selectedTabIdx == index,
+                                                        onClick = { selectedTabIdx = index },
+                                                        text = {
+                                                            val count = when (index) {
+                                                                0 -> prep.resumeQuestions.size
+                                                                1 -> prep.jdQuestions.size
+                                                                2 -> prep.technicalQuestions.size
+                                                                3 -> prep.hrQuestions.size
+                                                                4 -> prep.behavioralQuestions.size
+                                                                5 -> prep.scenarioQuestions.size
+                                                                6 -> prep.projectQuestions.size
+                                                                else -> prep.problemSolvingQuestions.size
+                                                            }
+                                                            Text(
+                                                                text = "$title ($count)",
+                                                                fontWeight = FontWeight.Bold,
+                                                                fontSize = 11.sp
+                                                            )
+                                                        },
+                                                        selectedContentColor = MaterialTheme.colorScheme.primary,
+                                                        unselectedContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                                    )
+                                                }
                                             }
                                         }
                                     }
                                 }
-                            }
 
-                            // Fetch current categorized questions
-                            val currentQuestions = when (selectedTabIdx) {
-                                0 -> prep.hrQuestions + prep.resumeQuestions
-                                1 -> prep.technicalQuestions + prep.projectQuestions
-                                2 -> prep.behavioralQuestions
-                                else -> prep.jdQuestions
-                            }
-
-                            val filteredQuestions = currentQuestions.filter { q ->
-                                activeDifficulty == "ALL" || q.difficulty.equals(activeDifficulty, ignoreCase = true)
-                            }
-
-                            if (filteredQuestions.isEmpty()) {
-                                item {
-                                    Box(
-                                        modifier = Modifier.fillMaxWidth().padding(32.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = "No questions found for difficulty: $activeDifficulty",
-                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                                            fontSize = 13.sp
+                                if (filteredQuestions.isEmpty()) {
+                                    item {
+                                        Box(
+                                            modifier = Modifier.fillMaxWidth().padding(32.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = "No questions found for difficulty: $activeDifficulty",
+                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                                fontSize = 13.sp
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    itemsIndexed(filteredQuestions) { idx, q ->
+                                        PracticeQuestionCard(
+                                            question = q,
+                                            onToggleStatus = { statusType ->
+                                                viewModel.toggleInterviewQuestionStatus(
+                                                    resumeId = resumeId,
+                                                    category = categoryKey,
+                                                    questionIdx = idx,
+                                                    statusType = statusType
+                                                )
+                                            }
                                         )
                                     }
                                 }
                             } else {
-                                itemsIndexed(filteredQuestions) { idx, q ->
-                                    val isExpanded = expandedIndex == idx
-                                    QuestionAccordionCard(
-                                        question = q,
-                                        isExpanded = isExpanded,
-                                        onToggle = {
-                                            expandedIndex = if (isExpanded) -1 else idx
+                                // Practice Mode Active
+                                item {
+                                    if (filteredQuestions.isEmpty()) {
+                                        Box(
+                                            modifier = Modifier.fillMaxWidth().padding(32.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = "No questions in this category matching $activeDifficulty to practice.",
+                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                                fontSize = 13.sp
+                                            )
                                         }
-                                    )
+                                    } else {
+                                        // Ensure valid index range
+                                        if (currentQuestionIndex >= filteredQuestions.size) {
+                                            currentQuestionIndex = 0
+                                        }
+                                        val activeQuestion = filteredQuestions[currentQuestionIndex]
+                                        PracticeModeView(
+                                            question = activeQuestion,
+                                            currentIndex = currentQuestionIndex,
+                                            totalCount = filteredQuestions.size,
+                                            onPrevious = { currentQuestionIndex = maxOf(0, currentQuestionIndex - 1) },
+                                            onNext = { currentQuestionIndex = minOf(filteredQuestions.size - 1, currentQuestionIndex + 1) },
+                                            onToggleStatus = { statusType ->
+                                                viewModel.toggleInterviewQuestionStatus(
+                                                    resumeId = resumeId,
+                                                    category = categoryKey,
+                                                    questionIdx = currentQuestionIndex,
+                                                    statusType = statusType
+                                                )
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         } else {
@@ -401,7 +476,7 @@ fun InterviewPrepScreen(
                                         )
                                         Spacer(modifier = Modifier.height(16.dp))
                                         Text(
-                                            text = "Interview Prep Guide Not Generated Yet",
+                                            text = "Interview Prep Questions Not Generated Yet",
                                             color = MaterialTheme.colorScheme.onSurface,
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 16.sp,
@@ -409,7 +484,7 @@ fun InterviewPrepScreen(
                                         )
                                         Spacer(modifier = Modifier.height(8.dp))
                                         Text(
-                                            text = "Generate custom mock interview questions, talk tracks, expected answers, and readiness indicators based on your profile and target JD.",
+                                            text = "Generate custom mock interview questions, difficulties, and readiness indicators based on your profile, selected job role, and target JD.",
                                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                                             fontSize = 12.sp,
                                             textAlign = TextAlign.Center
@@ -421,7 +496,6 @@ fun InterviewPrepScreen(
                     }
                 }
                 else -> {
-                    // Idle state
                     Column(
                         modifier = Modifier.fillMaxSize(),
                         verticalArrangement = Arrangement.Center,
@@ -480,10 +554,9 @@ fun CircularReadinessCard(score: Int, label: String, color: Color) {
 }
 
 @Composable
-fun QuestionAccordionCard(
+fun PracticeQuestionCard(
     question: InterviewQuestion2Schema,
-    isExpanded: Boolean,
-    onToggle: () -> Unit
+    onToggleStatus: (String) -> Unit
 ) {
     val difficultyColor = when (question.difficulty.lowercase()) {
         "easy" -> Color(0xFF10B981)
@@ -492,18 +565,14 @@ fun QuestionAccordionCard(
     }
 
     Card(
-        colors = CardDefaults.cardColors(containerColor = if (isExpanded) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = RoundedCornerShape(12.dp),
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
     ) {
-        Column {
-            // Accordion Header
+        Column(modifier = Modifier.padding(16.dp)) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onToggle() }
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top
             ) {
                 Box(
                     modifier = Modifier
@@ -512,7 +581,7 @@ fun QuestionAccordionCard(
                         .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
                     Text(
-                        text = question.difficulty,
+                        text = question.difficulty.uppercase(),
                         color = difficultyColor,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold
@@ -526,73 +595,199 @@ fun QuestionAccordionCard(
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.weight(1f)
                 )
-                Icon(
-                    imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                    contentDescription = "Expand/Collapse",
-                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                )
             }
-
-            // Accordion Body
-            AnimatedVisibility(
-                visible = isExpanded,
-                enter = expandVertically() + fadeIn(),
-                exit = shrinkVertically() + fadeOut()
+            Spacer(modifier = Modifier.height(12.dp))
+            Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surface)
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
-                ) {
-                    Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Talking Points
-                    Text(
-                        text = "🎯 What Recruiters Look For / Key Points",
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 11.sp
+                IconButton(onClick = { onToggleStatus("completed") }) {
+                    Icon(
+                        Icons.Default.Check,
+                        contentDescription = "Completed",
+                        tint = if (question.completed) Color(0xFF10B981) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                        modifier = Modifier.size(20.dp)
                     )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    question.keyPoints.forEach { pt ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
-                            verticalAlignment = Alignment.Top
-                        ) {
-                            Text(text = "• ", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f), fontSize = 12.sp)
-                            Text(text = pt, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f), fontSize = 12.sp)
-                        }
-                    }
-
-                    // Sample Answer Structure
-                    if (question.sampleAnswerStructure.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(14.dp))
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFF132221)),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.padding(10.dp)) {
-                                Text(
-                                    text = "💡 Sample Answer & Story Structure",
-                                    color = Color(0xFF3B82F6),
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 11.sp
-                                )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text(
-                                    text = question.sampleAnswerStructure,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
-                                    fontSize = 12.sp,
-                                    lineHeight = 16.sp
-                                )
-                            }
-                        }
-                    }
+                }
+                IconButton(onClick = { onToggleStatus("favorite") }) {
+                    Icon(
+                        Icons.Default.Star,
+                        contentDescription = "Favorite",
+                        tint = if (question.favorite) Color(0xFFF59E0B) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                IconButton(onClick = { onToggleStatus("needs_practice") }) {
+                    Icon(
+                        Icons.Default.Warning,
+                        contentDescription = "Needs Practice",
+                        tint = if (question.needsPractice) Color(0xFFEF4444) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun PracticeModeView(
+    question: InterviewQuestion2Schema,
+    currentIndex: Int,
+    totalCount: Int,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onToggleStatus: (String) -> Unit
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            // Progress Bar
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Progress: ${currentIndex + 1} of $totalCount",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                )
+                Text(
+                    text = "${((currentIndex + 1) * 100) / totalCount}%",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            LinearProgressIndicator(
+                progress = (currentIndex + 1).toFloat() / totalCount,
+                modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Difficulty & Question Text
+            val difficultyColor = when (question.difficulty.lowercase()) {
+                "easy" -> Color(0xFF10B981)
+                "medium" -> Color(0xFFF59E0B)
+                else -> Color(0xFFEF4444)
+            }
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(difficultyColor.copy(alpha = 0.15f))
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    text = question.difficulty.uppercase(),
+                    color = difficultyColor,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = question.question,
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, lineHeight = 28.sp),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Action Toggles
+            Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                StatusToggleButton(
+                    label = "Completed",
+                    icon = Icons.Default.Check,
+                    isActive = question.completed,
+                    activeColor = Color(0xFF10B981),
+                    modifier = Modifier.weight(1f),
+                    onClick = { onToggleStatus("completed") }
+                )
+                StatusToggleButton(
+                    label = "Favorite",
+                    icon = Icons.Default.Star,
+                    isActive = question.favorite,
+                    activeColor = Color(0xFFF59E0B),
+                    modifier = Modifier.weight(1f),
+                    onClick = { onToggleStatus("favorite") }
+                )
+                StatusToggleButton(
+                    label = "Practice",
+                    icon = Icons.Default.Warning,
+                    isActive = question.needsPractice,
+                    activeColor = Color(0xFFEF4444),
+                    modifier = Modifier.weight(1f),
+                    onClick = { onToggleStatus("needs_practice") }
+                )
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Navigation Buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Button(
+                    onClick = onPrevious,
+                    enabled = currentIndex > 0,
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant, contentColor = MaterialTheme.colorScheme.onSurfaceVariant),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Previous")
+                }
+                Text(
+                    text = "${currentIndex + 1} / $totalCount",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                )
+                Button(
+                    onClick = onNext,
+                    enabled = currentIndex < totalCount - 1,
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant, contentColor = MaterialTheme.colorScheme.onSurfaceVariant),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Next")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun StatusToggleButton(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    isActive: Boolean,
+    activeColor: Color,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val containerColor = if (isActive) activeColor else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+    val contentColor = if (isActive) Color.White else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+    Button(
+        onClick = onClick,
+        colors = ButtonDefaults.buttonColors(containerColor = containerColor, contentColor = contentColor),
+        shape = RoundedCornerShape(10.dp),
+        modifier = modifier,
+        contentPadding = PaddingValues(vertical = 8.dp)
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(icon, contentDescription = label, modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(label, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
         }
     }
 }

@@ -60,6 +60,11 @@ class ResumeParsedSchema(BaseModel):
     profession_confidence: Optional[float] = Field(default=None, description="Confidence score of profession detection (0.0 to 100.0)")
     validation_passed: Optional[bool] = Field(default=None, description="Whether the AI validation check passed")
     validation_reason: Optional[str] = Field(default=None, description="Reasoning behind validation check")
+    parent_id: Optional[int] = Field(default=None)
+    version_name: Optional[str] = Field(default=None)
+    customization: Optional[dict] = Field(default_factory=dict)
+    achievements: List[str] = Field(default_factory=list)
+    section_order: List[str] = Field(default_factory=list)
 
 # --- API Response Schemas ---
 
@@ -74,20 +79,23 @@ class JobRoleMatchSchema(BaseModel):
 class InterviewQuestion2Schema(BaseModel):
     question: str
     difficulty: str  # "Easy", "Medium", "Hard"
-    key_points: List[str] = Field(default_factory=list)
-    sample_answer_structure: str = ""
+    completed: bool = False
+    favorite: bool = False
+    needs_practice: bool = False
 
 class InterviewPrepSchema(BaseModel):
     technical_readiness: int = 0
     hr_readiness: int = 0
     communication_readiness: int = 0
     overall_readiness: int = 0
-    hr_questions: List[InterviewQuestion2Schema] = Field(default_factory=list)
-    technical_questions: List[InterviewQuestion2Schema] = Field(default_factory=list)
-    jd_questions: List[InterviewQuestion2Schema] = Field(default_factory=list)
-    project_questions: List[InterviewQuestion2Schema] = Field(default_factory=list)
     resume_questions: List[InterviewQuestion2Schema] = Field(default_factory=list)
+    jd_questions: List[InterviewQuestion2Schema] = Field(default_factory=list)
+    technical_questions: List[InterviewQuestion2Schema] = Field(default_factory=list)
+    hr_questions: List[InterviewQuestion2Schema] = Field(default_factory=list)
     behavioral_questions: List[InterviewQuestion2Schema] = Field(default_factory=list)
+    scenario_questions: List[InterviewQuestion2Schema] = Field(default_factory=list)
+    project_questions: List[InterviewQuestion2Schema] = Field(default_factory=list)
+    problem_solving_questions: List[InterviewQuestion2Schema] = Field(default_factory=list)
 
 class ATSAnalysisSchema(BaseModel):
     ats_score: int
@@ -217,6 +225,11 @@ class ResumeResponse(BaseModel):
     profession_confidence: Optional[float] = None
     validation_passed: Optional[bool] = None
     validation_reason: Optional[str] = None
+    parent_id: Optional[int] = None
+    version_name: Optional[str] = None
+    customization: Optional[dict] = {}
+    achievements: Optional[List[str]] = []
+    section_order: Optional[List[str]] = []
     created_at: datetime
     updated_at: datetime
 
@@ -240,7 +253,14 @@ class ResumeListResponse(BaseModel):
 
 
 class JDMatchRequest(BaseModel):
-    jd_text: str
+    jd_text: Optional[str] = None
+    job_role: Optional[str] = None
+
+
+class ToggleStatusRequest(BaseModel):
+    category: str
+    question_idx: int
+    status_type: str
 
 
 class ExperienceMatchSchema(BaseModel):
@@ -313,6 +333,7 @@ class UserCreate(BaseModel):
     @field_validator("email")
     @classmethod
     def validate_email(cls, v: str) -> str:
+        v = v.strip()
         if not EMAIL_REGEX.match(v):
             raise ValueError("value is not a valid email address")
         return v.lower()
@@ -345,6 +366,7 @@ class UserLogin(BaseModel):
     @field_validator("email")
     @classmethod
     def validate_email(cls, v: str) -> str:
+        v = v.strip()
         if not EMAIL_REGEX.match(v):
             raise ValueError("value is not a valid email address")
         return v.lower()
@@ -357,6 +379,7 @@ class UserUpdate(BaseModel):
     @field_validator("email")
     @classmethod
     def validate_email(cls, v: str) -> str:
+        v = v.strip()
         if not EMAIL_REGEX.match(v):
             raise ValueError("value is not a valid email address")
         return v.lower()
@@ -382,6 +405,7 @@ class UserVerify(BaseModel):
     @field_validator("email")
     @classmethod
     def validate_email(cls, v: str) -> str:
+        v = v.strip()
         if not EMAIL_REGEX.match(v):
             raise ValueError("value is not a valid email address")
         return v.lower()
@@ -393,6 +417,7 @@ class ForgotPasswordRequest(BaseModel):
     @field_validator("email")
     @classmethod
     def validate_email(cls, v: str) -> str:
+        v = v.strip()
         if not EMAIL_REGEX.match(v):
             raise ValueError("value is not a valid email address")
         return v.lower()
@@ -414,6 +439,7 @@ class ResumeExportRequest(BaseModel):
     template_name: str = Field(..., description="The name/ID of the template")
     format: str = Field(..., description="Export format, 'pdf' or 'docx'")
     resume_data: Optional[ResumeParsedSchema] = Field(default=None, description="Optional custom resume data")
+    customization: Optional[dict] = Field(default=None, description="Optional custom styling preferences")
 
 
 class TemplateResponse(BaseModel):
@@ -431,6 +457,7 @@ class ResetPasswordRequest(BaseModel):
     @field_validator("email")
     @classmethod
     def validate_email(cls, v: str) -> str:
+        v = v.strip()
         if not EMAIL_REGEX.match(v):
             raise ValueError("value is not a valid email address")
         return v.lower()

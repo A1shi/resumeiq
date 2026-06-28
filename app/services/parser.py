@@ -1058,7 +1058,7 @@ def detect_profession_local(raw_text: str, parsed_skills: list) -> dict:
         scores[prof] = score
 
     # Find highest score
-    max_prof = max(scores, key=scores.get)
+    max_prof = max(scores, key=lambda k: scores[k])
     max_score = scores[max_prof]
 
     # Decide confidence and profession based on rules

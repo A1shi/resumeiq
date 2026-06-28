@@ -26,8 +26,15 @@
 <body>
   <div id="root"></div>
 
+  <!-- Load React Components -->
+  <script type="text/babel" src="/assets/components/VisualTemplateGallery.js?v=20260627"></script>
+  <script type="text/babel" src="/assets/components/RichTextToolbar.js?v=20260627"></script>
+  <script type="text/babel" src="/assets/components/AdvancedDesignPanel.js?v=20260627"></script>
+  <script type="text/babel" src="/assets/components/AtsSuggestionsPanel.js?v=20260627"></script>
+  <script type="text/babel" src="/assets/components/ResumeRuler.js?v=20260627"></script>
+
   <!-- Load our React dashboard application, compiled via Babel -->
-  <script type="text/babel" src="/assets/app.js"></script>
+  <script type="text/babel" src="/assets/app.js?v=20260627"></script>
   <!-- Service Worker unregistration script to bypass cache during development -->
   <script>
     if ('serviceWorker' in navigator) {

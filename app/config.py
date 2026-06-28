@@ -26,6 +26,15 @@ class Settings(BaseSettings):
     SMTP_USE_TLS: bool = Field(default=True)
     SMTP_USE_SSL: bool = Field(default=False)
 
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def validate_database_url(cls, v: str) -> str:
+        if isinstance(v, str):
+            v = v.strip().replace("\r", "").replace("\n", "")
+            if v.startswith("postgres://"):
+                return v.replace("postgres://", "postgresql://", 1)
+        return v
+
     @field_validator("*", mode="before")
     @classmethod
     def strip_strings(cls, v):

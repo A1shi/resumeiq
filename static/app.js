@@ -261,6 +261,34 @@ const templatesList = [
     badge: "ATS: 91%", 
     bestFor: "Internships, university grads, and entry-level career transitions.",
     accent: "#10b981"
+  },
+  { 
+    name: "Academic CV", 
+    icon: "🏛️", 
+    badge: "ATS: 95%", 
+    bestFor: "Postdocs, researchers, professors, and academic fellowships.",
+    accent: "#475569"
+  },
+  { 
+    name: "Sales Specialist", 
+    icon: "💰", 
+    badge: "ATS: 87%", 
+    bestFor: "Sales managers, account executives, and business development.",
+    accent: "#059669"
+  },
+  { 
+    name: "Healthcare Professional", 
+    icon: "🏥", 
+    badge: "ATS: 93%", 
+    bestFor: "Doctors, nurses, clinicians, and medical administrators.",
+    accent: "#0891b2"
+  },
+  { 
+    name: "Project Manager", 
+    icon: "📅", 
+    badge: "ATS: 94%", 
+    bestFor: "Scrum masters, PMs, operations managers, and coordinators.",
+    accent: "#6366f1"
   }
 ];
 
@@ -286,9 +314,11 @@ function App() {
   // Interview Prep Engine 2.0 States
   const [interviewPrep, setInterviewPrep] = useState(null);
   const [generatingPrep, setGeneratingPrep] = useState(false);
-  const [activePrepCategory, setActivePrepCategory] = useState("hr"); // "hr", "tech", "jd", "projects", "resume", "behavioral"
-  const [prepDifficultyFilter, setPrepDifficultyFilter] = useState("all"); // "all", "easy", "medium", "hard"
-  const [expandedQuestionIndex, setExpandedQuestionIndex] = useState(null);
+  const [activePrepCategory, setActivePrepCategory] = useState("resume"); // Default to "resume"
+  const [prepDifficultyFilter, setPrepDifficultyFilter] = useState("all");
+  const [recruiterJobRole, setRecruiterJobRole] = useState("");
+  const [practiceMode, setPracticeMode] = useState(false);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   
   // Tab Navigation State
   const [activeTab, setActiveTab] = useState("ats"); // "ats", "enhance", "cover_letter", "details"
@@ -316,8 +346,14 @@ function App() {
         recruiter_intro: selectedResume.ats_analysis.recruiter_intro || ""
       });
       setInterviewPrep(selectedResume.ats_analysis.interview_prep || null);
+      setRecruiterJobRole(selectedResume.profession || "");
+      setPracticeMode(false);
+      setCurrentQuestionIndex(0);
     } else {
       setInterviewPrep(null);
+      setRecruiterJobRole("");
+      setPracticeMode(false);
+      setCurrentQuestionIndex(0);
     }
   }, [selectedResume]);
 
@@ -357,6 +393,118 @@ function App() {
     languages: false
   });
   const [newSkillInput, setNewSkillInput] = useState("");
+
+  // Phase 6 Upgraded States
+  const [builderTab, setBuilderTab] = useState("content"); // "content", "design", "ai", "versions"
+  const [versionsList, setVersionsList] = useState([]);
+  const [versionsLoading, setVersionsLoading] = useState(false);
+    const [newVersionName, setNewVersionName] = useState("");
+  const [editMode, setEditMode] = useState(false);
+  const [activeEditField, setActiveEditField] = useState(null);
+  const [pastStates, setPastStates] = useState([]);
+  const [futureStates, setFutureStates] = useState([]);
+  const [mobileTab, setMobileTab] = useState("builder"); // "builder", "templates", "preview", "export"
+  
+  // Undo/Redo Engine
+  const pushToHistory = (state) => {
+    setPastStates(prev => [...prev, JSON.parse(JSON.stringify(state))]);
+    setFutureStates([]);
+  };
+
+  const handleUndo = () => {
+    if (pastStates.length === 0) return;
+    const previous = pastStates[pastStates.length - 1];
+    setPastStates(prev => prev.slice(0, -1));
+    setFutureStates(prev => [JSON.parse(JSON.stringify(editedResume)), ...prev]);
+    setEditedResume(previous);
+    addToast("Undo successful", "info");
+  };
+
+  const handleRedo = () => {
+    if (futureStates.length === 0) return;
+    const next = futureStates[0];
+    setFutureStates(prev => prev.slice(1));
+    setPastStates(prev => [...prev, JSON.parse(JSON.stringify(editedResume))]);
+    setEditedResume(next);
+    addToast("Redo successful", "info");
+  };
+
+  // Keyboard Shortcuts listener (Ctrl+B, Ctrl+I, Ctrl+Z, Ctrl+Y)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (!editMode) return;
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key.toLowerCase() === "z") {
+          e.preventDefault();
+          handleUndo();
+        } else if (e.key.toLowerCase() === "y") {
+          e.preventDefault();
+          handleRedo();
+        } else if (e.key.toLowerCase() === "b") {
+          // execCommand bold is handled natively by browser inside contenteditable
+        } else if (e.key.toLowerCase() === "i") {
+          // execCommand italic is handled natively
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [editMode, pastStates, futureStates, editedResume]);
+
+  // Drag and Drop Sections handlers
+  const handleDragStart = (e, index) => {
+    e.dataTransfer.setData("text/plain", index);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+  };
+
+  const handleCanvasDrop = (e, targetIndex) => {
+    const sourceIndex = parseInt(e.dataTransfer.getData("text/plain"));
+    if (isNaN(sourceIndex) || sourceIndex === targetIndex) return;
+    pushToHistory(editedResume);
+    const newOrder = [...(editedResume.section_order || ["summary", "skills", "experience", "projects", "education", "certifications", "languages", "achievements", "interests", "referees"])];
+    const [removed] = newOrder.splice(sourceIndex, 1);
+    newOrder.splice(targetIndex, 0, removed);
+    setEditedResume(prev => ({
+      ...prev,
+      section_order: newOrder,
+      customization: {
+        ...(prev.customization || {}),
+        section_order: newOrder
+      }
+    }));
+    addToast("Section layout order updated", "success");
+  };
+
+  // Direct Inline Canvas blur save
+  const handleInlineBlur = (field, index, subfield, value) => {
+    pushToHistory(editedResume);
+    setEditedResume(prev => {
+      const updated = { ...prev };
+      if (index === undefined) {
+        updated[field] = value;
+      } else {
+        const list = [...(updated[field] || [])];
+        if (subfield) {
+          list[index] = { ...list[index], [subfield]: value };
+        } else {
+          list[index] = value;
+        }
+        updated[field] = list;
+      }
+      return updated;
+    });
+    addToast("Inline updates saved", "success");
+  };
+
+  const [aiImproveJd, setAiImproveJd] = useState("");
+  const [aiImproveLoading, setAiImproveLoading] = useState(false);
+  const [aiImproveResults, setAiImproveResults] = useState(null);
+  const [skillSuggestions, setSkillSuggestions] = useState(null);
+  const [skillSuggestionsLoading, setSkillSuggestionsLoading] = useState(false);
+  const [skillSuggestionsRole, setSkillSuggestionsRole] = useState("");
 
   // Landing page auth modal
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -422,6 +570,14 @@ function App() {
     setEditedResume(prev => {
       const newList = [...prev[field]];
       newList[index] = { ...newList[index], [subfield]: val };
+      return { ...prev, [field]: newList };
+    });
+  };
+
+  const updateStringListItem = (field, index, val) => {
+    setEditedResume(prev => {
+      const newList = [...(prev[field] || [])];
+      newList[index] = val;
       return { ...prev, [field]: newList };
     });
   };
@@ -498,17 +654,47 @@ function App() {
 
   useEffect(() => {
     if (selectedResume) {
+      const defaultCustomization = {
+        fontFamily: "DejaVuSans",
+        fontSize: 9.5,
+        primaryColor: "#0f172a",
+        accentColor: "#2563eb",
+        marginSize: 54,
+        lineSpacing: 1.15,
+        sectionSpacing: 10,
+        headerLayout: "left",
+        sidebarLayout: "left",
+        showIcons: true,
+        section_order: ["summary", "skills", "experience", "projects", "education", "certifications", "languages", "achievements", "interests", "referees"]
+      };
+
       setEditedResume({
+        id: selectedResume.id,
         name: selectedResume.name || "",
         email: selectedResume.email || "",
         phone: selectedResume.phone || "",
+        professional_summary: selectedResume.summary || selectedResume.professional_summary || "",
+        summary: selectedResume.summary || selectedResume.professional_summary || "",
         skills: selectedResume.skills ? [...selectedResume.skills] : [],
         education: selectedResume.education ? JSON.parse(JSON.stringify(selectedResume.education)) : [],
         experience: selectedResume.experience ? JSON.parse(JSON.stringify(selectedResume.experience)) : [],
         projects: selectedResume.projects ? JSON.parse(JSON.stringify(selectedResume.projects)) : [],
         certifications: selectedResume.certifications ? JSON.parse(JSON.stringify(selectedResume.certifications)) : [],
-        languages: selectedResume.languages ? JSON.parse(JSON.stringify(selectedResume.languages)) : []
+        languages: selectedResume.languages ? JSON.parse(JSON.stringify(selectedResume.languages)) : [],
+        leadership: selectedResume.leadership ? [...selectedResume.leadership] : [],
+        interests: selectedResume.interests ? [...selectedResume.interests] : [],
+        referees: selectedResume.referees ? [...selectedResume.referees] : [],
+        achievements: selectedResume.achievements ? [...selectedResume.achievements] : [],
+        section_order: (selectedResume.section_order && selectedResume.section_order.length > 0)
+          ? [...selectedResume.section_order]
+          : [...defaultCustomization.section_order],
+        customization: {
+          ...defaultCustomization,
+          ...(selectedResume.customization || {})
+        }
       });
+      // Fetch versions for this resume
+      fetchVersions(selectedResume.id);
     } else {
       setEditedResume(null);
     }
@@ -694,10 +880,14 @@ function App() {
     setGeneratingPrep(true);
     setError(null);
     try {
+      const payload = {
+        jd_text: recruiterJdText.trim() || null,
+        job_role: recruiterJobRole.trim() || null
+      };
       const res = await fetch(`/api/v1/resumes/${resumeId}/interview-prep`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: recruiterJdText.trim() ? JSON.stringify({ jd_text: recruiterJdText }) : null
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
         const atsData = await res.json();
@@ -706,16 +896,56 @@ function App() {
           ats_analysis: atsData
         }));
         setInterviewPrep(atsData.interview_prep);
-        addToast("Interview Prep Guide generated successfully!", "success");
+        addToast("Interview Questions generated successfully!", "success");
       } else {
         const errData = await res.json();
-        setError(errData.detail || "Failed to generate Interview Prep Guide.");
+        setError(errData.detail || "Failed to generate Interview Questions.");
       }
     } catch (err) {
       setError("Network error during Interview Prep generation.");
       console.error(err);
     } finally {
       setGeneratingPrep(false);
+    }
+  };
+
+  const toggleQuestionStatus = async (resumeId, categoryKey, questionIdx, statusType) => {
+    // Optimistic UI update
+    setInterviewPrep(prev => {
+      if (!prev) return prev;
+      const updated = { ...prev };
+      const list = [...updated[categoryKey]];
+      list[questionIdx] = {
+        ...list[questionIdx],
+        [statusType]: !list[questionIdx][statusType]
+      };
+      updated[categoryKey] = list;
+      return updated;
+    });
+
+    try {
+      const res = await fetch(`/api/v1/resumes/${resumeId}/interview-prep/toggle-status`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          category: categoryKey,
+          question_idx: questionIdx,
+          status_type: statusType
+        })
+      });
+      if (res.ok) {
+        const atsData = await res.json();
+        setSelectedResume(prev => ({
+          ...prev,
+          ats_analysis: atsData
+        }));
+        setInterviewPrep(atsData.interview_prep);
+      } else {
+        addToast("Failed to update question status", "error");
+      }
+    } catch (err) {
+      console.error(err);
+      addToast("Network error updating question status", "error");
     }
   };
 
@@ -1373,6 +1603,209 @@ function App() {
     }
   };
 
+  const fetchVersions = async (resumeId) => {
+    setVersionsLoading(true);
+    try {
+      const res = await fetch(`/api/v1/resumes/${resumeId}/versions`);
+      if (res.ok) {
+        const data = await res.json();
+        setVersionsList(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch versions:", err);
+    } finally {
+      setVersionsLoading(false);
+    }
+  };
+
+  const handleSaveVersion = async () => {
+    if (!newVersionName.trim()) {
+      addToast("Please enter a version name.", "warning");
+      return;
+    }
+    setVersionsLoading(true);
+    try {
+      const res = await fetch(`/api/v1/resumes/${selectedResume.id}/version?version_name=${encodeURIComponent(newVersionName)}`, {
+        method: "POST"
+      });
+      if (res.ok) {
+        addToast(`Version '${newVersionName}' saved successfully!`, "success");
+        setNewVersionName("");
+        await fetchVersions(selectedResume.id);
+      } else {
+        const err = await res.json();
+        addToast(`Failed to save version: ${err.detail || "Error"}`, "error");
+      }
+    } catch (err) {
+      addToast("Network error saving version.", "error");
+    } finally {
+      setVersionsLoading(false);
+    }
+  };
+
+  const handleRestoreVersion = async (versionId) => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/v1/resumes/${selectedResume.id}/restore/${versionId}`, {
+        method: "POST"
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setSelectedResume(updated);
+        addToast("Resume restored to selected version successfully!", "success");
+        await Promise.all([fetchHistory(), fetchDashboardStats(), fetchEnhancements(selectedResume.id)]);
+      } else {
+        const err = await res.json();
+        addToast(`Failed to restore version: ${err.detail || "Error"}`, "error");
+      }
+    } catch (err) {
+      addToast("Network error restoring version.", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRenameVersion = async (versionId, targetName) => {
+    if (!targetName.trim()) return;
+    try {
+      const res = await fetch(`/api/v1/resumes/${versionId}/rename?name=${encodeURIComponent(targetName)}`, {
+        method: "PUT"
+      });
+      if (res.ok) {
+        addToast("Version renamed successfully!", "success");
+        await fetchVersions(selectedResume.id);
+      } else {
+        addToast("Failed to rename version.", "error");
+      }
+    } catch (err) {
+      addToast("Network error renaming version.", "error");
+    }
+  };
+
+  const handleDuplicateResume = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/v1/resumes/${selectedResume.id}/duplicate`, {
+        method: "POST"
+      });
+      if (res.ok) {
+        const duplicated = await res.json();
+        addToast("Resume duplicated successfully!", "success");
+        await fetchHistory();
+        setSelectedResume(duplicated); // switch context to the copy
+      } else {
+        addToast("Failed to duplicate resume.", "error");
+      }
+    } catch (err) {
+      addToast("Network error duplicating resume.", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateBlankResume = async () => {
+    setLoading(true);
+    try {
+      const blankResume = {
+        name: "New Resume",
+        email: "",
+        phone: "",
+        summary: "Professional summary goes here...",
+        skills: ["Communication"],
+        education: [{ school: "University", degree: "Bachelor of Science", field_of_study: "Field", end_date: "2026" }],
+        experience: [{ role: "Job Title", company: "Company Name", start_date: "2024", end_date: "Present", description: "• Bullet point detail" }],
+        projects: [{ title: "Project Name", technologies: ["Tech Stack"], description: "Detail about the project" }],
+        certifications: [],
+        languages: [],
+        leadership: [],
+        interests: [],
+        referees: [],
+        achievements: [],
+        section_order: ["summary", "skills", "experience", "projects", "education"],
+        customization: {
+          fontFamily: "DejaVuSans",
+          fontSize: 9.5,
+          primaryColor: "#0f172a",
+          accentColor: "#2563eb",
+          marginSize: 54,
+          lineSpacing: 1.15,
+          sectionSpacing: 10,
+          headerLayout: "left",
+          sidebarLayout: "left",
+          showIcons: true,
+          section_order: ["summary", "skills", "experience", "projects", "education", "certifications", "languages", "achievements", "interests", "referees"]
+        }
+      };
+      const res = await fetch("/api/v1/resumes/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(blankResume)
+      });
+      if (res.ok) {
+        const created = await res.json();
+        setSelectedResume(created);
+        addToast("Created blank resume workspace!", "success");
+        await Promise.all([fetchHistory(), fetchDashboardStats()]);
+        setActiveTab("templates"); // Go to resume editor
+      } else {
+        const err = await res.json();
+        addToast(`Failed to create resume: ${err.detail || "Error"}`, "error");
+      }
+    } catch (err) {
+      addToast("Network error creating blank resume.", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleImproveResumeAI = async () => {
+    setAiImproveLoading(true);
+    setAiImproveResults(null);
+    try {
+      const res = await fetch(`/api/v1/resumes/${selectedResume.id}/ai-improve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jd_text: aiImproveJd })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAiImproveResults(data);
+        addToast("AI suggestions generated successfully!", "success");
+      } else {
+        const err = await res.json();
+        addToast(`Failed to generate improvements: ${err.detail || "Error"}`, "error");
+      }
+    } catch (err) {
+      addToast("Network error during AI improvement.", "error");
+    } finally {
+      setAiImproveLoading(false);
+    }
+  };
+
+  const handleGetSkillSuggestions = async () => {
+    setSkillSuggestionsLoading(true);
+    setSkillSuggestions(null);
+    try {
+      const res = await fetch(`/api/v1/resumes/${selectedResume.id}/suggest-skills?role=${encodeURIComponent(skillSuggestionsRole)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jd_text: aiImproveJd })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSkillSuggestions(data);
+        addToast("Smart skill suggestions retrieved!", "success");
+      } else {
+        const err = await res.json();
+        addToast(`Failed to get suggestions: ${err.detail || "Error"}`, "error");
+      }
+    } catch (err) {
+      addToast("Network error fetching skill suggestions.", "error");
+    } finally {
+      setSkillSuggestionsLoading(false);
+    }
+  };
+
   const handleSaveResume = async () => {
     setLoading(true);
     setError(null);
@@ -1407,7 +1840,8 @@ function App() {
         body: JSON.stringify({
           template_name: templateName,
           format: format,
-          resume_data: editedResume
+          resume_data: editedResume,
+          customization: editedResume.customization || null
         })
       });
       if (res.ok) {
@@ -1639,6 +2073,9 @@ function App() {
     ),
     Printer: () => (
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+    ),
+    Star: ({ fill = "none", color = "currentColor" }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill={fill} stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
     )
   };
 
@@ -1650,726 +2087,866 @@ function App() {
     : [];
   const completenessScore = selectedResume ? calculateCompleteness(selectedResume) : 0;
   const scoreBenchmark = selectedResume && selectedResume.ats_score !== null ? getScoreBenchmark(selectedResume.ats_score) : null;
+  const handlePreviewClick = (secName) => {
+    // Switch to Content tab
+    setBuilderTab("content");
+    
+    // Map section name to accordion keys
+    const sectionMapping = {
+      "contact": "contact",
+      "summary": "summary",
+      "skills": "skills",
+      "experience": "experience",
+      "projects": "projects",
+      "education": "education",
+      "certifications": "certifications",
+      "languages": "languages",
+      "achievements": "achievements",
+      "interests": "interests",
+      "referees": "referees"
+    };
+    
+    const key = sectionMapping[secName] || secName;
+    setExpandedSections(prev => ({ ...prev, [key]: true }));
+    
+    // Scroll to the input group inside the left accordion
+    setTimeout(() => {
+      const el = document.getElementById(`editor-section-${key}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+        el.classList.add("editor-section-pulse");
+        setTimeout(() => el.classList.remove("editor-section-pulse"), 1500);
+      }
+    }, 150);
+  };
+
   const renderLivePreview = (templateName = selectedTemplate, forceDummy = false) => {
+    const isMobile = window.innerWidth < 768;
     const useDummy = forceDummy || (isPreviewModalOpen && isDummyPreview);
     const data = useDummy ? dummyResumeData : editedResume;
     if (!data) return <div style={{ padding: "2rem", textAlign: "center", color: "var(--color-text-muted)" }}>Please upload/select a resume to view live preview.</div>;
-    const { name, email, phone, skills, education, experience, projects, certifications, languages } = data;
-    const summary_text = data.professional_summary || "";
     
-    if (templateName === "Modern Professional") {
-      return (
-        <div className="preview-modern">
-          <div className="mod-sidebar">
-            <div className="mod-sec-title">CONTACT</div>
-            <div style={{ wordBreak: "break-all", marginBottom: "0.5rem" }}>✉ {email || "N/A"}</div>
-            <div style={{ marginBottom: "0.85rem" }}>☎ {phone || "N/A"}</div>
-            
-            {skills && skills.length > 0 && (
-              <React.Fragment>
-                <div className="mod-sec-title">SKILLS</div>
-                <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "6px", padding: 0 }}>
-                  {skills.map((s, i) => {
-                    const percentages = [90, 85, 80, 75, 95];
-                    const pct = percentages[i % percentages.length];
-                    return (
-                      <li key={i} style={{ marginBottom: "0.25rem" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.72rem", fontWeight: "600" }}>
-                          <span>{s}</span>
-                          <span>{pct}%</span>
-                        </div>
-                        <div style={{ height: "6px", background: "#e2e8f0", borderRadius: "3px", overflow: "hidden", marginTop: "2px" }}>
-                          <div style={{ height: "100%", width: `${pct}%`, background: "#2563eb", borderRadius: "3px" }} />
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-                <div style={{ height: "0.5rem" }} />
-              </React.Fragment>
-            )}
-            
-            {languages && languages.length > 0 && (
-              <React.Fragment>
-                <div className="mod-sec-title">LANGUAGES</div>
-                <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "2px", padding: 0 }}>
-                  {languages.map((l, i) => <li key={i}>• {l.language || l.language}{l.proficiency ? ` (${l.proficiency})` : ""}</li>)}
-                </ul>
-                <div style={{ height: "0.5rem" }} />
-              </React.Fragment>
-            )}
-            
-            {certifications && certifications.length > 0 && (
-              <React.Fragment>
-                <div className="mod-sec-title">CERTIFICATIONS</div>
-                <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "2px", padding: 0 }}>
-                  {certifications.map((c, i) => <li key={i}>• {c.name}</li>)}
-                </ul>
-              </React.Fragment>
-            )}
-          </div>
-          <div className="mod-main">
-            {/* Profile Card */}
-            <div className="profile-card" style={{ background: "#f8fafc", padding: "1rem", borderRadius: "8px", border: "1px solid #e2e8f0", marginBottom: "1rem" }}>
-              <div className="res-name" style={{ fontSize: "1.5rem", fontWeight: "800", color: "#0f172a", marginBottom: "0.25rem" }}>{name || "Candidate Name"}</div>
-              <div style={{ color: "#2563eb", fontSize: "0.8rem", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.5rem" }}>Professional Profile</div>
-              {summary_text && <p style={{ margin: 0, fontSize: "0.82rem", lineHeight: "1.4", color: "#334155" }}>{summary_text}</p>}
-            </div>
-            
-            {experience && experience.length > 0 && (
-              <div style={{ marginTop: "0.5rem" }}>
-                <div className="main-sec-title">WORK EXPERIENCE</div>
-                {experience.map((exp, i) => (
-                  <div key={i} style={{ marginTop: "0.5rem" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold" }}>
-                      <span>{exp.role || "Role"} at {exp.company || "Company"}</span>
-                      <span style={{ fontWeight: "normal", color: "var(--color-text-muted)" }}>{exp.start_date || "N/A"} - {exp.end_date || "Present"}</span>
-                    </div>
-                    {exp.description && (
-                      <ul style={{ paddingLeft: "1.2rem", marginTop: "2px" }}>
-                        {exp.description.split("\n").filter(Boolean).map((bullet, idx) => (
-                          <li key={idx}>{bullet.replace(/^-\s*/, "").replace(/^•\s*/, "")}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-            
-            {projects && projects.length > 0 && (
-              <div style={{ marginTop: "0.5rem" }}>
-                <div className="main-sec-title">PROJECTS</div>
-                {projects.map((proj, i) => (
-                  <div key={i} style={{ marginTop: "0.5rem" }}>
-                    <div style={{ fontWeight: "bold" }}>
-                      {proj.title || "Project"}
-                      {proj.technologies && proj.technologies.length > 0 && (
-                        <span style={{ fontWeight: "normal", fontStyle: "italic", fontSize: "0.7rem", color: "var(--color-text-muted)", marginLeft: "0.5rem" }}>
-                          ({Array.isArray(proj.technologies) ? proj.technologies.join(", ") : proj.technologies})
-                        </span>
-                      )}
-                    </div>
-                    {proj.description && <p style={{ marginTop: "2px" }}>{proj.description}</p>}
-                  </div>
-                ))}
-              </div>
-            )}
-            
-            {education && education.length > 0 && (
-              <div style={{ marginTop: "0.5rem" }}>
-                <div className="main-sec-title">EDUCATION</div>
-                {education.map((edu, i) => (
-                  <div key={i} style={{ marginTop: "0.35rem", display: "flex", justifyContent: "space-between" }}>
-                    <span>
-                      <strong>{edu.degree || "Degree"}</strong> {edu.field_of_study ? `in ${edu.field_of_study}` : ""} — {edu.school || "School"}
-                    </span>
-                    <span style={{ color: "var(--color-text-muted)" }}>{edu.end_date || ""}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      );
-    }
+    const { name, email, phone, skills, education, experience, projects, certifications, languages, leadership, interests, referees, achievements } = data;
+    const summary_text = data.summary || data.professional_summary || "";
     
-    if (templateName === "Creative" || templateName === "Creative Resume" || templateName === "Creative Designer") {
-      return (
-        <div className="preview-creative">
-          <div className="creative-main">
-            <div className="res-name">{name || "Candidate Name"}</div>
-            <div style={{ color: "#ec4899", fontSize: "0.85rem", fontWeight: "600", marginTop: "-0.5rem", letterSpacing: "0.05em" }}>CREATIVE PROFESSIONAL</div>
-            
-            {summary_text && (
-              <div style={{ marginTop: "0.5rem" }}>
-                <div className="main-sec-title">PROFILE SUMMARY</div>
-                <p style={{ margin: 0 }}>{summary_text}</p>
-              </div>
-            )}
-            
-            {experience && experience.length > 0 && (
-              <div style={{ marginTop: "0.5rem" }}>
-                <div className="main-sec-title">CAREER EXPERIENCE</div>
-                {experience.map((exp, i) => (
-                  <div key={i} style={{ marginTop: "0.5rem" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold" }}>
-                      <span style={{ color: "#1e1b4b" }}>{exp.role || "Role"} @ {exp.company || "Company"}</span>
-                      <span style={{ fontWeight: "normal", color: "#ec4899", fontSize: "0.75rem" }}>{exp.start_date || "N/A"} - {exp.end_date || "Present"}</span>
-                    </div>
-                    {exp.description && (
-                      <ul style={{ paddingLeft: "1.2rem", marginTop: "2px" }}>
-                        {exp.description.split("\n").filter(Boolean).map((bullet, idx) => (
-                          <li key={idx}>{bullet.replace(/^-\s*/, "").replace(/^•\s*/, "")}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-            
-            {projects && projects.length > 0 && (
-              <div style={{ marginTop: "0.5rem" }}>
-                <div className="main-sec-title">FEATURED CREATIONS</div>
-                {projects.map((proj, i) => (
-                  <div key={i} style={{ marginTop: "0.5rem" }}>
-                    <div style={{ fontWeight: "bold", color: "#1e1b4b" }}>
-                      {proj.title || "Project"}
-                    </div>
-                    {proj.technologies && proj.technologies.length > 0 && (
-                      <div style={{ fontSize: "0.7rem", color: "#db2777", fontWeight: "600" }}>
-                        Tools: {Array.isArray(proj.technologies) ? proj.technologies.join(", ") : proj.technologies}
-                      </div>
-                    )}
-                    {proj.description && <p style={{ marginTop: "2px" }}>{proj.description}</p>}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="creative-sidebar">
-            <div className="creative-sec-title">GET IN TOUCH</div>
-            <div style={{ wordBreak: "break-all", marginBottom: "0.5rem" }}>✉ {email || "N/A"}</div>
-            <div style={{ marginBottom: "0.85rem" }}>☎ {phone || "N/A"}</div>
-            
-            {skills && skills.length > 0 && (
-              <React.Fragment>
-                <div className="creative-sec-title">EXPERTISE</div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem" }}>
-                  {skills.map((s, i) => <span key={i} className="creative-skill-chip">{s}</span>)}
-                </div>
-                <div style={{ height: "0.5rem" }} />
-              </React.Fragment>
-            )}
-            
-            {education && education.length > 0 && (
-              <React.Fragment>
-                <div className="creative-sec-title">EDUCATION</div>
-                {education.map((edu, i) => (
-                  <div key={i} style={{ marginBottom: "0.5rem" }}>
-                    <strong>{edu.degree}</strong>
-                    <div style={{ fontSize: "0.72rem" }}>{edu.field_of_study}</div>
-                    <div style={{ fontSize: "0.72rem", color: "var(--color-text-muted)" }}>{edu.school} ({edu.end_date})</div>
-                  </div>
-                ))}
-                <div style={{ height: "0.5rem" }} />
-              </React.Fragment>
-            )}
-            
-            {languages && languages.length > 0 && (
-              <React.Fragment>
-                <div className="creative-sec-title">LANGUAGES</div>
-                <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "2px", padding: 0 }}>
-                  {languages.map((l, i) => <li key={i}>🎨 {l.language || l.language}{l.proficiency ? ` (${l.proficiency})` : ""}</li>)}
-                </ul>
-                <div style={{ height: "0.5rem" }} />
-              </React.Fragment>
-            )}
-            
-            {certifications && certifications.length > 0 && (
-              <React.Fragment>
-                <div className="creative-sec-title">AWARDS</div>
-                <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "2px", padding: 0 }}>
-                  {certifications.map((c, i) => <li key={i}>🏆 {c.name}</li>)}
-                </ul>
-              </React.Fragment>
-            )}
-          </div>
-        </div>
-      );
-    }
-    
-    if (templateName === "Software Engineer") {
-      const githubSlug = name ? name.toLowerCase().replace(/[^a-z0-9]/g, "") : "dev";
+    const customization = data.customization || {};
+    const fontFamily = customization.fontFamily || "DejaVuSans";
+    const fontSize = customization.fontSize || 9.5;
+    const primaryColor = customization.primaryColor || "#0f172a";
+    const accentColor = customization.accentColor || "#2563eb";
+    const marginSize = customization.marginSize !== undefined ? customization.marginSize : 54;
+    const lineSpacing = customization.lineSpacing || 1.15;
+    const sectionSpacing = customization.sectionSpacing !== undefined ? customization.sectionSpacing : 10;
+    const headerLayout = customization.headerLayout || "left";
+    const sidebarLayout = customization.sidebarLayout || "left";
+    const showIcons = customization.showIcons !== undefined ? customization.showIcons : true;
+    const section_order = customization.section_order || ["summary", "skills", "experience", "projects", "education", "certifications", "languages", "achievements", "interests", "referees"];
+    const scale = customization.scale || 1.0;
+
+    const fontMapping = {
+      "DejaVuSans": "'Inter', 'DejaVu Sans', sans-serif",
+      "DejaVuSerif": "'Outfit', 'DejaVu Serif', 'Georgia', serif",
+      "Courier": "'Courier New', Courier, monospace"
+    };
+
+    const containerStyle = {
+      fontFamily: fontMapping[fontFamily] || "sans-serif",
+      fontSize: `${(fontSize / 9.5) * 0.85 * scale}rem`,
+      lineHeight: lineSpacing,
+      padding: `${marginSize}px`,
+      color: "#1e293b",
+      background: "#ffffff",
+      position: "relative",
+      boxSizing: "border-box",
+      width: isMobile ? "100%" : "800px",
+      margin: isMobile ? "0" : "0 auto",
+      minHeight: "842px",
+      textAlign: "left"
+    };
+
+    const pColor = primaryColor;
+    const aColor = accentColor;
+
+    const emailIcon = showIcons ? "✉ " : "";
+    const phoneIcon = showIcons ? "☎ " : "";
+
+    // Image Upload handler for Profile Photo (Part 8)
+    const handlePhotoUpload = (e) => {
+      if (e.target.files && e.target.files[0]) {
+        const reader = new FileReader();
+        reader.onload = (uploadEvent) => {
+          updateCustomizationField("profilePhoto", uploadEvent.target.result);
+          addToast("Profile photo uploaded", "success");
+        };
+        reader.readAsDataURL(e.target.files[0]);
+      }
+    };
+
+    // Spacing slider handle adjustments (Part 6)
+    const handleSpacingMouseDown = (e, spacingType) => {
+      e.preventDefault();
+      const startY = e.clientY;
+      const initialSpacing = spacingType === "sectionSpacing" ? sectionSpacing : marginSize;
       
-      // Developer focus sections rendering
-      const sections = ["skills", "projects", "experience", "education"];
-      
-      return (
-        <div className="preview-software">
-          <div className="res-name">&lt; {name || "Candidate Name"} /&gt;</div>
-          <div className="res-contact">// {email || "N/A"}  |  {phone || "N/A"}  |  github.com/{githubSlug}</div>
-          
-          {summary_text && (
-            <div style={{ marginTop: "0.5rem" }}>
-              <div className="res-sec-title">Candidate Profile</div>
-              <p style={{ margin: "4px 0" }}>{summary_text}</p>
+      const handleMouseMove = (moveEvent) => {
+        const deltaY = moveEvent.clientY - startY;
+        const newSpacing = Math.max(5, Math.min(100, initialSpacing + deltaY));
+        updateCustomizationField(spacingType, newSpacing);
+      };
+
+      const handleMouseUp = () => {
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+      };
+
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+    };
+
+    const renderHeaderBlock = () => {
+      if (headerLayout === "center") {
+        return (
+          <div 
+            style={{ textAlign: "center", borderBottom: `2px solid ${aColor}`, paddingBottom: "0.75rem", marginBottom: `${sectionSpacing * 1.5}px` }} 
+            className="preview-header-center"
+          >
+            <h1 
+              contentEditable={editMode}
+              suppressContentEditableWarning={true}
+              onBlur={e => handleInlineBlur("name", undefined, undefined, e.target.innerText)}
+              className={`preview-editable-element ${editMode ? "editing" : ""}`}
+              style={{ color: pColor, margin: "0 0 0.35rem 0", fontSize: "1.8rem", fontWeight: "800", outline: "none" }}
+            >
+              {name || "Candidate Name"}
+            </h1>
+            <div style={{ fontSize: "0.85rem", color: "#64748b", display: "flex", justifyContent: "center", gap: "1rem", flexWrap: "wrap" }}>
+              <span 
+                contentEditable={editMode}
+                suppressContentEditableWarning={true}
+                onBlur={e => handleInlineBlur("email", undefined, undefined, e.target.innerText)}
+                className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                style={{ outline: "none" }}
+              >
+                {email || "email@example.com"}
+              </span>
+              <span>•</span>
+              <span 
+                contentEditable={editMode}
+                suppressContentEditableWarning={true}
+                onBlur={e => handleInlineBlur("phone", undefined, undefined, e.target.innerText)}
+                className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                style={{ outline: "none" }}
+              >
+                {phone || "123-456-7890"}
+              </span>
             </div>
-          )}
-          
-          {sections.map(sec => {
-            if (sec === "skills" && skills && skills.length > 0) {
-              return (
-                <div key={sec} style={{ marginTop: "0.5rem" }}>
-                  <div className="res-sec-title">Technical Index & Stack</div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", marginTop: "0.35rem" }}>
-                    {skills.map((s, i) => (
-                      <span key={i} className="software-skill-chip">{s}</span>
-                    ))}
-                  </div>
-                </div>
-              );
-            }
-            if (sec === "projects" && projects && projects.length > 0) {
-              return (
-                <div key={sec} style={{ marginTop: "0.5rem" }}>
-                  <div className="res-sec-title">Systems & Highlights</div>
-                  {projects.map((proj, i) => (
-                    <div key={i} style={{ marginTop: "0.5rem" }}>
-                      <div style={{ fontWeight: "bold" }}>{proj.title}</div>
-                      {proj.technologies && proj.technologies.length > 0 && (
-                        <div style={{ fontSize: "0.72rem", color: "#4f46e5", fontWeight: "600", fontFamily: "monospace" }}>
-                          Stack: {Array.isArray(proj.technologies) ? proj.technologies.join(", ") : proj.technologies}
-                        </div>
-                      )}
-                      {proj.description && <p style={{ fontSize: "0.75rem", marginTop: "2px" }}>{proj.description}</p>}
-                    </div>
-                  ))}
-                </div>
-              );
-            }
-            if (sec === "experience" && experience && experience.length > 0) {
-              return (
-                <div key={sec} style={{ marginTop: "0.5rem" }}>
-                  <div className="res-sec-title">Work Log & Development</div>
-                  {experience.map((exp, i) => (
-                    <div key={i} style={{ marginTop: "0.5rem" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold" }}>
-                        <span>{exp.role} @ {exp.company}</span>
-                        <span>{exp.start_date} - {exp.end_date}</span>
-                      </div>
-                      {exp.description && (
-                        <ul style={{ paddingLeft: "1.2rem", marginTop: "2px" }}>
-                          {exp.description.split("\n").filter(Boolean).map((b, idx) => (
-                            <li key={idx}>{b.replace(/^-\s*/, "").replace(/^•\s*/, "")}</li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              );
-            }
-            if (sec === "education" && education && education.length > 0) {
-              return (
-                <div key={sec} style={{ marginTop: "0.5rem" }}>
-                  <div className="res-sec-title">Education background</div>
-                  {education.map((edu, i) => (
-                    <div key={i} style={{ display: "flex", justifyContent: "space-between", marginTop: "0.25rem" }}>
-                      <span><strong>{edu.degree}</strong> in {edu.field_of_study} — {edu.school}</span>
-                      <span>{edu.end_date}</span>
-                    </div>
-                  ))}
-                </div>
-              );
-            }
-            return null;
-          })}
-        </div>
-      );
-    }
-    
-    if (templateName === "Data Analyst") {
-      const cats = categorizeSkills(skills);
-      const sections = ["skills", "experience", "projects", "education"];
-      
-      return (
-        <div className="preview-data">
-          <div className="res-name">{name || "Candidate Name"}</div>
-          <div style={{ fontSize: "0.75rem", color: "#64748B", marginBottom: "0.5rem" }}>{email || "N/A"} | {phone || "N/A"}</div>
-          
-          {summary_text && (
-            <div style={{ marginTop: "0.5rem" }}>
-              <div className="res-sec-title">Executive Summary</div>
-              <p style={{ margin: "4px 0" }}>{summary_text}</p>
-            </div>
-          )}
-          
-          {sections.map(sec => {
-            if (sec === "skills" && skills && skills.length > 0) {
-              return (
-                <div key={sec} style={{ marginTop: "0.5rem" }}>
-                  <div className="res-sec-title">TECHNICAL SKILLS MATRIX</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", marginTop: "0.4rem" }}>
-                    {Object.entries(cats).map(([catName, catSkills]) => (
-                      <div key={catName} style={{ display: "grid", gridTemplateColumns: "150px 1fr", borderBottom: "1px solid #ccfbf1", paddingBottom: "0.25rem", gap: "0.5rem" }}>
-                        <span style={{ fontWeight: "700", fontSize: "0.75rem", color: "#0f766e" }}>{catName}:</span>
-                        <span style={{ fontSize: "0.75rem", color: "var(--color-text-main)" }}>{catSkills.join(", ")}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            }
-            if (sec === "experience" && experience && experience.length > 0) {
-              return (
-                <div key={sec} style={{ marginTop: "0.5rem" }}>
-                  <div className="res-sec-title">ANALYTICS EXPERIENCE</div>
-                  {experience.map((exp, i) => (
-                    <div key={i} style={{ marginTop: "0.5rem" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold" }}>
-                        <span style={{ color: "#0F766E" }}>{exp.role}</span>
-                        <span>{exp.start_date} - {exp.end_date}</span>
-                      </div>
-                      <div style={{ fontSize: "0.75rem", fontStyle: "italic", color: "var(--color-text-muted)" }}>{exp.company}</div>
-                      {exp.description && (
-                        <ul style={{ paddingLeft: "1.2rem", marginTop: "2px" }}>
-                          {exp.description.split("\n").filter(Boolean).map((b, idx) => (
-                            <li key={idx}>{b.replace(/^-\s*/, "").replace(/^•\s*/, "")}</li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              );
-            }
-            if (sec === "projects" && projects && projects.length > 0) {
-              return (
-                <div key={sec} style={{ marginTop: "0.5rem" }}>
-                  <div className="res-sec-title">DATA PROJECTS & CAPSTONES</div>
-                  {projects.map((proj, i) => (
-                    <div key={i} style={{ marginTop: "0.5rem" }}>
-                      <div style={{ fontWeight: "bold" }}>{proj.title}</div>
-                      {proj.technologies && proj.technologies.length > 0 && (
-                        <div style={{ fontSize: "0.7rem", color: "#0d9488", fontWeight: "600" }}>
-                          Stack: {Array.isArray(proj.technologies) ? proj.technologies.join(", ") : proj.technologies}
-                        </div>
-                      )}
-                      {proj.description && <p style={{ fontSize: "0.75rem", marginTop: "2px" }}>{proj.description}</p>}
-                    </div>
-                  ))}
-                </div>
-              );
-            }
-            if (sec === "education" && education && education.length > 0) {
-              return (
-                <div key={sec} style={{ marginTop: "0.5rem" }}>
-                  <div className="res-sec-title">EDUCATION</div>
-                  {education.map((edu, i) => (
-                    <div key={i} style={{ display: "flex", justifyContent: "space-between", marginTop: "0.25rem" }}>
-                      <span><strong>{edu.degree}</strong> ({edu.field_of_study}) — {edu.school}</span>
-                      <span>{edu.end_date}</span>
-                    </div>
-                  ))}
-                </div>
-              );
-            }
-            return null;
-          })}
-        </div>
-      );
-    }
- 
-    if (templateName === "Executive" || templateName === "Executive Resume") {
-      return (
-        <div className="preview-executive">
-          <div className="exec-header">
-            <div className="res-name">{name || "Candidate Name"}</div>
-            <div className="res-subtitle">EXECUTIVE PROFILE</div>
-            <div className="res-contact">{email || "N/A"} • {phone || "N/A"}</div>
           </div>
-          
-          {summary_text && (
-            <div style={{ marginBottom: "0.85rem" }}>
-              <div className="res-sec-title">Executive Summary</div>
-              <p style={{ margin: "4px 0", fontStyle: "italic" }}>{summary_text}</p>
-            </div>
-          )}
-          
-          {experience && experience.length > 0 && (
+        );
+      }
+      
+      if (headerLayout === "split") {
+        return (
+          <div 
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", borderBottom: `2px solid ${aColor}`, paddingBottom: "0.75rem", marginBottom: `${sectionSpacing * 1.5}px` }}
+            className="preview-header-split"
+          >
             <div>
-              <div className="res-sec-title">PROFESSIONAL CHRONOLOGY</div>
+              <h1 
+                contentEditable={editMode}
+                suppressContentEditableWarning={true}
+                onBlur={e => handleInlineBlur("name", undefined, undefined, e.target.innerText)}
+                className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                style={{ color: pColor, margin: 0, fontSize: "1.9rem", fontWeight: "800", outline: "none" }}
+              >
+                {name || "Candidate Name"}
+              </h1>
+            </div>
+            <div style={{ textAlign: "right", fontSize: "0.85rem", color: "#64748b" }}>
+              <div 
+                contentEditable={editMode}
+                suppressContentEditableWarning={true}
+                onBlur={e => handleInlineBlur("email", undefined, undefined, e.target.innerText)}
+                className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                style={{ outline: "none" }}
+              >
+                {email || "email@example.com"}
+              </div>
+              <div 
+                contentEditable={editMode}
+                suppressContentEditableWarning={true}
+                onBlur={e => handleInlineBlur("phone", undefined, undefined, e.target.innerText)}
+                className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                style={{ marginTop: "0.15rem", outline: "none" }}
+              >
+                {phone || "123-456-7890"}
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // Default left header
+      return (
+        <div 
+          style={{ borderBottom: `2px solid ${aColor}`, paddingBottom: "0.75rem", marginBottom: `${sectionSpacing * 1.5}px` }}
+          className="preview-header-left"
+        >
+          <h1 
+            contentEditable={editMode}
+            suppressContentEditableWarning={true}
+            onBlur={e => handleInlineBlur("name", undefined, undefined, e.target.innerText)}
+            className={`preview-editable-element ${editMode ? "editing" : ""}`}
+            style={{ color: pColor, margin: "0 0 0.25rem 0", fontSize: "2rem", fontWeight: "800", outline: "none" }}
+          >
+            {name || "Candidate Name"}
+          </h1>
+          <div style={{ fontSize: "0.85rem", color: "#64748b", display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+            <span 
+              contentEditable={editMode}
+              suppressContentEditableWarning={true}
+              onBlur={e => handleInlineBlur("email", undefined, undefined, e.target.innerText)}
+              className={`preview-editable-element ${editMode ? "editing" : ""}`}
+              style={{ outline: "none" }}
+            >
+              {email || "email@example.com"}
+            </span>
+            <span>|</span>
+            <span 
+              contentEditable={editMode}
+              suppressContentEditableWarning={true}
+              onBlur={e => handleInlineBlur("phone", undefined, undefined, e.target.innerText)}
+              className={`preview-editable-element ${editMode ? "editing" : ""}`}
+              style={{ outline: "none" }}
+            >
+              {phone || "123-456-7890"}
+            </span>
+          </div>
+        </div>
+      );
+    };
+
+    const renderPreviewSection = (secName) => {
+      const spacingStyle = { marginBottom: `${sectionSpacing}px`, marginTop: `${sectionSpacing}px` };
+
+      switch (secName) {
+        case "summary":
+          if (!summary_text && !editMode) return null;
+          return (
+            <div key="summary" style={spacingStyle} className="preview-section-container">
+              <div className="res-sec-title" style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "4px" }}>SUMMARY</div>
+              <p 
+                contentEditable={editMode}
+                suppressContentEditableWarning={true}
+                onBlur={e => handleInlineBlur("summary", undefined, undefined, e.target.innerText)}
+                className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                style={{ margin: "4px 0", whiteSpace: "pre-line", fontSize: "0.85rem", outline: "none" }}
+              >
+                {summary_text || "Summarize your career highlights..."}
+              </p>
+            </div>
+          );
+        case "skills":
+          if ((!skills || skills.length === 0) && !editMode) return null;
+          return (
+            <div key="skills" style={spacingStyle} className="preview-section-container">
+              <div className="res-sec-title" style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px" }}>SKILLS</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", marginTop: "4px" }}>
+                {skills.map((s, i) => (
+                  <span 
+                    key={i} 
+                    contentEditable={editMode}
+                    suppressContentEditableWarning={true}
+                    onBlur={e => handleInlineBlur("skills", i, undefined, e.target.innerText)}
+                    className={`preview-skill-tag preview-editable-element ${editMode ? "editing" : ""}`} 
+                    style={{ background: `${aColor}12`, color: aColor, border: `1px solid ${aColor}22`, borderRadius: "4px", padding: "0.15rem 0.45rem", fontSize: "0.75rem", fontWeight: "600", outline: "none" }}
+                  >
+                    {s}
+                  </span>
+                ))}
+              </div>
+            </div>
+          );
+        case "experience":
+          if ((!experience || experience.length === 0) && !editMode) return null;
+          return (
+            <div key="experience" style={spacingStyle} className="preview-section-container">
+              <div className="res-sec-title" style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px" }}>EXPERIENCE</div>
               {experience.map((exp, i) => (
-                <div key={i} style={{ marginTop: "0.6rem" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold", color: "#0f172a" }}>
-                    <span>{exp.role ? exp.role.toUpperCase() : "ROLE"} — {exp.company ? exp.company.toUpperCase() : "COMPANY"}</span>
-                    <span>{exp.start_date} - {exp.end_date}</span>
+                <div key={i} style={{ marginTop: "0.5rem" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold", fontSize: "0.85rem" }}>
+                    <span style={{ color: pColor }}>
+                      <span 
+                        contentEditable={editMode}
+                        suppressContentEditableWarning={true}
+                        onBlur={e => handleInlineBlur("experience", i, "role", e.target.innerText)}
+                        className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                        style={{ outline: "none" }}
+                      >
+                        {exp.role}
+                      </span>
+                      <span> at </span>
+                      <span 
+                        contentEditable={editMode}
+                        suppressContentEditableWarning={true}
+                        onBlur={e => handleInlineBlur("experience", i, "company", e.target.innerText)}
+                        className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                        style={{ outline: "none" }}
+                      >
+                        {exp.company}
+                      </span>
+                    </span>
+                    <span style={{ fontWeight: "normal", color: "#64748b" }}>
+                      <span 
+                        contentEditable={editMode}
+                        suppressContentEditableWarning={true}
+                        onBlur={e => handleInlineBlur("experience", i, "start_date", e.target.innerText)}
+                        className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                        style={{ outline: "none" }}
+                      >
+                        {exp.start_date}
+                      </span>
+                      <span> - </span>
+                      <span 
+                        contentEditable={editMode}
+                        suppressContentEditableWarning={true}
+                        onBlur={e => handleInlineBlur("experience", i, "end_date", e.target.innerText)}
+                        className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                        style={{ outline: "none" }}
+                      >
+                        {exp.end_date}
+                      </span>
+                    </span>
                   </div>
                   {exp.description && (
-                    <ul style={{ paddingLeft: "1.2rem", marginTop: "4px", listStyleType: "square" }}>
-                      {exp.description.split("\n").filter(Boolean).map((b, idx) => (
-                        <li key={idx}>{b.replace(/^-\s*/, "").replace(/^•\s*/, "")}</li>
+                    <ul style={{ paddingLeft: "1.2rem", marginTop: "2px", fontSize: "0.82rem" }}>
+                      {exp.description.split("\n").filter(Boolean).map((bullet, bulletIdx) => (
+                        <li 
+                          key={bulletIdx} 
+                          contentEditable={editMode}
+                          suppressContentEditableWarning={true}
+                          onBlur={e => {
+                            const newBullet = e.target.innerText;
+                            const bullets = exp.description.split("\n").filter(Boolean);
+                            bullets[bulletIdx] = newBullet;
+                            handleInlineBlur("experience", i, "description", bullets.join("\n"));
+                          }}
+                          className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                          style={{ marginBottom: "2px", outline: "none" }}
+                        >
+                          {bullet.replace(/^-*\s*/, "").replace(/^•\s*/, "")}
+                        </li>
                       ))}
                     </ul>
                   )}
                 </div>
               ))}
             </div>
-          )}
-          
-          {projects && projects.length > 0 && (
-            <div>
-              <div className="res-sec-title">KEY INITIATIVES & STAKEHOLDER PROJECTS</div>
+          );
+        case "projects":
+          if ((!projects || projects.length === 0) && !editMode) return null;
+          return (
+            <div key="projects" style={spacingStyle} className="preview-section-container">
+              <div className="res-sec-title" style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px" }}>PROJECTS</div>
               {projects.map((proj, i) => (
-                <div key={i} style={{ marginTop: "0.6rem" }}>
-                  <div style={{ fontWeight: "bold", color: "#1e3a8a" }}>{proj.title}</div>
-                  {proj.description && <p style={{ marginTop: "2px", fontStyle: "italic" }}>{proj.description}</p>}
+                <div key={i} style={{ marginTop: "0.5rem" }}>
+                  <div style={{ fontWeight: "bold", display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
+                    <span 
+                      contentEditable={editMode}
+                      suppressContentEditableWarning={true}
+                      onBlur={e => handleInlineBlur("projects", i, "title", e.target.innerText)}
+                      className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                      style={{ color: pColor, outline: "none" }}
+                    >
+                      {proj.title}
+                    </span>
+                    <span 
+                      contentEditable={editMode}
+                      suppressContentEditableWarning={true}
+                      onBlur={e => {
+                        const newTech = e.target.innerText.split(",").map(t => t.trim());
+                        handleInlineBlur("projects", i, "technologies", newTech);
+                      }}
+                      className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                      style={{ fontWeight: "normal", fontSize: "0.75rem", color: aColor, fontFamily: "monospace", outline: "none" }}
+                    >
+                      {Array.isArray(proj.technologies) ? proj.technologies.join(", ") : proj.technologies}
+                    </span>
+                  </div>
+                  <p 
+                    contentEditable={editMode}
+                    suppressContentEditableWarning={true}
+                    onBlur={e => handleInlineBlur("projects", i, "description", e.target.innerText)}
+                    className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                    style={{ margin: "2px 0", fontSize: "0.82rem", outline: "none" }}
+                  >
+                    {proj.description}
+                  </p>
                 </div>
               ))}
             </div>
-          )}
-          
-          {skills && skills.length > 0 && (
-            <div>
-              <div className="res-sec-title">EXECUTIVE SKILLS & BOARD COMPETENCIES</div>
-              <p style={{ marginTop: "4px", letterSpacing: "0.02em" }}>{skills.join(" • ")}</p>
-            </div>
-          )}
-          
-          {education && education.length > 0 && (
-            <div>
-              <div className="res-sec-title">CREDENTIALS & EDUCATION</div>
+          );
+        case "education":
+          if ((!education || education.length === 0) && !editMode) return null;
+          return (
+            <div key="education" style={spacingStyle} className="preview-section-container">
+              <div className="res-sec-title" style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px" }}>EDUCATION</div>
               {education.map((edu, i) => (
-                <div key={i} style={{ display: "flex", justifyContent: "space-between", marginTop: "0.35rem" }}>
-                  <span><strong>{edu.degree}</strong> {edu.field_of_study ? `in ${edu.field_of_study}` : ""} — {edu.school}</span>
-                  <span>{edu.end_date}</span>
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", marginTop: "0.35rem", fontSize: "0.85rem" }}>
+                  <span>
+                    <strong 
+                      contentEditable={editMode}
+                      suppressContentEditableWarning={true}
+                      onBlur={e => handleInlineBlur("education", i, "degree", e.target.innerText)}
+                      className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                      style={{ outline: "none" }}
+                    >
+                      {edu.degree}
+                    </strong>
+                    <span> in </span>
+                    <span 
+                      contentEditable={editMode}
+                      suppressContentEditableWarning={true}
+                      onBlur={e => handleInlineBlur("education", i, "field_of_study", e.target.innerText)}
+                      className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                      style={{ outline: "none" }}
+                    >
+                      {edu.field_of_study}
+                    </span>
+                    <span> — </span>
+                    <span 
+                      contentEditable={editMode}
+                      suppressContentEditableWarning={true}
+                      onBlur={e => handleInlineBlur("education", i, "school", e.target.innerText)}
+                      className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                      style={{ outline: "none" }}
+                    >
+                      {edu.school}
+                    </span>
+                  </span>
+                  <span 
+                    contentEditable={editMode}
+                    suppressContentEditableWarning={true}
+                    onBlur={e => handleInlineBlur("education", i, "end_date", e.target.innerText)}
+                    className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                    style={{ color: "#64748b", outline: "none" }}
+                  >
+                    {edu.end_date}
+                  </span>
                 </div>
               ))}
             </div>
+          );
+        case "certifications":
+          if ((!certifications || certifications.length === 0) && !editMode) return null;
+          return (
+            <div key="certifications" style={spacingStyle} className="preview-section-container">
+              <div className="res-sec-title" style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px" }}>CERTIFICATIONS</div>
+              {certifications.map((cert, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", marginTop: "0.25rem", fontSize: "0.85rem" }}>
+                  <span>
+                    🏆 
+                    <strong 
+                      contentEditable={editMode}
+                      suppressContentEditableWarning={true}
+                      onBlur={e => handleInlineBlur("certifications", i, "name", e.target.innerText)}
+                      className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                      style={{ outline: "none", marginLeft: "4px" }}
+                    >
+                      {cert.name}
+                    </strong>
+                  </span>
+                  <span 
+                    contentEditable={editMode}
+                    suppressContentEditableWarning={true}
+                    onBlur={e => handleInlineBlur("certifications", i, "date", e.target.innerText)}
+                    className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                    style={{ color: "#64748b", outline: "none" }}
+                  >
+                    {cert.date}
+                  </span>
+                </div>
+              ))}
+            </div>
+          );
+        case "languages":
+          if ((!languages || languages.length === 0) && !editMode) return null;
+          return (
+            <div key="languages" style={spacingStyle} className="preview-section-container">
+              <div className="res-sec-title" style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px" }}>LANGUAGES</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", marginTop: "4px" }}>
+                {(languages || []).map((l, i) => (
+                  <span 
+                    key={i} 
+                    contentEditable={editMode}
+                    suppressContentEditableWarning={true}
+                    onBlur={e => {
+                      const text = e.target.innerText;
+                      const parts = text.split(":");
+                      const language = parts[0]?.trim() || "";
+                      const proficiency = parts[1]?.trim() || "";
+                      handleInlineBlur("languages", i, undefined, { language, proficiency });
+                    }}
+                    className={`preview-skill-tag preview-editable-element ${editMode ? "editing" : ""}`} 
+                    style={{ background: "#f1f5f9", padding: "0.15rem 0.45rem", fontSize: "0.75rem", outline: "none", borderRadius: "4px" }}
+                  >
+                    {l.language}{l.proficiency ? `: ${l.proficiency}` : ""}
+                  </span>
+                ))}
+              </div>
+            </div>
+          );
+        case "achievements":
+          if ((!achievements || achievements.length === 0) && !editMode) return null;
+          return (
+            <div key="achievements" style={spacingStyle} className="preview-section-container">
+              <div className="res-sec-title" style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px" }}>ACHIEVEMENTS</div>
+              <ul style={{ paddingLeft: "1.2rem", marginTop: "4px", fontSize: "0.82rem" }}>
+                {(achievements || []).map((ach, i) => (
+                  <li 
+                    key={i}
+                    contentEditable={editMode}
+                    suppressContentEditableWarning={true}
+                    onBlur={e => handleInlineBlur("achievements", i, undefined, e.target.innerText)}
+                    className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                    style={{ marginBottom: "2px", outline: "none" }}
+                  >
+                    {ach}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        case "leadership":
+          if ((!leadership || leadership.length === 0) && !editMode) return null;
+          return (
+            <div key="leadership" style={spacingStyle} className="preview-section-container">
+              <div className="res-sec-title" style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px" }}>LEADERSHIP</div>
+              <ul style={{ paddingLeft: "1.2rem", marginTop: "4px", fontSize: "0.82rem" }}>
+                {(leadership || []).map((lead, i) => (
+                  <li 
+                    key={i}
+                    contentEditable={editMode}
+                    suppressContentEditableWarning={true}
+                    onBlur={e => handleInlineBlur("leadership", i, undefined, e.target.innerText)}
+                    className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                    style={{ marginBottom: "2px", outline: "none" }}
+                  >
+                    {lead}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        case "interests":
+          if ((!interests || interests.length === 0) && !editMode) return null;
+          return (
+            <div key="interests" style={spacingStyle} className="preview-section-container">
+              <div className="res-sec-title" style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px" }}>INTERESTS</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", marginTop: "4px" }}>
+                {(interests || []).map((int, i) => (
+                  <span 
+                    key={i} 
+                    contentEditable={editMode}
+                    suppressContentEditableWarning={true}
+                    onBlur={e => handleInlineBlur("interests", i, undefined, e.target.innerText)}
+                    className={`preview-skill-tag preview-editable-element ${editMode ? "editing" : ""}`} 
+                    style={{ background: "#f8fafc", color: "#475569", border: "1px solid #e2e8f0", padding: "0.15rem 0.45rem", fontSize: "0.75rem", outline: "none", borderRadius: "4px" }}
+                  >
+                    {int}
+                  </span>
+                ))}
+              </div>
+            </div>
+          );
+        case "referees":
+          if ((!referees || referees.length === 0) && !editMode) return null;
+          return (
+            <div key="referees" style={spacingStyle} className="preview-section-container">
+              <div className="res-sec-title" style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px" }}>REFERENCES</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", marginTop: "4px" }}>
+                {(referees || []).map((ref, i) => (
+                  <div 
+                    key={i} 
+                    contentEditable={editMode}
+                    suppressContentEditableWarning={true}
+                    onBlur={e => handleInlineBlur("referees", i, undefined, e.target.innerText)}
+                    className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                    style={{ outline: "none", padding: "0.35rem", border: "1px solid #e2e8f0", borderRadius: "4px", fontSize: "0.8rem", background: "#f8fafc", whiteSpace: "pre-line" }}
+                  >
+                    {ref}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        default:
+          return null;
+      }
+    };
+
+    // Wrap section with HTML5 drag and drop (Part 4)
+    const renderPreviewSectionWithDrag = (secName, idx) => {
+      const innerSec = renderPreviewSection(secName);
+      if (!innerSec) return null;
+
+      return (
+        <div
+          key={secName}
+          draggable={editMode}
+          onDragStart={(e) => handleDragStart(e, idx)}
+          onDragOver={handleDragOver}
+          onDrop={(e) => handleCanvasDrop(e, idx)}
+          style={{
+            position: "relative",
+            border: editMode ? "1px dashed rgba(79, 70, 229, 0.15)" : "none",
+            borderRadius: "4px",
+            padding: editMode ? "6px" : "0",
+            margin: editMode ? "6px 0" : "0",
+            cursor: editMode ? "grab" : "default"
+          }}
+          className={editMode ? "draggable-canvas-section" : ""}
+        >
+          {editMode && (
+            <div style={{ position: "absolute", right: "2px", top: "-10px", fontSize: "8px", background: "var(--color-primary)", color: "#ffffff", padding: "1px 4px", borderRadius: "3px", zIndex: 100, opacity: 0.8, pointerEvents: "none" }}>
+              ☰ {secName.toUpperCase()}
+            </div>
           )}
+          {innerSec}
         </div>
       );
-    }
- 
-    if (templateName === "Minimal Elegant") {
+    };
+
+    // Sidebar-focused Template Layout (Modern / Creative)
+    if (templateName === "Modern Professional" || templateName === "Creative") {
+      const isCreative = templateName === "Creative";
+      const actualAccentColor = isCreative ? "#db2777" : aColor;
+      const actualPrimaryColor = isCreative ? "#1e1b4b" : pColor;
+      const tClass = isCreative ? "preview-creative" : "preview-modern";
+
       return (
-        <div className="preview-minimal">
-          <div className="min-header">
-            <div className="res-name">{name || "Candidate Name"}</div>
-            <div className="res-contact">{email || "N/A"}   /   {phone || "N/A"}</div>
-          </div>
-          
-          {summary_text && (
-            <div className="min-section">
-              <div className="res-sec-title">Profile</div>
-              <p style={{ margin: 0 }}>{summary_text}</p>
-            </div>
+        <div style={{ position: "relative" }}>
+          {editMode && (
+            <ResumeRuler 
+              marginSize={marginSize} 
+              setMarginSize={(val) => updateCustomizationField("marginSize", val)} 
+              scale={scale} 
+            />
           )}
-          
-          {experience && experience.length > 0 && (
-            <div className="min-section">
-              <div className="res-sec-title">Experience</div>
-              {experience.map((exp, i) => (
-                <div key={i} className="min-item">
-                  <div className="min-item-header">
-                    <span className="min-role">{exp.role}</span>
-                    <span className="min-date">{exp.start_date} – {exp.end_date}</span>
+          <div style={containerStyle} className={tClass}>
+            <div style={{ display: "flex", flexDirection: sidebarLayout === "right" ? "row-reverse" : "row", gap: "1.5rem" }}>
+              {/* Sidebar Column */}
+              <div style={{ width: "32%", borderRight: sidebarLayout === "left" ? "1px solid #cbd5e1" : "none", borderLeft: sidebarLayout === "right" ? "1px solid #cbd5e1" : "none", paddingRight: sidebarLayout === "left" ? "1rem" : "0", paddingLeft: sidebarLayout === "right" ? "1rem" : "0" }}>
+                
+                {/* Profile Photo Uploader (Part 8) */}
+                <div style={{ marginBottom: "1rem", textAlign: "center", position: "relative" }} className="profile-photo-canvas-container">
+                  <input 
+                    type="file" 
+                    id="profile-photo-uploader-canvas" 
+                    style={{ display: "none" }} 
+                    accept="image/*" 
+                    onChange={handlePhotoUpload}
+                  />
+                  <div 
+                    onClick={() => document.getElementById("profile-photo-uploader-canvas").click()}
+                    style={{ 
+                      width: "80px", 
+                      height: "80px", 
+                      borderRadius: "50%", 
+                      border: "2px dashed #cbd5e1", 
+                      margin: "0 auto", 
+                      cursor: "pointer", 
+                      overflow: "hidden",
+                      background: "#f8fafc",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      position: "relative"
+                    }}
+                    title="Click to upload profile picture"
+                  >
+                    {customization.profilePhoto ? (
+                      <img 
+                        src={customization.profilePhoto} 
+                        style={{ 
+                          width: "100%", 
+                          height: "100%", 
+                          objectFit: "cover",
+                          transform: `scale(${customization.profilePhotoScale || 1.0}) translate(${customization.profilePhotoTranslateX || 0}px, ${customization.profilePhotoTranslateY || 0}px)`,
+                          transition: "transform 0.1s ease-out"
+                        }} 
+                      />
+                    ) : (
+                      <span style={{ fontSize: "1.5rem", color: "#94a3b8" }}>👤</span>
+                    )}
+                    <div className="photo-upload-overlay" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.4)", color: "#ffffff", fontSize: "8px", display: "flex", alignItems: "center", justifyContent: "center", opacity: 0, transition: "opacity 0.2s" }}>
+                      Upload
+                    </div>
                   </div>
-                  <div className="min-company">{exp.company}</div>
-                  {exp.description && (
-                    <div className="min-desc">
-                      {exp.description.split("\n").filter(Boolean).map((b, idx) => (
-                        <p key={idx} style={{ margin: "2px 0" }}>– {b.replace(/^-\s*/, "").replace(/^•\s*/, "")}</p>
+                  {editMode && customization.profilePhoto && (
+                    <div className="photo-crop-overlay-panel" onClick={e => e.stopPropagation()} style={{ display: "flex", flexDirection: "column", gap: "0.25rem", margin: "0.5rem auto 0 auto" }}>
+                      <label style={{ fontSize: "0.62rem" }}>🔍 Zoom ({customization.profilePhotoScale || 1.0}x)</label>
+                      <input 
+                        type="range" 
+                        min="1" 
+                        max="3" 
+                        step="0.1" 
+                        value={customization.profilePhotoScale || 1.0} 
+                        onChange={e => updateCustomizationField("profilePhotoScale", parseFloat(e.target.value))} 
+                        style={{ width: "100%" }}
+                      />
+                      <label style={{ fontSize: "0.62rem" }}>↔ Pan X ({customization.profilePhotoTranslateX || 0}px)</label>
+                      <input 
+                        type="range" 
+                        min="-50" 
+                        max="50" 
+                        step="1" 
+                        value={customization.profilePhotoTranslateX || 0} 
+                        onChange={e => updateCustomizationField("profilePhotoTranslateX", parseInt(e.target.value))} 
+                        style={{ width: "100%" }}
+                      />
+                      <label style={{ fontSize: "0.62rem" }}>↕ Pan Y ({customization.profilePhotoTranslateY || 0}px)</label>
+                      <input 
+                        type="range" 
+                        min="-50" 
+                        max="50" 
+                        step="1" 
+                        value={customization.profilePhotoTranslateY || 0} 
+                        onChange={e => updateCustomizationField("profilePhotoTranslateY", parseInt(e.target.value))} 
+                        style={{ width: "100%" }}
+                      />
+                    </div>
+                  )}
+                  {customization.profilePhoto && (
+                    <button 
+                      onClick={() => {
+                        updateCustomizationField("profilePhoto", null);
+                        updateCustomizationField("profilePhotoScale", 1.0);
+                        updateCustomizationField("profilePhotoTranslateX", 0);
+                        updateCustomizationField("profilePhotoTranslateY", 0);
+                      }}
+                      style={{ border: "none", background: "transparent", color: "var(--color-danger)", fontSize: "0.68rem", cursor: "pointer", marginTop: "0.25rem" }}
+                    >
+                      Remove Photo
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ marginBottom: "1rem" }}>
+                  <h3 style={{ color: actualAccentColor, fontSize: "0.78rem", fontWeight: "700", letterSpacing: "0.05em", marginBottom: "0.35rem" }}>CONTACT</h3>
+                  <div 
+                    contentEditable={editMode}
+                    suppressContentEditableWarning={true}
+                    onBlur={e => handleInlineBlur("email", undefined, undefined, e.target.innerText)}
+                    className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                    style={{ fontSize: "0.78rem", wordBreak: "break-all", marginBottom: "4px", outline: "none" }}
+                  >
+                    {email || "N/A"}
+                  </div>
+                  <div 
+                    contentEditable={editMode}
+                    suppressContentEditableWarning={true}
+                    onBlur={e => handleInlineBlur("phone", undefined, undefined, e.target.innerText)}
+                    className={`preview-editable-element ${editMode ? "editing" : ""}`}
+                    style={{ fontSize: "0.78rem", outline: "none" }}
+                  >
+                    {phone || "N/A"}
+                  </div>
+                </div>
+
+                {skills && skills.length > 0 && (
+                  <div style={{ marginBottom: "1rem" }}>
+                    <h3 style={{ color: actualAccentColor, fontSize: "0.78rem", fontWeight: "700", letterSpacing: "0.05em", marginBottom: "0.35rem" }}>SKILLS</h3>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.25rem" }}>
+                      {skills.map((s, idx) => (
+                        <span key={idx} style={{ background: "#f1f5f9", padding: "0.15rem 0.35rem", borderRadius: "4px", fontSize: "0.7rem", color: "#334155" }}>{s}</span>
                       ))}
                     </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-          
-          {projects && projects.length > 0 && (
-            <div className="min-section">
-              <div className="res-sec-title">Projects</div>
-              {projects.map((proj, i) => (
-                <div key={i} className="min-item">
-                  <div className="min-item-header">
-                    <span className="min-role">{proj.title}</span>
                   </div>
-                  {proj.description && <p className="min-desc">{proj.description}</p>}
-                </div>
-              ))}
-            </div>
-          )}
-          
-          {skills && skills.length > 0 && (
-            <div className="min-section">
-              <div className="res-sec-title">Skills</div>
-              <p style={{ margin: 0, letterSpacing: "0.03em" }}>{skills.join(", ")}</p>
-            </div>
-          )}
-          
-          {education && education.length > 0 && (
-            <div className="min-section">
-              <div className="res-sec-title">Education</div>
-              {education.map((edu, i) => (
-                <div key={i} className="min-item" style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span>{edu.degree} {edu.field_of_study ? `in ${edu.field_of_study}` : ""} — {edu.school}</span>
-                  <span className="min-date">{edu.end_date}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      );
-    }
- 
-    if (templateName === "Student / Fresher" || templateName === "Student/Fresher" || templateName === "Fresher Pro") {
-      const sections = ["education", "projects", "skills", "experience"];
-      return (
-        <div className="preview-student">
-          <div className="res-header-centered">
-            <div className="res-name">{name || "Candidate Name"}</div>
-            <div className="res-contact">
-              {email || "N/A"} | {phone || "N/A"}
-            </div>
-          </div>
-          
-          {summary_text && (
-            <div style={{ marginTop: "0.5rem" }}>
-              <div className="res-sec-title">Profile Summary</div>
-              <p style={{ margin: "4px 0" }}>{summary_text}</p>
-            </div>
-          )}
-          
-          {sections.map(sec => {
-            if (sec === "education" && education && education.length > 0) {
-              return (
-                <div key={sec} style={{ marginTop: "0.5rem" }}>
-                  <div className="res-sec-title">EDUCATION & CREDENTIALS</div>
-                  {education.map((edu, i) => (
-                    <div key={i} style={{ display: "flex", justifyContent: "space-between", marginTop: "0.35rem" }}>
-                      <span>
-                        <strong>{edu.degree || "Degree"}</strong> {edu.field_of_study ? `in ${edu.field_of_study}` : ""} — {edu.school || "School"}
-                      </span>
-                      <span>{edu.end_date || ""}</span>
-                    </div>
-                  ))}
-                </div>
-              );
-            }
-            if (sec === "projects" && projects && projects.length > 0) {
-              return (
-                <div key={sec} style={{ marginTop: "0.5rem" }}>
-                  <div className="res-sec-title">ACADEMIC & PERSONAL PROJECTS</div>
-                  {projects.map((proj, i) => (
-                    <div key={i} style={{ marginTop: "0.5rem" }}>
-                      <div style={{ fontWeight: "bold" }}>
-                        {proj.title}
-                      </div>
-                      {proj.technologies && proj.technologies.length > 0 && (
-                        <div style={{ fontSize: "0.7rem", color: "#047857", fontWeight: "600" }}>
-                          Technologies: {Array.isArray(proj.technologies) ? proj.technologies.join(", ") : proj.technologies}
-                        </div>
-                      )}
-                      {proj.description && <p style={{ fontStyle: "italic", fontSize: "0.78rem", color: "#4B5563", marginTop: "2px" }}>{proj.description}</p>}
-                    </div>
-                  ))}
-                </div>
-              );
-            }
-            if (sec === "skills" && skills && skills.length > 0) {
-              return (
-                <div key={sec} style={{ marginTop: "0.5rem" }}>
-                  <div className="res-sec-title">TECHNICAL SKILLS</div>
-                  <p style={{ marginTop: "2px" }}>{skills.join(", ")}</p>
-                </div>
-              );
-            }
-            if (sec === "experience" && experience && experience.length > 0) {
-              return (
-                <div key={sec} style={{ marginTop: "0.5rem" }}>
-                  <div className="res-sec-title">CO-OP & INTERNSHIP EXPERIENCE</div>
-                  {experience.map((exp, i) => (
-                    <div key={i} style={{ marginTop: "0.5rem" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontWeight: "bold" }}>
-                        <span>{exp.role || "Role"} — {exp.company || "Company"}</span>
-                        <span>{exp.start_date || "N/A"} - {exp.end_date || "Present"}</span>
-                      </div>
-                      {exp.description && <p style={{ fontSize: "0.78rem", marginTop: "2px" }}>{exp.description}</p>}
-                    </div>
-                  ))}
-                </div>
-              );
-            }
-            return null;
-          })}
-          
-          {(certifications?.length > 0 || languages?.length > 0) && (
-            <div style={{ marginTop: "0.5rem" }}>
-              <div className="res-sec-title">ADDITIONAL INFORMATION & CERTIFICATIONS</div>
-              {certifications && certifications.length > 0 && (
-                <div>
-                  <strong>Certifications:</strong> {certifications.map(c => c.name).join(", ")}
-                </div>
-              )}
-              {languages && languages.length > 0 && (
-                <div style={{ marginTop: "0.15rem" }}>
-                  <strong>Languages:</strong> {languages.map(l => `${l.language || l.language}${l.proficiency ? ` (${l.proficiency})` : ""}`).join(", ")}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      );
-    }
-    
-    return (
-      <div className="preview-ats">
-        <div className="res-name">{name || "Candidate Name"}</div>
-        <div className="res-contact">{email || "N/A"} | {phone || "N/A"}</div>
-        
-        {skills && skills.length > 0 && (
-          <div>
-            <div className="res-sec-title">TECHNICAL SKILLS</div>
-            <p>{skills.join(", ")}</p>
-          </div>
-        )}
-        
-        {experience && experience.length > 0 && (
-          <div>
-            <div className="res-sec-title">PROFESSIONAL EXPERIENCE</div>
-            {experience.map((exp, i) => (
-              <div key={i} style={{ marginTop: "0.5rem" }}>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span className="res-job-title">{exp.role}</span>
-                  <span>{exp.start_date} - {exp.end_date}</span>
-                </div>
-                <div className="res-job-company">{exp.company}</div>
-                {exp.description && (
-                  <ul style={{ paddingLeft: "1.2rem", marginTop: "2px" }}>
-                    {exp.description.split("\n").filter(Boolean).map((b, idx) => (
-                      <li key={idx}>{b.replace(/^-\s*/, "").replace(/^•\s*/, "")}</li>
-                    ))}
-                  </ul>
+                )}
+
+                {languages && languages.length > 0 && (
+                  <div style={{ marginBottom: "1rem" }}>
+                    <h3 style={{ color: actualAccentColor, fontSize: "0.78rem", fontWeight: "700", letterSpacing: "0.05em", marginBottom: "0.35rem" }}>LANGUAGES</h3>
+                    <ul style={{ listStyle: "none", padding: 0, margin: 0, fontSize: "0.75rem" }}>
+                      {languages.map((l, i) => <li key={i} style={{ marginBottom: "2px" }}>• {l.language}</li>)}
+                    </ul>
+                  </div>
                 )}
               </div>
-            ))}
-          </div>
-        )}
-        
-        {projects && projects.length > 0 && (
-          <div>
-            <div className="res-sec-title">REPRESENTATIVE PROJECTS</div>
-            {projects.map((proj, i) => (
-              <div key={i} style={{ marginTop: "0.5rem" }}>
-                <div style={{ fontWeight: "bold" }}>
-                  {proj.title}
-                  {proj.technologies && proj.technologies.length > 0 && (
-                    <span style={{ fontWeight: "normal", fontSize: "0.75rem", color: "var(--color-text-muted)" }}>
-                      {" "}— ({Array.isArray(proj.technologies) ? proj.technologies.join(", ") : proj.technologies})
-                    </span>
-                  )}
+
+              {/* Main Content Column */}
+              <div style={{ width: "68%" }}>
+                <div style={{ marginBottom: "1rem" }}>
+                  <h1 style={{ color: actualPrimaryColor, fontSize: "1.8rem", fontWeight: "800", margin: "0 0 0.15rem 0" }}>{name || "Candidate"}</h1>
+                  <div style={{ color: actualAccentColor, fontSize: "0.8rem", fontWeight: "700", textTransform: "uppercase" }}>Professional Profile</div>
                 </div>
-                {proj.description && <p style={{ marginTop: "2px" }}>{proj.description}</p>}
+
+                {/* Section spacing drag line (Part 6) */}
+                {editMode && (
+                  <div 
+                    style={{ height: "6px", cursor: "ns-resize", background: "rgba(79, 70, 229, 0.15)", borderRadius: "3px", margin: "8px 0" }} 
+                    onMouseDown={(e) => handleSpacingMouseDown(e, "sectionSpacing")}
+                    title="Drag vertically to adjust sections gap"
+                  />
+                )}
+
+                {section_order.filter(s => !["skills", "languages", "certifications"].includes(s)).map((sec, idx) => renderPreviewSectionWithDrag(sec, idx))}
               </div>
-            ))}
+            </div>
           </div>
+          
+          <RichTextToolbar 
+            activeElementId={activeEditField} 
+            onUndo={handleUndo} 
+            onRedo={handleRedo} 
+            canUndo={pastStates.length > 0} 
+            canRedo={futureStates.length > 0} 
+          />
+        </div>
+      );
+    }
+
+    // Default Customizer Template Layout
+    let templateClass = "preview-customizer-container";
+    if (templateName === "ATS Professional") templateClass = "preview-ats";
+    else if (templateName === "Software Engineer") templateClass = "preview-software";
+    else if (templateName === "Data Analyst") templateClass = "preview-data";
+    else if (templateName === "Executive") templateClass = "preview-executive";
+    else if (templateName === "Minimal Elegant") templateClass = "preview-minimal";
+    else if (templateName === "Student/Fresher") templateClass = "preview-student";
+    else if (templateName === "Healthcare Professional") templateClass = "preview-healthcare";
+
+    return (
+      <div style={{ position: "relative" }}>
+        {editMode && (
+          <ResumeRuler 
+            marginSize={marginSize} 
+            setMarginSize={(val) => updateCustomizationField("marginSize", val)} 
+            scale={scale} 
+          />
         )}
+        <div style={containerStyle} className={templateClass}>
+          {renderHeaderBlock()}
+          
+          {/* Section spacing drag line (Part 6) */}
+          {editMode && (
+            <div 
+              style={{ height: "6px", cursor: "ns-resize", background: "rgba(79, 70, 229, 0.15)", borderRadius: "3px", margin: "8px 0" }} 
+              onMouseDown={(e) => handleSpacingMouseDown(e, "sectionSpacing")}
+              title="Drag vertically to adjust sections gap"
+            />
+          )}
+
+          {section_order.map((secName, idx) => renderPreviewSectionWithDrag(secName, idx))}
+        </div>
         
-        {education && education.length > 0 && (
-          <div>
-            <div className="res-sec-title">EDUCATION</div>
-            {education.map((edu, i) => (
-              <div key={i} style={{ display: "flex", justifyContent: "space-between", marginTop: "0.35rem" }}>
-                <span><strong>{edu.degree}</strong> {edu.field_of_study ? `in ${edu.field_of_study}` : ""} — {edu.school}</span>
-                <span>{edu.end_date}</span>
-              </div>
-            ))}
-          </div>
-        )}
+        <RichTextToolbar 
+          activeElementId={activeEditField} 
+          onUndo={handleUndo} 
+          onRedo={handleRedo} 
+          canUndo={pastStates.length > 0} 
+          canRedo={futureStates.length > 0} 
+        />
       </div>
     );
   };
@@ -3319,360 +3896,774 @@ function App() {
   };
 
   const renderResumeTemplatesTab = () => {
+    if (!editedResume) {
+      return (
+        <div style={{ textAlign: "center", padding: "3rem 1rem", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "450px" }} className="glass-panel">
+          <span style={{ fontSize: "3rem", marginBottom: "1rem" }}>💡</span>
+          <h3 style={{ fontWeight: "700", fontSize: "1.1rem", color: "var(--color-text-main)" }}>No Resume Selected</h3>
+          <p style={{ fontSize: "0.85rem", color: "var(--color-text-muted)", maxWidth: "400px", margin: "0.25rem 0 1.5rem 0", lineHeight: "1.4" }}>
+            Please select an existing resume from your history dashboard, upload a PDF/Word file, or create a brand new profile from scratch to use the builder.
+          </p>
+          <button className="btn-primary" onClick={() => setCurrentNav("history")}>
+            Go to Dashboard
+          </button>
+        </div>
+      );
+    }
+
+    const updateCustomizationField = (field, val) => {
+      pushToHistory(editedResume);
+      setEditedResume(prev => ({
+        ...prev,
+        customization: {
+          ...(prev.customization || {}),
+          [field]: val
+        }
+      }));
+    };
+
+    const handleSwapItems = (field, index, dir) => {
+      pushToHistory(editedResume);
+      setEditedResume(prev => {
+        const items = [...(prev[field] || [])];
+        const target = index + dir;
+        if (target < 0 || target >= items.length) return prev;
+        const temp = items[index];
+        items[index] = items[target];
+        items[target] = temp;
+        return { ...prev, [field]: items };
+      });
+      addToast("Item re-ordered", "info");
+    };
+
+    const handleSwapSections = (index, dir) => {
+      pushToHistory(editedResume);
+      setEditedResume(prev => {
+        const order = [...(prev.section_order || ["summary", "skills", "experience", "projects", "education", "certifications", "languages", "achievements", "interests", "referees"])];
+        const target = index + dir;
+        if (target < 0 || target >= order.length) return prev;
+        const temp = order[index];
+        order[index] = order[target];
+        order[target] = temp;
+        return {
+          ...prev,
+          section_order: order,
+          customization: {
+            ...(prev.customization || {}),
+            section_order: order
+          }
+        };
+      });
+      addToast("Section layout order updated", "success");
+    };
+
+    const handleAcceptSummary = (rewritten) => {
+      pushToHistory(editedResume);
+      setEditedResume(prev => ({
+        ...prev,
+        summary: rewritten,
+        professional_summary: rewritten
+      }));
+      setAiImproveResults(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          improvements: {
+            ...prev.improvements,
+            improved_summary: null
+          }
+        };
+      });
+      addToast("AI improved summary applied!", "success");
+    };
+
+    const handleAcceptExperience = (idx, rewritten) => {
+      pushToHistory(editedResume);
+      setEditedResume(prev => {
+        const updated = [...prev.experience];
+        updated[idx] = { ...updated[idx], description: rewritten };
+        return { ...prev, experience: updated };
+      });
+      setAiImproveResults(prev => {
+        if (!prev) return null;
+        const remaining = prev.improvements.improved_experience.filter((_, i) => i !== idx);
+        return {
+          ...prev,
+          improvements: {
+            ...prev.improvements,
+            improved_experience: remaining
+          }
+        };
+      });
+      addToast("AI bullet points applied to experience!", "success");
+    };
+
+    const handleAcceptProject = (idx, rewritten) => {
+      pushToHistory(editedResume);
+      setEditedResume(prev => {
+        const updated = [...prev.projects];
+        updated[idx] = { ...updated[idx], description: rewritten };
+        return { ...prev, projects: updated };
+      });
+      setAiImproveResults(prev => {
+        if (!prev) return null;
+        const remaining = prev.improvements.improved_projects.filter((_, i) => i !== idx);
+        return {
+          ...prev,
+          improvements: {
+            ...prev.improvements,
+            improved_projects: remaining
+          }
+        };
+      });
+      addToast("AI description applied to project!", "success");
+    };
+
+    const handleAddSuggestedSkill = (skill) => {
+      pushToHistory(editedResume);
+      if (!editedResume.skills.includes(skill)) {
+        setEditedResume(prev => ({
+          ...prev,
+          skills: [...prev.skills, skill]
+        }));
+        addToast(`Added: ${skill}`, "success");
+      }
+    };
+
+    const handleAddSuggestedCert = (certName) => {
+      pushToHistory(editedResume);
+      const alreadyHas = editedResume.certifications.some(c => c.name.toLowerCase() === certName.toLowerCase());
+      if (!alreadyHas) {
+        setEditedResume(prev => ({
+          ...prev,
+          certifications: [...prev.certifications, { name: certName, authority: "Recommended", date: "2026" }]
+        }));
+        addToast(`Added certification suggestion: ${certName}`, "success");
+      } else {
+        addToast("Certification already present in resume.", "info");
+      }
+    };
+
+    // Responsive Mobile check
+    const isMobile = window.innerWidth < 768;
+
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
         
-        {!editedResume && (
-          <div className="glass-panel" style={{ display: "flex", gap: "1rem", alignItems: "center", borderLeft: "4px solid var(--color-primary)", padding: "1rem" }}>
-            <span style={{ fontSize: "1.5rem" }}>💡</span>
-            <div style={{ fontSize: "0.85rem", color: "var(--color-text-muted)", textAlign: "left" }}>
-              <strong>Interactive Demo:</strong> Previewing templates with dummy data. Please upload a resume on the Dashboard, or select an existing one, to customize content and export your own resume!
+        {/* Visual Header Workspace Toolbar (Part 9 Clean Toolbar) */}
+        <div className="glass-panel" style={{ padding: "0.85rem 1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
+          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            <button 
+              className={`btn-secondary ${editMode ? "active-indigo" : ""}`} 
+              onClick={() => {
+                setEditMode(!editMode);
+                addToast(editMode ? "Switched to Preview Mode" : "Switched to Interactive Edit Mode", "info");
+              }}
+              style={{ padding: "0.4rem 0.75rem", fontSize: "0.75rem", display: "flex", alignItems: "center", gap: "0.3rem", fontWeight: "700" }}
+            >
+              {editMode ? "👁️ Preview Mode" : "✏️ Edit Mode"}
+            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+              <span style={{ fontSize: "0.72rem", fontWeight: "bold" }}>Zoom:</span>
+              <select 
+                value={zoomScale} 
+                onChange={(e) => setZoomScale(parseFloat(e.target.value))} 
+                className="builder-input" 
+                style={{ padding: "0.25rem 0.5rem", fontSize: "0.7rem", width: "auto", minHeight: "auto" }}
+              >
+                <option value="0.8">80%</option>
+                <option value="1.0">100%</option>
+                <option value="1.2">120%</option>
+              </select>
             </div>
+          </div>
+
+          {/* Center: Undo/Redo */}
+          <div style={{ display: "flex", gap: "0.25rem" }}>
+            <button 
+              className="btn-secondary" 
+              onClick={handleUndo} 
+              disabled={pastStates.length === 0} 
+              style={{ padding: "0.4rem", fontSize: "0.75rem", minHeight: "auto", minWidth: "36px" }}
+              title="Undo change (Ctrl+Z)"
+            >
+              ↩️
+            </button>
+            <button 
+              className="btn-secondary" 
+              onClick={handleRedo} 
+              disabled={futureStates.length === 0} 
+              style={{ padding: "0.4rem", fontSize: "0.75rem", minHeight: "auto", minWidth: "36px" }}
+              title="Redo change (Ctrl+Y)"
+            >
+              ↪️
+            </button>
+          </div>
+
+          {/* Right: Export & Save */}
+          <div style={{ display: "flex", gap: "0.35rem" }}>
+            <button className="btn-primary" onClick={handleSaveResume} disabled={loading} style={{ padding: "0.4rem 0.75rem", fontSize: "0.75rem", minHeight: "auto" }}>
+              {loading ? "Saving..." : "Save Snapshot"}
+            </button>
+            <button className="btn-secondary" onClick={() => handleExportTemplate("pdf")} style={{ padding: "0.4rem 0.75rem", fontSize: "0.75rem", minHeight: "auto" }} title="Export PDF">
+              PDF Export
+            </button>
+            <button className="btn-secondary" onClick={() => handleExportTemplate("docx")} style={{ padding: "0.4rem 0.75rem", fontSize: "0.75rem", minHeight: "auto" }} title="Export Word">
+              Word Export
+            </button>
+          </div>
+        </div>
+
+        {/* Visual Mobile Bottom Action Dock (Part 14) */}
+        {isMobile && (
+          <div className="mobile-action-dock" style={{
+            position: "fixed",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            background: "#ffffff",
+            borderTop: "1px solid #cbd5e1",
+            boxShadow: "0 -4px 15px rgba(0,0,0,0.06)",
+            zIndex: 99999,
+            display: "flex",
+            justifyContent: "space-around",
+            padding: "0.5rem 0"
+          }}>
+            <button onClick={() => setMobileTab("builder")} style={{ background: "transparent", border: "none", fontSize: "0.72rem", display: "flex", flexDirection: "column", alignItems: "center", color: mobileTab === "builder" ? "var(--color-primary)" : "#64748b" }}>
+              <span>✍️</span><span>Builder</span>
+            </button>
+            <button onClick={() => setMobileTab("templates")} style={{ background: "transparent", border: "none", fontSize: "0.72rem", display: "flex", flexDirection: "column", alignItems: "center", color: mobileTab === "templates" ? "var(--color-primary)" : "#64748b" }}>
+              <span>📄</span><span>Templates</span>
+            </button>
+            <button onClick={() => setMobileTab("preview")} style={{ background: "transparent", border: "none", fontSize: "0.72rem", display: "flex", flexDirection: "column", alignItems: "center", color: mobileTab === "preview" ? "var(--color-primary)" : "#64748b" }}>
+              <span>👁️</span><span>Preview</span>
+            </button>
           </div>
         )}
 
-        {/* Template Selection Grid */}
-        <div>
-          <h3 className="panel-title" style={{ marginBottom: "0.85rem" }}>
-            <span className="panel-title-text">📄 Canva-Style Resume Template Gallery</span>
-          </h3>
-          <div className="template-gallery-grid">
-            {templatesList.map(tmpl => (
-              <div 
-                key={tmpl.name} 
-                className={`template-card-premium ${selectedTemplate === tmpl.name ? "active" : ""}`}
-                style={{ position: "relative", display: "flex", flexDirection: "column" }}
-              >
-                <div style={{ background: tmpl.accent, height: "4px", width: "100%", position: "absolute", top: 0, left: 0 }} />
-                
-                {/* Visual Mockup Thumbnail */}
-                <div style={{ background: "var(--color-bg-alt)", borderRadius: "8px", border: "1px solid var(--card-border)", height: "100px", display: "flex", justifyContent: "center", alignItems: "center", overflow: "hidden", marginBottom: "0.75rem" }}>
-                  {renderThumbnailMockup(tmpl.name)}
-                </div>
-
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: "0.25rem" }}>
-                  <div style={{ fontWeight: "700", fontSize: "0.95rem", color: "var(--color-text-main)" }}>{tmpl.name}</div>
-                  <span style={{ fontSize: "0.68rem", fontWeight: "700", padding: "0.15rem 0.45rem", borderRadius: "99px", background: "rgba(79, 70, 229, 0.08)", color: "var(--color-primary)", whiteSpace: "nowrap" }}>
-                    {tmpl.badge}
-                  </span>
-                </div>
-                
-                <p style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", margin: "0 0 1rem 0", lineHeight: "1.3", flexGrow: 1 }}>
-                  <strong>Best for:</strong> {tmpl.bestFor}
-                </p>
-                
-                {/* Action Buttons */}
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem", marginTop: "auto" }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.35rem" }}>
-                    <button 
-                      className="btn-secondary" 
-                      onClick={() => {
-                        setPreviewModalTemplate(tmpl.name);
-                        setIsDummyPreview(true); // Dummy data preview
-                        setZoomScale(1.0);
-                        setIsPreviewModalOpen(true);
-                      }}
-                      style={{ padding: "0.35rem 0.5rem", fontSize: "0.72rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.2rem" }}
-                      title="Preview design with professional dummy profile"
-                    >
-                      🎨 Preview
-                    </button>
-                    <button 
-                      className={`btn-primary ${selectedTemplate === tmpl.name ? "active" : ""}`} 
-                      onClick={() => {
-                        setSelectedTemplate(tmpl.name);
-                        addToast(`Applied style: ${tmpl.name}`, "success");
-                      }}
-                      style={{ padding: "0.35rem 0.5rem", fontSize: "0.72rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.2rem" }}
-                    >
-                      {selectedTemplate === tmpl.name ? "✓ Selected" : "Use Style"}
-                    </button>
-                  </div>
-                  <button 
-                    className="btn-secondary" 
-                    onClick={() => {
-                      if (!editedResume) {
-                        addToast("Please upload or edit a resume first.", "warning");
-                        return;
-                      }
-                      setPreviewModalTemplate(tmpl.name);
-                      setIsDummyPreview(false); // Actual user resume preview
-                      setZoomScale(1.0);
-                      setIsPreviewModalOpen(true);
-                    }}
-                    style={{ padding: "0.35rem 0.5rem", fontSize: "0.72rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.2rem", width: "100%" }}
-                  >
-                    👁️ View Resume
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Editor and Preview Grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "1.1fr 0.9fr", gap: "1.5rem" }} className="ats-dashboard-grid">
+        {/* Main Workspace Layout */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
           
-          {/* Left: Form Editor Accordion */}
-          <div className="glass-panel" style={{ display: "flex", flexDirection: "column", gap: "1.25rem", height: "fit-content" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <h3 className="panel-title" style={{ margin: 0 }}>
-                <span className="panel-title-text">⚙️ Resume Content Editor</span>
-              </h3>
-              <div style={{ display: "flex", gap: "0.5rem" }}>
-                <button className="btn-primary" onClick={handleSaveResume} disabled={loading} style={{ padding: "0.4rem 0.85rem", fontSize: "0.8rem" }}>
-                  {loading ? "Saving..." : "Save Changes"}
-                </button>
-                <button className="btn-secondary" onClick={() => handleExportTemplate("pdf")} style={{ padding: "0.4rem 0.85rem", fontSize: "0.8rem" }}>
-                  Export PDF
-                </button>
-                <button className="btn-secondary" onClick={() => handleExportTemplate("docx")} style={{ padding: "0.4rem 0.85rem", fontSize: "0.8rem" }}>
-                  Export Word
-                </button>
-              </div>
-            </div>
+          {/* Template switcher rendering */}
+          {(!isMobile || mobileTab === "templates") && (
+            <VisualTemplateGallery 
+              selectedTemplate={selectedTemplate}
+              setSelectedTemplate={setSelectedTemplate}
+              templatesList={templatesList}
+              renderThumbnailMockup={renderThumbnailMockup}
+              setIsPreviewModalOpen={setIsPreviewModalOpen}
+              setIsDummyPreview={setIsDummyPreview}
+              setPreviewModalTemplate={setPreviewModalTemplate}
+              setZoomScale={setZoomScale}
+              addToast={addToast}
+            />
+          )}
 
-            {/* Accordion Sections */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-              
-              {/* Section 1: Contact Details */}
-              <div style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
-                <div 
-                  onClick={() => toggleSection("contact")}
-                  style={{ background: "#F8FAFC", padding: "0.75rem 1rem", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", fontWeight: "700", fontSize: "0.85rem" }}
-                >
-                  <span>👤 Contact Details</span>
-                  <span>{expandedSections.contact ? "▲" : "▼"}</span>
-                </div>
-                {expandedSections.contact && (
-                  <div style={{ padding: "1rem", display: "flex", flexDirection: "column", gap: "0.75rem", borderTop: "1px solid var(--card-border)" }}>
-                    <div className="auth-field">
-                      <label htmlFor="edit-resume-name" className="auth-label">Full Name</label>
-                      <input id="edit-resume-name" type="text" className="auth-input" value={editedResume.name} onChange={e => updateField("name", e.target.value)} />
-                    </div>
-                    <div className="auth-field">
-                      <label htmlFor="edit-resume-email" className="auth-label">Email Address</label>
-                      <input id="edit-resume-email" type="email" className="auth-input" value={editedResume.email} onChange={e => updateField("email", e.target.value)} />
-                    </div>
-                    <div className="auth-field">
-                      <label htmlFor="edit-resume-phone" className="auth-label">Phone Number</label>
-                      <input id="edit-resume-phone" type="text" className="auth-input" value={editedResume.phone} onChange={e => updateField("phone", e.target.value)} />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Section 2: Skills */}
-              <div style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
-                <div 
-                  onClick={() => toggleSection("skills")}
-                  style={{ background: "#F8FAFC", padding: "0.75rem 1rem", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", fontWeight: "700", fontSize: "0.85rem" }}
-                >
-                  <span>🛠 Technical Skills</span>
-                  <span>{expandedSections.skills ? "▲" : "▼"}</span>
-                </div>
-                {expandedSections.skills && (
-                  <div style={{ padding: "1rem", display: "flex", flexDirection: "column", gap: "0.75rem", borderTop: "1px solid var(--card-border)" }}>
-                    <div style={{ display: "flex", gap: "0.5rem" }}>
-                      <input 
-                        aria-label="Add new skill tag"
-                        type="text" 
-                        className="auth-input" 
-                        placeholder="Add skill tag..." 
-                        value={newSkillInput} 
-                        onChange={e => setNewSkillInput(e.target.value)}
-                        onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addSkillTag(); } }}
-                      />
-                      <button className="btn-primary" onClick={addSkillTag} style={{ padding: "0.45rem 1rem" }}>Add</button>
-                    </div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", marginTop: "0.25rem" }}>
-                      {editedResume.skills.map((s, idx) => (
-                        <span key={idx} className="keyword-chip" style={{ display: "flex", alignItems: "center", gap: "0.25rem", padding: "0.25rem 0.5rem", borderRadius: "6px" }}>
-                          {s}
-                          <button onClick={() => removeSkillTag(idx)} style={{ background: "transparent", border: "none", color: "var(--color-danger)", cursor: "pointer", fontWeight: "bold", padding: 0 }}>&times;</button>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Section 3: Work Experience */}
-              <div style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
-                <div 
-                  onClick={() => toggleSection("experience")}
-                  style={{ background: "#F8FAFC", padding: "0.75rem 1rem", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", fontWeight: "700", fontSize: "0.85rem" }}
-                >
-                  <span>💼 Work Experience</span>
-                  <span>{expandedSections.experience ? "▲" : "▼"}</span>
-                </div>
-                {expandedSections.experience && (
-                  <div style={{ padding: "1rem", display: "flex", flexDirection: "column", gap: "1rem", borderTop: "1px solid var(--card-border)" }}>
-                    {editedResume.experience.map((exp, idx) => (
-                      <div key={idx} style={{ padding: "0.75rem", border: "1px solid var(--card-border)", borderRadius: "6px", background: "#FAFBFD", position: "relative" }}>
-                        <button 
-                          onClick={() => removeListItem("experience", idx)} 
-                          style={{ position: "absolute", top: "5px", right: "5px", background: "transparent", border: "none", color: "var(--color-danger)", cursor: "pointer", fontWeight: "bold" }}
-                        >
-                          Delete
-                        </button>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", marginTop: "0.5rem" }}>
-                          <div className="auth-field">
-                            <label htmlFor={`edit-exp-role-${idx}`} className="auth-label">Role Title</label>
-                            <input id={`edit-exp-role-${idx}`} type="text" className="auth-input" value={exp.role || ""} onChange={e => updateListField("experience", idx, "role", e.target.value)} />
-                          </div>
-                          <div className="auth-field">
-                            <label htmlFor={`edit-exp-company-${idx}`} className="auth-label">Company Name</label>
-                            <input id={`edit-exp-company-${idx}`} type="text" className="auth-input" value={exp.company || ""} onChange={e => updateListField("experience", idx, "company", e.target.value)} />
-                          </div>
-                          <div className="auth-field">
-                            <label htmlFor={`edit-exp-start-${idx}`} className="auth-label">Start Date</label>
-                            <input id={`edit-exp-start-${idx}`} type="text" className="auth-input" value={exp.start_date || ""} onChange={e => updateListField("experience", idx, "start_date", e.target.value)} />
-                          </div>
-                          <div className="auth-field">
-                            <label htmlFor={`edit-exp-end-${idx}`} className="auth-label">End Date</label>
-                            <input id={`edit-exp-end-${idx}`} type="text" className="auth-input" value={exp.end_date || ""} onChange={e => updateListField("experience", idx, "end_date", e.target.value)} />
-                          </div>
-                          <div className="auth-field" style={{ gridColumn: "span 2" }}>
-                            <label htmlFor={`edit-exp-desc-${idx}`} className="auth-label">Bullet points (One per line)</label>
-                            <textarea 
-                              id={`edit-exp-desc-${idx}`}
-                              className="auth-input" 
-                              style={{ height: "100px", resize: "vertical", fontFamily: "inherit" }} 
-                              value={exp.description || ""} 
-                              onChange={e => updateListField("experience", idx, "description", e.target.value)}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    <button className="btn-secondary" onClick={() => addListItem("experience", { role: "", company: "", start_date: "", end_date: "", description: "" })}>
-                      + Add Position
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Section 4: Projects */}
-              <div style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
-                <div 
-                  onClick={() => toggleSection("projects")}
-                  style={{ background: "#F8FAFC", padding: "0.75rem 1rem", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", fontWeight: "700", fontSize: "0.85rem" }}
-                >
-                  <span>📁 Projects Portfolio</span>
-                  <span>{expandedSections.projects ? "▲" : "▼"}</span>
-                </div>
-                {expandedSections.projects && (
-                  <div style={{ padding: "1rem", display: "flex", flexDirection: "column", gap: "1rem", borderTop: "1px solid var(--card-border)" }}>
-                    {editedResume.projects.map((proj, idx) => (
-                      <div key={idx} style={{ padding: "0.75rem", border: "1px solid var(--card-border)", borderRadius: "6px", background: "#FAFBFD", position: "relative" }}>
-                        <button 
-                          onClick={() => removeListItem("projects", idx)} 
-                          style={{ position: "absolute", top: "5px", right: "5px", background: "transparent", border: "none", color: "var(--color-danger)", cursor: "pointer", fontWeight: "bold" }}
-                        >
-                          Delete
-                        </button>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", marginTop: "0.5rem" }}>
-                          <div className="auth-field">
-                            <label htmlFor={`edit-proj-title-${idx}`} className="auth-label">Project Title</label>
-                            <input id={`edit-proj-title-${idx}`} type="text" className="auth-input" value={proj.title || ""} onChange={e => updateListField("projects", idx, "title", e.target.value)} />
-                          </div>
-                          <div className="auth-field">
-                            <label htmlFor={`edit-proj-tech-${idx}`} className="auth-label">Technologies (comma separated)</label>
-                            <input id={`edit-proj-tech-${idx}`} type="text" className="auth-input" value={Array.isArray(proj.technologies) ? proj.technologies.join(", ") : proj.technologies || ""} onChange={e => updateListField("projects", idx, "technologies", e.target.value)} />
-                          </div>
-                          <div className="auth-field" style={{ gridColumn: "span 2" }}>
-                            <label htmlFor={`edit-proj-desc-${idx}`} className="auth-label">Project Description</label>
-                            <textarea 
-                              id={`edit-proj-desc-${idx}`}
-                              className="auth-input" 
-                              style={{ height: "60px", resize: "vertical", fontFamily: "inherit" }} 
-                              value={proj.description || ""} 
-                              onChange={e => updateListField("projects", idx, "description", e.target.value)}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    <button className="btn-secondary" onClick={() => addListItem("projects", { title: "", technologies: "", description: "" })}>
-                      + Add Project
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Right: Live Preview Panel */}
-          <div className="glass-panel" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <h3 className="panel-title" style={{ margin: 0 }}>
-                <span className="panel-title-text">🔍 Live Resume Preview</span>
-              </h3>
-              <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                <button 
-                  className={`btn-secondary ${isCompareMode ? "active-indigo" : ""}`} 
-                  onClick={() => setIsCompareMode(!isCompareMode)}
-                  style={{ padding: "0.35rem 0.75rem", fontSize: "0.75rem", display: "flex", alignItems: "center", gap: "0.25rem" }}
-                  title="Compare with another layout side-by-side"
-                >
-                  ⚔️ Compare
-                </button>
-                <button 
-                  className="btn-primary" 
-                  onClick={() => {
-                    setPreviewModalTemplate(selectedTemplate);
-                    setZoomScale(1.0);
-                    setIsPreviewModalOpen(true);
-                  }}
-                  style={{ padding: "0.35rem 0.75rem", fontSize: "0.75rem", display: "flex", alignItems: "center", gap: "0.25rem" }}
-                >
-                  👁️ Fullscreen
-                </button>
-              </div>
-            </div>
+          {/* Desktop Dual/Triple Column Workspace Grid */}
+          <div 
+            style={{ 
+              display: "grid", 
+              gridTemplateColumns: isMobile ? "1fr" : "1.1fr 1.2fr 0.8fr", 
+              gap: "1.25rem" 
+            }} 
+            className="ats-dashboard-grid"
+          >
             
-            {isCompareMode ? (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-                <div>
-                  <div style={{ fontSize: "0.75rem", fontWeight: "700", marginBottom: "0.25rem", color: "var(--color-text-muted)" }}>
-                    Current: {selectedTemplate}
-                  </div>
-                  <div style={{ border: "1px solid var(--card-border)", borderRadius: "12px", background: "#ffffff", padding: "1rem", maxHeight: "650px", overflowY: "auto" }}>
-                    {renderLivePreview(selectedTemplate)}
-                  </div>
+            {/* Left Column: Form Editor Controls */}
+            {(!isMobile || mobileTab === "builder") && (
+              <div className="glass-panel" style={{ display: "flex", flexDirection: "column", gap: "1rem", height: "fit-content" }}>
+                <div style={{ display: "flex", gap: "0.35rem", background: "rgba(15, 23, 42, 0.03)", padding: "0.25rem", borderRadius: "8px" }}>
+                  <button className={`tab-btn-mini ${builderTab === "content" ? "active" : ""}`} onClick={() => setBuilderTab("content")} style={{ flex: 1 }}>✍️ Content</button>
+                  <button className={`tab-btn-mini ${builderTab === "design" ? "active" : ""}`} onClick={() => setBuilderTab("design")} style={{ flex: 1 }}>🎨 Design</button>
+                  <button className={`tab-btn-mini ${builderTab === "ai" ? "active" : ""}`} onClick={() => setBuilderTab("ai")} style={{ flex: 1 }}>🤖 AI Optimize</button>
+                  <button className={`tab-btn-mini ${builderTab === "versions" ? "active" : ""}`} onClick={() => setBuilderTab("versions")} style={{ flex: 1 }}>📁 Versions</button>
                 </div>
-                <div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.25rem" }}>
-                    <span style={{ fontSize: "0.75rem", fontWeight: "700", color: "var(--color-primary)" }}>Compare:</span>
-                    <select 
-                      value={compareTemplate} 
-                      onChange={(e) => setCompareTemplate(e.target.value)} 
-                      className="builder-input" 
-                      style={{ padding: "0.2rem 0.4rem", fontSize: "0.72rem", width: "auto", border: "1px solid var(--color-primary)" }}
-                    >
-                      {templatesList.filter(t => t.name !== selectedTemplate).map(t => (
-                        <option key={t.name} value={t.name}>{t.name}</option>
-                      ))}
-                    </select>
+
+                {builderTab === "content" && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.65rem", maxHeight: "600px", overflowY: "auto" }} className="scroll-y-styled">
+                    {/* Identity Accordion */}
+                    <div style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
+                      <div onClick={() => toggleSection("contact")} style={{ background: "#F8FAFC", padding: "0.65rem 0.85rem", display: "flex", justifyContent: "space-between", cursor: "pointer", fontWeight: "700", fontSize: "0.82rem" }}>
+                        <span>👤 Personal Identity Details</span>
+                        <span>{expandedSections.contact ? "▲" : "▼"}</span>
+                      </div>
+                      {expandedSections.contact && (
+                        <div style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.75rem", borderTop: "1px solid var(--card-border)" }}>
+                          <div className="auth-field"><label className="auth-label">Full Name</label><input type="text" className="auth-input" value={editedResume.name} onChange={e => updateField("name", e.target.value)} /></div>
+                          <div className="auth-field"><label className="auth-label">Email</label><input type="email" className="auth-input" value={editedResume.email} onChange={e => updateField("email", e.target.value)} /></div>
+                          <div className="auth-field"><label className="auth-label">Phone</label><input type="text" className="auth-input" value={editedResume.phone} onChange={e => updateField("phone", e.target.value)} /></div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Summary Accordion */}
+                    <div style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
+                      <div onClick={() => toggleSection("summary")} style={{ background: "#F8FAFC", padding: "0.65rem 0.85rem", display: "flex", justifyContent: "space-between", cursor: "pointer", fontWeight: "700", fontSize: "0.82rem" }}>
+                        <span>📝 Summary</span>
+                        <span>{expandedSections.summary ? "▲" : "▼"}</span>
+                      </div>
+                      {expandedSections.summary && (
+                        <div style={{ padding: "0.85rem", borderTop: "1px solid var(--card-border)" }}>
+                          <textarea className="auth-input" style={{ height: "90px" }} value={editedResume.summary || editedResume.professional_summary || ""} onChange={e => { updateField("summary", e.target.value); updateField("professional_summary", e.target.value); }} />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Skills Accordion */}
+                    <div style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
+                      <div onClick={() => toggleSection("skills")} style={{ background: "#F8FAFC", padding: "0.65rem 0.85rem", display: "flex", justifyContent: "space-between", cursor: "pointer", fontWeight: "700", fontSize: "0.82rem" }}>
+                        <span>🛠️ Skills Toolkit ({editedResume.skills.length})</span>
+                        <span>{expandedSections.skills ? "▲" : "▼"}</span>
+                      </div>
+                      {expandedSections.skills && (
+                        <div style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.75rem", borderTop: "1px solid var(--card-border)" }}>
+                          <div style={{ display: "flex", gap: "0.5rem" }}>
+                            <input type="text" className="auth-input" placeholder="Add Skill..." value={newSkillInput} onChange={e => setNewSkillInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter") addSkillTag(); }} />
+                            <button className="btn-primary" onClick={addSkillTag}>Add</button>
+                          </div>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.3rem" }}>
+                            {editedResume.skills.map((s, idx) => (
+                              <span key={idx} className="keyword-chip" style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>{s}
+                                <button onClick={() => removeSkillTag(idx)} style={{ background: "transparent", border: "none", color: "var(--color-danger)", cursor: "pointer" }}>&times;</button>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Experience Accordion */}
+                    <div style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
+                      <div onClick={() => toggleSection("experience")} style={{ background: "#F8FAFC", padding: "0.65rem 0.85rem", display: "flex", justifyContent: "space-between", cursor: "pointer", fontWeight: "700", fontSize: "0.82rem" }}>
+                        <span>💼 Experience History ({editedResume.experience.length})</span>
+                        <span>{expandedSections.experience ? "▲" : "▼"}</span>
+                      </div>
+                      {expandedSections.experience && (
+                        <div style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.85rem", borderTop: "1px solid var(--card-border)" }}>
+                          {editedResume.experience.map((exp, idx) => (
+                            <div key={idx} style={{ padding: "0.65rem", border: "1px solid var(--card-border)", borderRadius: "6px", background: "#FAFBFD" }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.25rem" }}>
+                                <div style={{ display: "flex", gap: "0.25rem" }}>
+                                  <button className="btn-secondary" style={{ padding: "0.15rem 0.35rem", fontSize: "0.7rem", minHeight: "auto" }} disabled={idx === 0} onClick={() => handleSwapItems("experience", idx, -1)}>↑</button>
+                                  <button className="btn-secondary" style={{ padding: "0.15rem 0.35rem", fontSize: "0.7rem", minHeight: "auto" }} disabled={idx === editedResume.experience.length - 1} onClick={() => handleSwapItems("experience", idx, 1)}>↓</button>
+                                </div>
+                                <button onClick={() => removeListItem("experience", idx)} style={{ background: "transparent", border: "none", color: "var(--color-danger)", cursor: "pointer", fontSize: "0.75rem" }}>Delete</button>
+                              </div>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.35rem" }}>
+                                <input type="text" className="auth-input" placeholder="Role" value={exp.role || ""} onChange={e => updateListField("experience", idx, "role", e.target.value)} />
+                                <input type="text" className="auth-input" placeholder="Company" value={exp.company || ""} onChange={e => updateListField("experience", idx, "company", e.target.value)} />
+                                <input type="text" className="auth-input" placeholder="Start" value={exp.start_date || ""} onChange={e => updateListField("experience", idx, "start_date", e.target.value)} />
+                                <input type="text" className="auth-input" placeholder="End" value={exp.end_date || ""} onChange={e => updateListField("experience", idx, "end_date", e.target.value)} />
+                                <textarea className="auth-input" placeholder="Bullet points" style={{ gridColumn: "span 2", height: "60px" }} value={exp.description || ""} onChange={e => updateListField("experience", idx, "description", e.target.value)} />
+                              </div>
+                            </div>
+                          ))}
+                          <button className="btn-secondary" onClick={() => addListItem("experience", { role: "New Role", company: "Company", start_date: "2024", end_date: "Present", description: "• Focus achievement details" })}>+ Add Position</button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Education Accordion */}
+                    <div style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
+                      <div onClick={() => toggleSection("education")} style={{ background: "#F8FAFC", padding: "0.65rem 0.85rem", display: "flex", justifyContent: "space-between", cursor: "pointer", fontWeight: "700", fontSize: "0.82rem" }}>
+                        <span>🎓 Education ({editedResume.education.length})</span>
+                        <span>{expandedSections.education ? "▲" : "▼"}</span>
+                      </div>
+                      {expandedSections.education && (
+                        <div style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.5rem", borderTop: "1px solid var(--card-border)" }}>
+                          {editedResume.education.map((edu, idx) => (
+                            <div key={idx} style={{ padding: "0.5rem", border: "1px solid var(--card-border)", borderRadius: "6px" }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.25rem" }}>
+                                <span style={{ fontSize: "0.75rem", fontWeight: "bold" }}>Degree #{idx+1}</span>
+                                <button onClick={() => removeListItem("education", idx)} style={{ background: "transparent", border: "none", color: "var(--color-danger)", cursor: "pointer", fontSize: "0.72rem" }}>Delete</button>
+                              </div>
+                              <input type="text" className="auth-input" placeholder="Degree" value={edu.degree || ""} onChange={e => updateListField("education", idx, "degree", e.target.value)} style={{ marginBottom: "0.25rem" }} />
+                              <input type="text" className="auth-input" placeholder="School" value={edu.school || ""} onChange={e => updateListField("education", idx, "school", e.target.value)} />
+                            </div>
+                          ))}
+                          <button className="btn-secondary" onClick={() => addListItem("education", { degree: "Bachelor of Science", school: "University", field_of_study: "Major", end_date: "2026" })}>+ Add Education</button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Projects Accordion */}
+                    <div style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
+                      <div onClick={() => toggleSection("projects")} style={{ background: "#F8FAFC", padding: "0.65rem 0.85rem", display: "flex", justifyContent: "space-between", cursor: "pointer", fontWeight: "700", fontSize: "0.82rem" }}>
+                        <span>📂 Projects ({editedResume.projects?.length || 0})</span>
+                        <span>{expandedSections.projects ? "▲" : "▼"}</span>
+                      </div>
+                      {expandedSections.projects && (
+                        <div style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.5rem", borderTop: "1px solid var(--card-border)" }}>
+                          {(editedResume.projects || []).map((proj, idx) => (
+                            <div key={idx} style={{ padding: "0.5rem", border: "1px solid var(--card-border)", borderRadius: "6px" }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.25rem" }}>
+                                <span style={{ fontSize: "0.75rem", fontWeight: "bold" }}>Project #{idx+1}</span>
+                                <button onClick={() => removeListItem("projects", idx)} style={{ background: "transparent", border: "none", color: "var(--color-danger)", cursor: "pointer", fontSize: "0.72rem" }}>Delete</button>
+                              </div>
+                              <input type="text" className="auth-input" placeholder="Project Title" value={proj.title || ""} onChange={e => updateListField("projects", idx, "title", e.target.value)} style={{ marginBottom: "0.25rem" }} />
+                              <input type="text" className="auth-input" placeholder="Technologies (comma separated)" value={Array.isArray(proj.technologies) ? proj.technologies.join(", ") : (proj.technologies || "")} onChange={e => updateProjectTech(idx, e.target.value)} style={{ marginBottom: "0.25rem" }} />
+                              <textarea className="auth-input" placeholder="Description" value={proj.description || ""} onChange={e => updateListField("projects", idx, "description", e.target.value)} style={{ height: "60px" }} />
+                            </div>
+                          ))}
+                          <button className="btn-secondary" onClick={() => addListItem("projects", { title: "New Project", description: "Project description", technologies: ["React"] })}>+ Add Project</button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Certifications Accordion */}
+                    <div style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
+                      <div onClick={() => toggleSection("certifications")} style={{ background: "#F8FAFC", padding: "0.65rem 0.85rem", display: "flex", justifyContent: "space-between", cursor: "pointer", fontWeight: "700", fontSize: "0.82rem" }}>
+                        <span>🏆 Certifications ({editedResume.certifications?.length || 0})</span>
+                        <span>{expandedSections.certifications ? "▲" : "▼"}</span>
+                      </div>
+                      {expandedSections.certifications && (
+                        <div style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.5rem", borderTop: "1px solid var(--card-border)" }}>
+                          {(editedResume.certifications || []).map((cert, idx) => (
+                            <div key={idx} style={{ padding: "0.5rem", border: "1px solid var(--card-border)", borderRadius: "6px" }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.25rem" }}>
+                                <span style={{ fontSize: "0.75rem", fontWeight: "bold" }}>Cert #{idx+1}</span>
+                                <button onClick={() => removeListItem("certifications", idx)} style={{ background: "transparent", border: "none", color: "var(--color-danger)", cursor: "pointer", fontSize: "0.72rem" }}>Delete</button>
+                              </div>
+                              <input type="text" className="auth-input" placeholder="Certification Name" value={cert.name || ""} onChange={e => updateListField("certifications", idx, "name", e.target.value)} style={{ marginBottom: "0.25rem" }} />
+                              <input type="text" className="auth-input" placeholder="Issuer" value={cert.issuer || ""} onChange={e => updateListField("certifications", idx, "issuer", e.target.value)} style={{ marginBottom: "0.25rem" }} />
+                              <input type="text" className="auth-input" placeholder="Date" value={cert.date || ""} onChange={e => updateListField("certifications", idx, "date", e.target.value)} />
+                            </div>
+                          ))}
+                          <button className="btn-secondary" onClick={() => addListItem("certifications", { name: "New Certification", issuer: "Authority", date: "2026" })}>+ Add Certification</button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Languages Accordion */}
+                    <div style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
+                      <div onClick={() => toggleSection("languages")} style={{ background: "#F8FAFC", padding: "0.65rem 0.85rem", display: "flex", justifyContent: "space-between", cursor: "pointer", fontWeight: "700", fontSize: "0.82rem" }}>
+                        <span>🌐 Languages ({editedResume.languages?.length || 0})</span>
+                        <span>{expandedSections.languages ? "▲" : "▼"}</span>
+                      </div>
+                      {expandedSections.languages && (
+                        <div style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.5rem", borderTop: "1px solid var(--card-border)" }}>
+                          {(editedResume.languages || []).map((lang, idx) => (
+                            <div key={idx} style={{ padding: "0.5rem", border: "1px solid var(--card-border)", borderRadius: "6px" }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.25rem" }}>
+                                <span style={{ fontSize: "0.75rem", fontWeight: "bold" }}>Language #{idx+1}</span>
+                                <button onClick={() => removeListItem("languages", idx)} style={{ background: "transparent", border: "none", color: "var(--color-danger)", cursor: "pointer", fontSize: "0.72rem" }}>Delete</button>
+                              </div>
+                              <input type="text" className="auth-input" placeholder="Language" value={lang.language || ""} onChange={e => updateListField("languages", idx, "language", e.target.value)} style={{ marginBottom: "0.25rem" }} />
+                              <input type="text" className="auth-input" placeholder="Proficiency (e.g. Fluent)" value={lang.proficiency || ""} onChange={e => updateListField("languages", idx, "proficiency", e.target.value)} />
+                            </div>
+                          ))}
+                          <button className="btn-secondary" onClick={() => addListItem("languages", { language: "New Language", proficiency: "Fluent" })}>+ Add Language</button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Achievements Accordion */}
+                    <div style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
+                      <div onClick={() => toggleSection("achievements")} style={{ background: "#F8FAFC", padding: "0.65rem 0.85rem", display: "flex", justifyContent: "space-between", cursor: "pointer", fontWeight: "700", fontSize: "0.82rem" }}>
+                        <span>🏆 Achievements ({editedResume.achievements?.length || 0})</span>
+                        <span>{expandedSections.achievements ? "▲" : "▼"}</span>
+                      </div>
+                      {expandedSections.achievements && (
+                        <div style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.5rem", borderTop: "1px solid var(--card-border)" }}>
+                          {(editedResume.achievements || []).map((ach, idx) => (
+                            <div key={idx} style={{ display: "flex", gap: "0.35rem", alignItems: "center" }}>
+                              <input type="text" className="auth-input" value={ach || ""} onChange={e => updateStringListItem("achievements", idx, e.target.value)} />
+                              <button onClick={() => removeListItem("achievements", idx)} style={{ background: "transparent", border: "none", color: "var(--color-danger)", cursor: "pointer", fontSize: "1.2rem" }}>&times;</button>
+                            </div>
+                          ))}
+                          <button className="btn-secondary" onClick={() => addListItem("achievements", "New achievement detail")}>+ Add Achievement</button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Leadership Accordion */}
+                    <div style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
+                      <div onClick={() => toggleSection("leadership")} style={{ background: "#F8FAFC", padding: "0.65rem 0.85rem", display: "flex", justifyContent: "space-between", cursor: "pointer", fontWeight: "700", fontSize: "0.82rem" }}>
+                        <span>👥 Leadership ({editedResume.leadership?.length || 0})</span>
+                        <span>{expandedSections.leadership ? "▲" : "▼"}</span>
+                      </div>
+                      {expandedSections.leadership && (
+                        <div style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.5rem", borderTop: "1px solid var(--card-border)" }}>
+                          {(editedResume.leadership || []).map((lead, idx) => (
+                            <div key={idx} style={{ display: "flex", gap: "0.35rem", alignItems: "center" }}>
+                              <input type="text" className="auth-input" value={lead || ""} onChange={e => updateStringListItem("leadership", idx, e.target.value)} />
+                              <button onClick={() => removeListItem("leadership", idx)} style={{ background: "transparent", border: "none", color: "var(--color-danger)", cursor: "pointer", fontSize: "1.2rem" }}>&times;</button>
+                            </div>
+                          ))}
+                          <button className="btn-secondary" onClick={() => addListItem("leadership", "New leadership experience")}>+ Add Leadership</button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Interests Accordion */}
+                    <div style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
+                      <div onClick={() => toggleSection("interests")} style={{ background: "#F8FAFC", padding: "0.65rem 0.85rem", display: "flex", justifyContent: "space-between", cursor: "pointer", fontWeight: "700", fontSize: "0.82rem" }}>
+                        <span>🎨 Interests ({editedResume.interests?.length || 0})</span>
+                        <span>{expandedSections.interests ? "▲" : "▼"}</span>
+                      </div>
+                      {expandedSections.interests && (
+                        <div style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.5rem", borderTop: "1px solid var(--card-border)" }}>
+                          {(editedResume.interests || []).map((interest, idx) => (
+                            <div key={idx} style={{ display: "flex", gap: "0.35rem", alignItems: "center" }}>
+                              <input type="text" className="auth-input" value={interest || ""} onChange={e => updateStringListItem("interests", idx, e.target.value)} />
+                              <button onClick={() => removeListItem("interests", idx)} style={{ background: "transparent", border: "none", color: "var(--color-danger)", cursor: "pointer", fontSize: "1.2rem" }}>&times;</button>
+                            </div>
+                          ))}
+                          <button className="btn-secondary" onClick={() => addListItem("interests", "New Interest")}>+ Add Interest</button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Referees Accordion */}
+                    <div style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
+                      <div onClick={() => toggleSection("referees")} style={{ background: "#F8FAFC", padding: "0.65rem 0.85rem", display: "flex", justifyContent: "space-between", cursor: "pointer", fontWeight: "700", fontSize: "0.82rem" }}>
+                        <span>📋 References ({editedResume.referees?.length || 0})</span>
+                        <span>{expandedSections.referees ? "▲" : "▼"}</span>
+                      </div>
+                      {expandedSections.referees && (
+                        <div style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.5rem", borderTop: "1px solid var(--card-border)" }}>
+                          {(editedResume.referees || []).map((ref, idx) => (
+                            <div key={idx} style={{ padding: "0.5rem", border: "1px solid var(--card-border)", borderRadius: "6px" }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.25rem" }}>
+                                <span style={{ fontSize: "0.75rem", fontWeight: "bold" }}>Reference #{idx+1}</span>
+                                <button onClick={() => removeListItem("referees", idx)} style={{ background: "transparent", border: "none", color: "var(--color-danger)", cursor: "pointer", fontSize: "0.72rem" }}>Delete</button>
+                              </div>
+                              <textarea className="auth-input" placeholder="Reference Details" value={ref || ""} onChange={e => updateStringListItem("referees", idx, e.target.value)} style={{ height: "60px" }} />
+                            </div>
+                          ))}
+                          <button className="btn-secondary" onClick={() => addListItem("referees", "John Doe, Manager at TechCorp (john@example.com)")}>+ Add Reference</button>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div style={{ border: "1px solid var(--card-border)", borderRadius: "12px", background: "#ffffff", padding: "1rem", maxHeight: "650px", overflowY: "auto" }}>
-                    {renderLivePreview(compareTemplate)}
+                )}
+
+                {builderTab === "design" && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                    <div className="auth-field">
+                      <label className="auth-label">🔤 Base Font style</label>
+                      <select className="auth-input" value={editedResume.customization.fontFamily || "DejaVuSans"} onChange={e => updateCustomizationField("fontFamily", e.target.value)}>
+                        <option value="DejaVuSans">Sans-Serif (DejaVu Sans / Inter)</option>
+                        <option value="DejaVuSerif">Serif (DejaVu Serif / Outfit)</option>
+                        <option value="Courier">Monospace (Courier New)</option>
+                      </select>
+                    </div>
+                    {/* Expandable Advanced Design Settings (Part 5 Panel) */}
+                    <AdvancedDesignPanel 
+                      customization={editedResume.customization || {}}
+                      updateCustomizationField={updateCustomizationField}
+                      selectedTemplate={selectedTemplate}
+                    />
                   </div>
-                </div>
-              </div>
-            ) : (
-              <div style={{ border: "1px solid var(--card-border)", borderRadius: "12px", background: "#ffffff", padding: "1.25rem", maxHeight: "700px", overflowY: "auto" }}>
-                {renderLivePreview(selectedTemplate)}
+                )}
+
+                {builderTab === "ai" && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxHeight: "600px", overflowY: "auto" }} className="scroll-y-styled">
+                    <div style={{ border: "1px solid var(--card-border)", borderRadius: "8px", padding: "0.75rem", background: "rgba(79, 70, 229, 0.02)" }}>
+                      <h4 style={{ margin: "0 0 0.5rem 0", fontSize: "0.85rem", fontWeight: "700" }}>🤖 AI Copilot suggestions</h4>
+                      <textarea className="auth-input" placeholder="Paste target Job Description details..." value={aiImproveJd} onChange={e => setAiImproveJd(e.target.value)} style={{ height: "80px", marginBottom: "0.5rem" }} />
+                      <button className="btn-primary" onClick={handleImproveResumeAI} disabled={aiImproveLoading} style={{ width: "100%" }}>
+                        {aiImproveLoading ? "Rewriting with AI..." : "Polish Resume text"}
+                      </button>
+                    </div>
+
+                    {/* AI Suggestions check lists (Part 11 flow) */}
+                    {aiImproveResults && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                        <div style={{ padding: "0.5rem", borderRadius: "8px", background: "#f0fdf4", border: "1px solid #bbf7d0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span style={{ fontSize: "0.72rem", color: "#166534", fontWeight: "700" }}>Estimated post-AI score: {aiImproveResults.estimated_score}% (was {aiImproveResults.current_score}%)</span>
+                          <button onClick={() => setAiImproveResults(null)} style={{ background: "transparent", border: "none", color: "#166534", cursor: "pointer", fontWeight: "700" }}>✕ Dismiss</button>
+                        </div>
+
+                        {/* Summary Comparison */}
+                        {aiImproveResults.improvements?.improved_summary && (
+                          <div className="ai-compare-card">
+                            <div className="ai-compare-title">
+                              <span>📝 Professional Summary Draft</span>
+                            </div>
+                            <div className="ai-compare-split">
+                              <div className="ai-compare-original">
+                                <strong>Original:</strong><br/>
+                                {editedResume.summary || "N/A"}
+                              </div>
+                              <div className="ai-compare-improved">
+                                <strong>Polished Suggestion:</strong><br/>
+                                {aiImproveResults.improvements.improved_summary}
+                              </div>
+                            </div>
+                            <div style={{ display: "flex", gap: "0.35rem", justifyContent: "flex-end", marginTop: "0.5rem" }}>
+                              <button className="btn-secondary" style={{ padding: "0.25rem 0.5rem", fontSize: "0.68rem", minHeight: "auto" }} onClick={() => {
+                                setAiImproveResults(prev => ({
+                                  ...prev,
+                                  improvements: { ...prev.improvements, improved_summary: null }
+                                }));
+                              }}>Reject</button>
+                              <button className="btn-primary" style={{ padding: "0.25rem 0.5rem", fontSize: "0.68rem", minHeight: "auto" }} onClick={() => handleAcceptSummary(aiImproveResults.improvements.improved_summary)}>Accept Summary ✓</button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Experience Comparison */}
+                        {aiImproveResults.improvements?.improved_experience && aiImproveResults.improvements.improved_experience.length > 0 && (
+                          <div className="ai-compare-card">
+                            <div className="ai-compare-title">
+                              <span>💼 Experience Bullet Points</span>
+                            </div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                              {aiImproveResults.improvements.improved_experience.map((impExp, idx) => {
+                                // Find actual item index in original experience list
+                                const originalIdx = editedResume.experience.findIndex(e => e.role === impExp.role && e.company === impExp.company);
+                                if (originalIdx === -1) return null;
+                                return (
+                                  <div key={idx} style={{ borderBottom: "1px dashed var(--card-border)", paddingBottom: "0.5rem" }}>
+                                    <div style={{ fontSize: "0.72rem", fontWeight: "700", marginBottom: "0.25rem", color: "var(--color-primary)" }}>{impExp.role} at {impExp.company}</div>
+                                    <div className="ai-compare-split">
+                                      <div className="ai-compare-original">
+                                        {impExp.original || editedResume.experience[originalIdx].description}
+                                      </div>
+                                      <div className="ai-compare-improved">
+                                        {impExp.improved}
+                                      </div>
+                                    </div>
+                                    <div style={{ display: "flex", gap: "0.35rem", justifyContent: "flex-end", marginTop: "0.35rem" }}>
+                                      <button className="btn-secondary" style={{ padding: "0.15rem 0.35rem", fontSize: "0.65rem", minHeight: "auto" }} onClick={() => {
+                                        const remaining = aiImproveResults.improvements.improved_experience.filter((_, i) => i !== idx);
+                                        setAiImproveResults(prev => ({
+                                          ...prev,
+                                          improvements: { ...prev.improvements, improved_experience: remaining }
+                                        }));
+                                      }}>Reject</button>
+                                      <button className="btn-primary" style={{ padding: "0.15rem 0.35rem", fontSize: "0.65rem", minHeight: "auto" }} onClick={() => handleAcceptExperience(originalIdx, impExp.improved)}>Apply Bullets ✓</button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Projects Comparison */}
+                        {aiImproveResults.improvements?.improved_projects && aiImproveResults.improvements.improved_projects.length > 0 && (
+                          <div className="ai-compare-card">
+                            <div className="ai-compare-title">
+                              <span>📂 Project Descriptions</span>
+                            </div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                              {aiImproveResults.improvements.improved_projects.map((impProj, idx) => {
+                                const originalIdx = editedResume.projects.findIndex(p => p.title === impProj.title);
+                                if (originalIdx === -1) return null;
+                                return (
+                                  <div key={idx} style={{ borderBottom: "1px dashed var(--card-border)", paddingBottom: "0.5rem" }}>
+                                    <div style={{ fontSize: "0.72rem", fontWeight: "700", marginBottom: "0.25rem", color: "var(--color-primary)" }}>{impProj.title}</div>
+                                    <div className="ai-compare-split">
+                                      <div className="ai-compare-original">
+                                        {impProj.original || editedResume.projects[originalIdx].description}
+                                      </div>
+                                      <div className="ai-compare-improved">
+                                        {impProj.improved}
+                                      </div>
+                                    </div>
+                                    <div style={{ display: "flex", gap: "0.35rem", justifyContent: "flex-end", marginTop: "0.35rem" }}>
+                                      <button className="btn-secondary" style={{ padding: "0.15rem 0.35rem", fontSize: "0.65rem", minHeight: "auto" }} onClick={() => {
+                                        const remaining = aiImproveResults.improvements.improved_projects.filter((_, i) => i !== idx);
+                                        setAiImproveResults(prev => ({
+                                          ...prev,
+                                          improvements: { ...prev.improvements, improved_projects: remaining }
+                                        }));
+                                      }}>Reject</button>
+                                      <button className="btn-primary" style={{ padding: "0.15rem 0.35rem", fontSize: "0.65rem", minHeight: "auto" }} onClick={() => handleAcceptProject(originalIdx, impProj.improved)}>Apply Draft ✓</button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Suggested Keywords / Skills */}
+                        {aiImproveResults.improvements?.keyword_suggestions && aiImproveResults.improvements.keyword_suggestions.length > 0 && (
+                          <div className="ai-compare-card">
+                            <div className="ai-compare-title" style={{ marginBottom: "0.35rem" }}>
+                              <span>💡 Recommended Keywords ({aiImproveResults.improvements.keyword_suggestions.length})</span>
+                            </div>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.25rem" }}>
+                              {aiImproveResults.improvements.keyword_suggestions.map((kw, i) => (
+                                <span 
+                                  key={i} 
+                                  onClick={() => {
+                                    handleAddSuggestedSkill(kw);
+                                    const remaining = aiImproveResults.improvements.keyword_suggestions.filter((_, idx) => idx !== i);
+                                    setAiImproveResults(prev => ({
+                                      ...prev,
+                                      improvements: { ...prev.improvements, keyword_suggestions: remaining }
+                                    }));
+                                  }}
+                                  className="keyword-chip" 
+                                  style={{ cursor: "pointer", fontSize: "0.68rem", padding: "0.15rem 0.35rem", background: "rgba(79, 70, 229, 0.04)", border: "1px dashed rgba(79, 70, 229, 0.3)", color: "var(--color-primary)", borderRadius: "4px" }}
+                                  title="Click to add skill instantly"
+                                >
+                                  + {kw}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {builderTab === "versions" && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                    <div style={{ border: "1px solid var(--card-border)", borderRadius: "8px", padding: "0.75rem", background: "#f8fafc" }}>
+                      <h4 style={{ margin: "0 0 0.5rem 0", fontSize: "0.82rem" }}>📁 Save Snapshot</h4>
+                      <div style={{ display: "flex", gap: "0.35rem" }}>
+                        <input type="text" className="auth-input" placeholder="Snapshot label..." value={newVersionName} onChange={e => setNewVersionName(e.target.value)} style={{ fontSize: "0.8rem", height: "34px", minHeight: "auto" }} />
+                        <button className="btn-primary" onClick={handleSaveVersion} disabled={versionsLoading} style={{ padding: "0.45rem 0.85rem", fontSize: "0.75rem", whiteSpace: "nowrap", minHeight: "auto" }}>Save</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
+
+            {/* Center Column: Live preview document canvas */}
+            {(!isMobile || mobileTab === "preview") && (
+              <div 
+                style={{ 
+                  border: "1px solid var(--card-border)", 
+                  borderRadius: "12px", 
+                  background: "#ffffff", 
+                  boxShadow: "0 10px 15px -3px rgba(0,0,0,0.05)",
+                  overflowX: "auto",
+                  padding: "0.5rem"
+                }} 
+                className="live-canvas-preview-wrapper"
+              >
+                <div style={{ transform: `scale(${zoomScale})`, transformOrigin: "top left", width: `${100 / zoomScale}%` }}>
+                  {renderLivePreview(selectedTemplate)}
+                </div>
+              </div>
+            )}
+
+            {/* Right Column: ATS suggestions sidebar panel */}
+            {!isMobile && (
+              <AtsSuggestionsPanel 
+                atsAnalysis={selectedResume ? selectedResume.ats_analysis : null}
+                editedResume={editedResume}
+                setEditedResume={setEditedResume}
+                addToast={addToast}
+              />
+            )}
+
           </div>
 
         </div>
-
       </div>
     );
   };
+
+
 
   const renderJobMatchTab = () => {
     if (!selectedResume || !selectedResume.ats_analysis) {
@@ -3890,40 +4881,59 @@ function App() {
     };
 
     const categories = {
-      hr: { label: "HR & Screening", key: "hr_questions", icon: "👤" },
-      tech: { label: "Technical & Coding", key: "technical_questions", icon: "💻" },
-      jd: { label: "JD Specific", key: "jd_questions", icon: "🎯" },
-      projects: { label: "Project Deep-Dive", key: "project_questions", icon: "📂" },
-      resume: { label: "Resume Audit", key: "resume_questions", icon: "👔" },
-      behavioral: { label: "STAR Behavioral", key: "behavioral_questions", icon: "✨" }
+      resume: { label: "Resume-Based", key: "resume_questions", icon: "👔" },
+      jd: { label: "Job Description-Based", key: "jd_questions", icon: "🎯" },
+      tech: { label: "Technical", key: "technical_questions", icon: "💻" },
+      hr: { label: "HR", key: "hr_questions", icon: "👤" },
+      behavioral: { label: "Behavioral", key: "behavioral_questions", icon: "✨" },
+      scenario: { label: "Scenario-Based", key: "scenario_questions", icon: "🎭" },
+      projects: { label: "Project-Based", key: "project_questions", icon: "📂" },
+      problem_solving: { label: "Problem Solving", key: "problem_solving_questions", icon: "🧩" }
     };
 
-    const allQuestions = (interviewPrep && interviewPrep[categories[activePrepCategory].key]) || [];
+    const currentCategoryInfo = categories[activePrepCategory];
+    const allQuestions = (interviewPrep && interviewPrep[currentCategoryInfo.key]) || [];
     const filteredQuestions = allQuestions.filter(q => {
       if (prepDifficultyFilter === "all") return true;
       return q.difficulty.toLowerCase() === prepDifficultyFilter.toLowerCase();
     });
 
+    const activeQuestion = filteredQuestions[currentQuestionIndex];
+
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
         
-        {/* JD Configuration & Trigger Panel */}
+        {/* JD & Target Role Configuration Panel */}
         <div className="glass-panel">
           <h3 className="panel-title" style={{ marginBottom: "0.5rem" }}>
-            <span className="panel-title-text">🎯 Target Job Description for Preparation</span>
+            <span className="panel-title-text">🎯 Target Setup for Preparation</span>
           </h3>
           <p style={{ fontSize: "0.85rem", color: "var(--color-text-muted)", marginBottom: "1rem" }}>
-            Paste the target Job Description (JD) below to tailor all interview questions and readiness scores directly to the job's core requirements. Leaving it blank compiles prep materials based on your resume only.
+            Define your target Job Role and paste the Job Description (JD) below to customize mock interview questions and readiness scores.
           </p>
           
           <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-            <textarea 
-              className="auth-input" 
-              placeholder="Paste target job description here..."
-              style={{ height: "120px", resize: "none", width: "100%", boxSizing: "border-box" }}
-              value={recruiterJdText}
-              onChange={(e) => setRecruiterJdText(e.target.value)}
-            />
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+              <label style={{ fontSize: "0.82rem", fontWeight: "700", color: "var(--color-text-main)" }}>Target Job Role</label>
+              <input 
+                type="text" 
+                className="auth-input" 
+                placeholder="e.g. Senior Software Engineer"
+                style={{ width: "100%", boxSizing: "border-box" }}
+                value={recruiterJobRole}
+                onChange={(e) => setRecruiterJobRole(e.target.value)}
+              />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+              <label style={{ fontSize: "0.82rem", fontWeight: "700", color: "var(--color-text-main)" }}>Job Description (Optional)</label>
+              <textarea 
+                className="auth-input" 
+                placeholder="Paste target job description here..."
+                style={{ height: "100px", resize: "none", width: "100%", boxSizing: "border-box" }}
+                value={recruiterJdText}
+                onChange={(e) => setRecruiterJdText(e.target.value)}
+              />
+            </div>
             <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
               <button 
                 className="btn-primary" 
@@ -3934,12 +4944,12 @@ function App() {
                 {generatingPrep ? (
                   <React.Fragment>
                     <div className="spinner-micro"></div>
-                    <span>Generating Preparation Guide...</span>
+                    <span>Generating Interview Prep...</span>
                   </React.Fragment>
                 ) : (
                   <React.Fragment>
                     <Icons.Cpu />
-                    <span>{interviewPrep ? "Re-Generate Guide & Scores" : "Generate Interview Guide"}</span>
+                    <span>{interviewPrep ? "Re-Generate Questions" : "Generate Questions"}</span>
                   </React.Fragment>
                 )}
               </button>
@@ -3951,7 +4961,7 @@ function App() {
         {interviewPrep ? (
           <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
             
-            {/* Scores & Actions panel */}
+            {/* Scores & Export Actions */}
             <div className="glass-panel" style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
               <h3 className="panel-title" style={{ margin: 0 }}>
                 <span className="panel-title-text">📊 Mock Interview Readiness Audit</span>
@@ -3964,166 +4974,390 @@ function App() {
                 {renderCircularIndicator(interviewPrep.communication_readiness, "Communication", "#f59e0b")}
               </div>
 
-              <div style={{ borderTop: "1px solid var(--card-border)", paddingTop: "1rem", display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+              <div style={{ borderTop: "1px solid var(--card-border)", paddingTop: "1rem", display: "flex", gap: "1rem", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center" }}>
                 <button 
                   className="btn-secondary" 
                   onClick={() => downloadInterviewPDF(selectedResume.id, "questions")}
                   style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.85rem", padding: "0.6rem 1rem" }}
                 >
-                  <Icons.FileText />
-                  <span>Download Questions Sheet (Practice)</span>
+                  <Icons.Download />
+                  <span>Download Questions Sheet (PDF)</span>
                 </button>
+
                 <button 
-                  className="btn-secondary" 
-                  onClick={() => downloadInterviewPDF(selectedResume.id, "guide")}
-                  style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.85rem", padding: "0.6rem 1rem" }}
+                  className="btn-primary"
+                  onClick={() => {
+                    setPracticeMode(!practiceMode);
+                    setCurrentQuestionIndex(0);
+                  }}
+                  style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.85rem", padding: "0.6rem 1.25rem", background: "linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)", border: "none" }}
                 >
-                  <Icons.FileText />
-                  <span>Download Prep Study Guide (Q&A)</span>
+                  <Icons.Target />
+                  <span>{practiceMode ? "Exit Practice Mode" : "Start Practice Mode"}</span>
                 </button>
               </div>
             </div>
 
-            {/* Questions Explorer panel */}
-            <div className="glass-panel" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem", borderBottom: "1px solid var(--card-border)", paddingBottom: "0.75rem" }}>
-                <h3 className="panel-title" style={{ margin: 0 }}>
-                  <span className="panel-title-text">📚 Personalized Question Sheets</span>
-                </h3>
-                
-                {/* Difficulty Filters */}
-                <div style={{ display: "flex", gap: "0.25rem", background: "#f1f5f9", padding: "0.25rem", borderRadius: "8px", border: "1px solid var(--card-border)" }}>
-                  {["all", "easy", "medium", "hard"].map((level) => (
-                    <button 
-                      key={level}
-                      onClick={() => setPrepDifficultyFilter(level)}
-                      style={{ 
-                        padding: "0.35rem 0.75rem", 
-                        borderRadius: "6px", 
-                        border: "none", 
-                        fontSize: "0.75rem", 
-                        fontWeight: "600",
-                        cursor: "pointer",
-                        background: prepDifficultyFilter === level ? "#ffffff" : "transparent",
-                        color: prepDifficultyFilter === level ? "var(--color-primary)" : "var(--color-text-muted)",
-                        boxShadow: prepDifficultyFilter === level ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
-                        transition: "all 0.2s ease"
-                      }}
-                    >
-                      {level.toUpperCase()}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Category tabs */}
-              <div className="report-tabs" style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", marginBottom: "0.5rem" }}>
-                {Object.entries(categories).map(([key, info]) => (
-                  <button 
-                    key={key}
-                    className={`tab-btn ${activePrepCategory === key ? "active" : ""}`}
-                    onClick={() => {
-                      setActivePrepCategory(key);
-                      setExpandedQuestionIndex(null);
-                    }}
-                    style={{ fontSize: "0.8rem", padding: "0.5rem 0.95rem" }}
-                  >
-                    <span>{info.icon} {info.label}</span>
-                  </button>
-                ))}
-              </div>
-
-              {/* Accordion Questions List */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                {filteredQuestions.length > 0 ? filteredQuestions.map((q, idx) => {
-                  const isExpanded = expandedQuestionIndex === idx;
-                  const difficultyColor = q.difficulty.toLowerCase() === "easy" ? "#10b981" : q.difficulty.toLowerCase() === "medium" ? "#f59e0b" : "#ef4444";
+            {/* Questions Explorer */}
+            {!practiceMode ? (
+              <div className="glass-panel" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem", borderBottom: "1px solid var(--card-border)", paddingBottom: "0.75rem" }}>
+                  <h3 className="panel-title" style={{ margin: 0 }}>
+                    <span className="panel-title-text">📚 Practice Question Sheets</span>
+                  </h3>
                   
-                  return (
-                    <div 
-                      key={idx}
-                      className="question-accordion-card"
-                      style={{ 
-                        border: "1px solid var(--card-border)", 
-                        borderRadius: "10px", 
-                        background: isExpanded ? "#fbfbfe" : "#ffffff", 
-                        overflow: "hidden",
-                        transition: "all 0.2s ease"
-                      }}
-                    >
-                      {/* Accordion Header */}
-                      <div 
-                        onClick={() => setExpandedQuestionIndex(isExpanded ? null : idx)}
+                  {/* Difficulty Filters */}
+                  <div style={{ display: "flex", gap: "0.25rem", background: "#f1f5f9", padding: "0.25rem", borderRadius: "8px", border: "1px solid var(--card-border)" }}>
+                    {["all", "easy", "medium", "hard"].map((level) => (
+                      <button 
+                        key={level}
+                        onClick={() => setPrepDifficultyFilter(level)}
                         style={{ 
-                          padding: "1rem", 
-                          display: "flex", 
-                          justifyContent: "space-between", 
-                          alignItems: "center", 
+                          padding: "0.35rem 0.75rem", 
+                          borderRadius: "6px", 
+                          border: "none", 
+                          fontSize: "0.75rem", 
+                          fontWeight: "600",
                           cursor: "pointer",
-                          userSelect: "none"
+                          background: prepDifficultyFilter === level ? "#ffffff" : "transparent",
+                          color: prepDifficultyFilter === level ? "var(--color-primary)" : "var(--color-text-muted)",
+                          boxShadow: prepDifficultyFilter === level ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                          transition: "all 0.2s ease"
                         }}
                       >
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flex: 1, paddingRight: "1rem" }}>
+                        {level.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Category tabs */}
+                <div className="report-tabs" style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", marginBottom: "0.5rem" }}>
+                  {Object.entries(categories).map(([key, info]) => {
+                    const count = (interviewPrep && interviewPrep[info.key] && interviewPrep[info.key].length) || 0;
+                    return (
+                      <button 
+                        key={key}
+                        className={`tab-btn ${activePrepCategory === key ? "active" : ""}`}
+                        onClick={() => {
+                          setActivePrepCategory(key);
+                        }}
+                        style={{ fontSize: "0.8rem", padding: "0.5rem 0.95rem" }}
+                      >
+                        <span>{info.icon} {info.label} ({count})</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Questions List */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                  {filteredQuestions.length > 0 ? filteredQuestions.map((q, idx) => {
+                    const difficultyColor = q.difficulty.toLowerCase() === "easy" ? "#10b981" : q.difficulty.toLowerCase() === "medium" ? "#f59e0b" : "#ef4444";
+                    
+                    return (
+                      <div 
+                        key={idx}
+                        className="question-card-item"
+                        style={{ 
+                          border: "1px solid var(--card-border)", 
+                          borderRadius: "10px", 
+                          background: "#ffffff",
+                          padding: "1rem 1.25rem",
+                          display: "flex", 
+                          justifyContent: "space-between", 
+                          alignItems: "center",
+                          gap: "1.5rem"
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem", flex: 1 }}>
+                          <span style={{ fontSize: "0.85rem", fontWeight: "700", color: "var(--color-primary)", marginTop: "0.15rem" }}>#{idx + 1}</span>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+                            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
+                              <span 
+                                style={{ 
+                                  fontSize: "0.65rem", 
+                                  fontWeight: "800", 
+                                  padding: "0.15rem 0.45rem", 
+                                  borderRadius: "4px", 
+                                  background: `${difficultyColor}15`, 
+                                  color: difficultyColor,
+                                  border: `1px solid ${difficultyColor}25`,
+                                  textTransform: "uppercase"
+                                }}
+                              >
+                                {q.difficulty}
+                              </span>
+                              <span 
+                                style={{ 
+                                  fontSize: "0.65rem", 
+                                  fontWeight: "800", 
+                                  padding: "0.15rem 0.45rem", 
+                                  borderRadius: "4px", 
+                                  background: "#f1f5f9", 
+                                  color: "#475569",
+                                  border: "1px solid #cbd5e1"
+                                }}
+                              >
+                                {currentCategoryInfo.label}
+                              </span>
+                            </div>
+                            <span style={{ fontSize: "0.88rem", fontWeight: "600", color: "var(--color-text-main)", lineHeight: "1.4" }}>
+                              {q.question}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Interactive Status Badges/Buttons */}
+                        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                          {/* Completed Button */}
+                          <button 
+                            onClick={() => toggleQuestionStatus(selectedResume.id, currentCategoryInfo.key, idx, "completed")}
+                            title={q.completed ? "Mark as Incomplete" : "Mark as Completed"}
+                            style={{
+                              border: "1px solid var(--card-border)",
+                              borderRadius: "6px",
+                              padding: "0.4rem",
+                              cursor: "pointer",
+                              background: q.completed ? "#10b981" : "#ffffff",
+                              color: q.completed ? "#ffffff" : "#64748b",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              transition: "all 0.2s ease"
+                            }}
+                          >
+                            <Icons.Check />
+                          </button>
+
+                          {/* Favorite Button */}
+                          <button 
+                            onClick={() => toggleQuestionStatus(selectedResume.id, currentCategoryInfo.key, idx, "favorite")}
+                            title={q.favorite ? "Unfavorite" : "Favorite"}
+                            style={{
+                              border: "1px solid var(--card-border)",
+                              borderRadius: "6px",
+                              padding: "0.4rem",
+                              cursor: "pointer",
+                              background: q.favorite ? "#fbbf24" : "#ffffff",
+                              color: q.favorite ? "#ffffff" : "#64748b",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              transition: "all 0.2s ease"
+                            }}
+                          >
+                            <Icons.Star fill={q.favorite ? "#ffffff" : "none"} />
+                          </button>
+
+                          {/* Needs Practice Button */}
+                          <button 
+                            onClick={() => toggleQuestionStatus(selectedResume.id, currentCategoryInfo.key, idx, "needs_practice")}
+                            title={q.needs_practice ? "Needs Practice (Active)" : "Mark as Needs Practice"}
+                            style={{
+                              border: "1px solid var(--card-border)",
+                              borderRadius: "6px",
+                              padding: "0.4rem",
+                              cursor: "pointer",
+                              background: q.needs_practice ? "#ef4444" : "#ffffff",
+                              color: q.needs_practice ? "#ffffff" : "#64748b",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              transition: "all 0.2s ease"
+                            }}
+                          >
+                            <Icons.AlertTriangle />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }) : (
+                    <div style={{ textAlign: "center", color: "var(--color-text-muted)", padding: "2rem" }}>
+                      No {prepDifficultyFilter !== "all" ? prepDifficultyFilter : ""} questions found in this category.
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              /* Practice Mode Interface */
+              <div className="glass-panel" style={{ display: "flex", flexDirection: "column", gap: "1.25rem", minHeight: "280px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--card-border)", paddingBottom: "0.75rem" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <span style={{ fontSize: "1.2rem" }}>⚡</span>
+                    <h3 className="panel-title" style={{ margin: 0 }}>
+                      <span className="panel-title-text">{currentCategoryInfo.label} Practice Session</span>
+                    </h3>
+                  </div>
+                  <button 
+                    className="btn-secondary"
+                    onClick={() => setPracticeMode(false)}
+                    style={{ fontSize: "0.75rem", padding: "0.3rem 0.75rem" }}
+                  >
+                    Exit Practice
+                  </button>
+                </div>
+
+                {filteredQuestions.length > 0 ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem", flex: 1, justifyContent: "center" }}>
+                    
+                    {/* Progress Bar */}
+                    <div style={{ width: "100%" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", fontWeight: "700", color: "var(--color-text-muted)", marginBottom: "0.3rem" }}>
+                        <span>Progress</span>
+                        <span>{currentQuestionIndex + 1} of {filteredQuestions.length} ({Math.round(((currentQuestionIndex + 1) / filteredQuestions.length) * 100)}%)</span>
+                      </div>
+                      <div style={{ height: "6px", background: "#f1f5f9", borderRadius: "10px", overflow: "hidden", border: "1px solid var(--card-border)" }}>
+                        <div style={{ height: "100%", width: `${((currentQuestionIndex + 1) / filteredQuestions.length) * 100}%`, background: "var(--color-primary)", transition: "width 0.3s ease" }}></div>
+                      </div>
+                    </div>
+
+                    {/* Question Card */}
+                    <div style={{ background: "#F8FAFC", borderRadius: "12px", border: "1px solid var(--card-border)", padding: "2rem", display: "flex", flexDirection: "column", gap: "1.25rem", minHeight: "150px", justifyContent: "space-between" }}>
+                      
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
                           <span 
                             style={{ 
                               fontSize: "0.7rem", 
-                              fontWeight: "bold", 
-                              padding: "0.2rem 0.5rem", 
+                              fontWeight: "800", 
+                              padding: "0.2rem 0.6rem", 
                               borderRadius: "4px", 
-                              background: `${difficultyColor}15`, 
-                              color: difficultyColor,
-                              border: `1px solid ${difficultyColor}30`,
+                              background: `${activeQuestion.difficulty.toLowerCase() === "easy" ? "#10b981" : activeQuestion.difficulty.toLowerCase() === "medium" ? "#f59e0b" : "#ef4444"}15`, 
+                              color: activeQuestion.difficulty.toLowerCase() === "easy" ? "#10b981" : activeQuestion.difficulty.toLowerCase() === "medium" ? "#f59e0b" : "#ef4444",
+                              border: `1px solid ${activeQuestion.difficulty.toLowerCase() === "easy" ? "#10b981" : activeQuestion.difficulty.toLowerCase() === "medium" ? "#f59e0b" : "#ef4444"}25`,
                               textTransform: "uppercase"
                             }}
                           >
-                            {q.difficulty}
+                            {activeQuestion.difficulty}
                           </span>
-                          <span style={{ fontSize: "0.88rem", fontWeight: "600", color: "var(--color-text-main)", lineHeight: "1.4" }}>
-                            {q.question}
+                          <span 
+                            style={{ 
+                              fontSize: "0.7rem", 
+                              fontWeight: "800", 
+                              padding: "0.2rem 0.6rem", 
+                              borderRadius: "4px", 
+                              background: "#e0e7ff", 
+                              color: "#4f46e5",
+                              border: "1px solid #c7d2fe"
+                            }}
+                          >
+                            {currentCategoryInfo.label}
                           </span>
                         </div>
-                        <div style={{ color: "var(--color-text-muted)", transition: "transform 0.2s ease", transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)" }}>
-                          ▼
-                        </div>
+                        <h2 style={{ fontSize: "1.3rem", fontWeight: "700", color: "var(--color-text-main)", margin: 0, lineHeight: "1.4" }}>
+                          {activeQuestion.question}
+                        </h2>
                       </div>
 
-                      {/* Accordion Body */}
-                      {isExpanded && (
-                        <div style={{ padding: "0 1.25rem 1.25rem 1.25rem", borderTop: "1px solid var(--card-border)", background: "#ffffff" }}>
-                          {/* Talking points / Recruiter expectations */}
-                          <div style={{ marginTop: "1rem" }}>
-                            <strong style={{ display: "block", fontSize: "0.8rem", color: "var(--color-primary)", marginBottom: "0.5rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                              🎯 What Recruiters Look For / Key Points
-                            </strong>
-                            <ul style={{ paddingLeft: "1.2rem", fontSize: "0.82rem", lineHeight: "1.5", display: "flex", flexDirection: "column", gap: "0.35rem", margin: 0, color: "var(--color-text-main)" }}>
-                              {q.key_points && q.key_points.map((pt, i) => (
-                                <li key={i}>{pt}</li>
-                              ))}
-                            </ul>
-                          </div>
+                      {/* Card Action Status Buttons */}
+                      <div style={{ display: "flex", gap: "1rem", borderTop: "1px solid var(--card-border)", paddingTop: "1.25rem" }}>
+                        <button 
+                          onClick={() => toggleQuestionStatus(selectedResume.id, currentCategoryInfo.key, currentQuestionIndex, "completed")}
+                          style={{
+                            flex: 1,
+                            border: "1px solid var(--card-border)",
+                            borderRadius: "8px",
+                            padding: "0.6rem",
+                            cursor: "pointer",
+                            fontWeight: "600",
+                            fontSize: "0.82rem",
+                            background: activeQuestion.completed ? "#10b981" : "#ffffff",
+                            color: activeQuestion.completed ? "#ffffff" : "#475569",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: "0.4rem",
+                            transition: "all 0.2s ease"
+                          }}
+                        >
+                          <Icons.Check />
+                          <span>{activeQuestion.completed ? "Completed" : "Mark Completed"}</span>
+                        </button>
 
-                          {/* Sample answer structure */}
-                          {q.sample_answer_structure && (
-                            <div style={{ marginTop: "1rem", padding: "0.85rem", background: "#f8fafc", borderRadius: "8px", border: "1px solid var(--card-border)" }}>
-                              <strong style={{ display: "block", fontSize: "0.8rem", color: "#2563eb", marginBottom: "0.4rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                                💡 Sample Answer & Story Structure
-                              </strong>
-                              <p style={{ fontSize: "0.82rem", lineHeight: "1.5", color: "#475569", margin: 0, whiteSpace: "pre-line" }}>
-                                {q.sample_answer_structure}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      )}
+                        <button 
+                          onClick={() => toggleQuestionStatus(selectedResume.id, currentCategoryInfo.key, currentQuestionIndex, "favorite")}
+                          style={{
+                            flex: 1,
+                            border: "1px solid var(--card-border)",
+                            borderRadius: "8px",
+                            padding: "0.6rem",
+                            cursor: "pointer",
+                            fontWeight: "600",
+                            fontSize: "0.82rem",
+                            background: activeQuestion.favorite ? "#fbbf24" : "#ffffff",
+                            color: activeQuestion.favorite ? "#ffffff" : "#475569",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: "0.4rem",
+                            transition: "all 0.2s ease"
+                          }}
+                        >
+                          <Icons.Star fill={activeQuestion.favorite ? "#ffffff" : "none"} />
+                          <span>{activeQuestion.favorite ? "Favorited" : "Favorite"}</span>
+                        </button>
+
+                        <button 
+                          onClick={() => toggleQuestionStatus(selectedResume.id, currentCategoryInfo.key, currentQuestionIndex, "needs_practice")}
+                          style={{
+                            flex: 1,
+                            border: "1px solid var(--card-border)",
+                            borderRadius: "8px",
+                            padding: "0.6rem",
+                            cursor: "pointer",
+                            fontWeight: "600",
+                            fontSize: "0.82rem",
+                            background: activeQuestion.needs_practice ? "#ef4444" : "#ffffff",
+                            color: activeQuestion.needs_practice ? "#ffffff" : "#475569",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: "0.4rem",
+                            transition: "all 0.2s ease"
+                          }}
+                        >
+                          <Icons.AlertTriangle />
+                          <span>{activeQuestion.needs_practice ? "Needs Practice (Active)" : "Needs Practice"}</span>
+                        </button>
+                      </div>
+
                     </div>
-                  );
-                }) : (
-                  <div style={{ textAlign: "center", color: "var(--color-text-muted)", padding: "2rem" }}>
-                    No {prepDifficultyFilter !== "all" ? prepDifficultyFilter : ""} questions found in this category.
+
+                    {/* Pagination Footer */}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "1rem" }}>
+                      <button 
+                        className="btn-secondary"
+                        onClick={() => setCurrentQuestionIndex(prev => Math.max(0, prev - 1))}
+                        disabled={currentQuestionIndex === 0}
+                        style={{ display: "flex", alignItems: "center", gap: "0.5rem", opacity: currentQuestionIndex === 0 ? 0.5 : 1, cursor: currentQuestionIndex === 0 ? "not-allowed" : "pointer" }}
+                      >
+                        ◀ Previous
+                      </button>
+
+                      <span style={{ fontSize: "0.85rem", fontWeight: "700", color: "var(--color-text-muted)" }}>
+                        {currentQuestionIndex + 1} / {filteredQuestions.length}
+                      </span>
+
+                      <button 
+                        className="btn-secondary"
+                        onClick={() => setCurrentQuestionIndex(prev => Math.min(filteredQuestions.length - 1, prev + 1))}
+                        disabled={currentQuestionIndex === filteredQuestions.length - 1}
+                        style={{ display: "flex", alignItems: "center", gap: "0.5rem", opacity: currentQuestionIndex === filteredQuestions.length - 1 ? 0.5 : 1, cursor: currentQuestionIndex === filteredQuestions.length - 1 ? "not-allowed" : "pointer" }}
+                      >
+                        Next ▶
+                      </button>
+                    </div>
+
+                  </div>
+                ) : (
+                  <div style={{ textAlign: "center", color: "var(--color-text-muted)", padding: "3rem" }}>
+                    No questions available to practice with this filter.
                   </div>
                 )}
+
               </div>
-            </div>
+            )}
 
           </div>
         ) : (
@@ -4133,7 +5367,7 @@ function App() {
               Interview Preparation Guide Not Generated Yet
             </p>
             <p style={{ fontSize: "0.85rem", maxWidth: "480px", margin: "0 auto 1.5rem auto" }}>
-              Generate custom mock interview questions, talk tracks, expected answers, and readiness indicators based on your profile and target JD.
+              Generate custom mock interview questions, difficulties, and readiness indicators based on your profile, selected job role, and target JD.
             </p>
             <button 
               className="btn-primary" 
@@ -4149,7 +5383,7 @@ function App() {
               ) : (
                 <React.Fragment>
                   <Icons.Cpu />
-                  <span>Generate Preparation Materials</span>
+                  <span>Generate Preparation Questions</span>
                 </React.Fragment>
               )}
             </button>
@@ -4357,30 +5591,51 @@ function App() {
               </p>
             </div>
           ) : (
-            <div 
-              className={`dropzone ${dragActive ? "drag-active" : ""}`}
-              onDragEnter={handleDrag}
-              onDragOver={handleDrag}
-              onDragLeave={handleDrag}
-              onDrop={handleDrop}
-              onClick={triggerFileInput}
-              style={{ padding: "1.5rem" }}
-            >
-              <input 
-                type="file" 
-                ref={fileInputRef}
-                className="file-input" 
-                accept=".pdf,.docx" 
-                onChange={handleFileChange}
-              />
-              <div className="dropzone-icon" style={{ width: "36px", height: "36px" }}>
-                <Icons.Upload />
+            <div className="ats-dashboard-grid" style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: "1.5rem" }}>
+              <div 
+                className={`dropzone ${dragActive ? "drag-active" : ""}`}
+                onDragEnter={handleDrag}
+                onDragOver={handleDrag}
+                onDragLeave={handleDrag}
+                onDrop={handleDrop}
+                onClick={triggerFileInput}
+                style={{ padding: "1.5rem", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center" }}
+              >
+                <input 
+                  type="file" 
+                  ref={fileInputRef}
+                  className="file-input" 
+                  accept=".pdf,.docx" 
+                  onChange={handleFileChange}
+                />
+                <div className="dropzone-icon" style={{ width: "36px", height: "36px", margin: "0 auto 0.5rem auto" }}>
+                  <Icons.Upload />
+                </div>
+                <div>
+                  <p style={{ fontWeight: 600, color: "var(--color-text-main)", fontSize: "0.9rem" }}>Upload a new CV / Resume document</p>
+                  <p style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", marginTop: "0.15rem" }}>
+                    Drag & drop your PDF or DOCX file, or click to choose from disk
+                  </p>
+                </div>
               </div>
-              <div>
-                <p style={{ fontWeight: 600, color: "var(--color-text-main)", fontSize: "0.9rem" }}>Upload a new CV / Resume document</p>
-                <p style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", marginTop: "0.15rem" }}>
-                  Drag & drop your PDF or DOCX file, or click to choose from disk
+              
+              <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", border: "2px dashed var(--card-border)", borderRadius: "12px", padding: "1.5rem", background: "linear-gradient(135deg, rgba(79, 70, 229, 0.02) 0%, rgba(16, 185, 129, 0.02) 100%)", textAlign: "center" }}>
+                <span style={{ fontSize: "2.2rem", marginBottom: "0.5rem" }}>✍️</span>
+                <h4 style={{ margin: "0 0 0.25rem 0", fontWeight: "700", fontSize: "0.95rem", color: "var(--color-text-main)" }}>Build from Scratch</h4>
+                <p style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", margin: "0 0 1rem 0", lineHeight: "1.4" }}>
+                  Create an optimized blank CV. Fill in sections interactively and let AI improve your content.
                 </p>
+                <button 
+                  className="btn-primary" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCreateBlankResume();
+                  }}
+                  disabled={loading}
+                  style={{ padding: "0.55rem 1.25rem", fontSize: "0.8rem", display: "flex", alignItems: "center", gap: "0.35rem", background: "linear-gradient(135deg, var(--color-primary) 0%, #10b981 100%)", border: "none" }}
+                >
+                  <span>➕ Create New Resume</span>
+                </button>
               </div>
             </div>
           )}

@@ -1107,10 +1107,14 @@ def evaluate_resume_ats(resume: models.Resume) -> ATSAnalysisSchema:
         professional_summary=enriched.get("professional_summary") or enriched.get("improved_summary") or ""
     )
 
-def generate_interview_prep_with_gemini(resume: models.Resume, jd_text: Optional[str] = None) -> InterviewPrepSchema:
+def generate_interview_prep_with_gemini(
+    resume: models.Resume,
+    jd_text: Optional[str] = None,
+    job_role: Optional[str] = None
+) -> InterviewPrepSchema:
     """
-    Generates a highly personalized, recruiter-grade interview preparation guide using Gemini AI.
-    Integrates resume data (skills, projects, experience) and target Job Description (if available).
+    Generates a highly personalized, recruiter-grade list of interview questions using Gemini AI.
+    Integrates resume data, job role, and target Job Description (if available).
     """
     exp_details = ""
     for exp in (resume.experience or []):
@@ -1123,10 +1127,15 @@ def generate_interview_prep_with_gemini(resume: models.Resume, jd_text: Optional
     if jd_text:
         jd_prompt_part = f"Target Job Description:\n{jd_text}\n\nNote: Please prioritize the requirements of this Job Description in your questions."
     else:
-        jd_prompt_part = "No Target Job Description is uploaded. Base all questions on the candidate's resume only."
+        jd_prompt_part = "No Target Job Description is uploaded. Base all questions on the candidate's resume and target job role."
+
+    role_prompt_part = ""
+    target_role = job_role or resume.profession
+    if target_role:
+        role_prompt_part = f"Target Job Role: {target_role}\n\nNote: Customize the questions to target this specific role."
 
     prompt = (
-        "You are an expert recruiter and technical interviewer. Generate a highly personalized Interview Preparation Guide based on the candidate's resume:\n\n"
+        "You are an expert recruiter and technical interviewer. Generate a highly personalized Interview Preparation list of questions based on the candidate's resume:\n\n"
         f"Candidate Name: {resume.name or 'Candidate'}\n"
         f"Skills: {', '.join(resume.skills or [])}\n"
         f"Experience:\n{exp_details}\n"
@@ -1134,25 +1143,28 @@ def generate_interview_prep_with_gemini(resume: models.Resume, jd_text: Optional
         f"Education: {resume.education}\n"
         f"Certifications: {resume.certifications}\n"
         f"Languages: {resume.languages}\n\n"
+        f"{role_prompt_part}\n\n"
         f"{jd_prompt_part}\n\n"
         "Your output must be a single strict JSON object containing the following keys matching the InterviewPrepSchema:\n"
         "1. \"technical_readiness\": integer mock readiness score out of 100\n"
         "2. \"hr_readiness\": integer mock readiness score out of 100\n"
         "3. \"communication_readiness\": integer mock readiness score out of 100\n"
         "4. \"overall_readiness\": integer mock readiness score out of 100 (weighted/average of the three)\n"
-        "5. \"hr_questions\": list of EXACTLY 10 personalized HR questions. Each question is a JSON object with: \n"
-        "   - \"question\": string question text. Questions should reflect the candidate's background, work experience, or potential role fit.\n"
-        "   - \"difficulty\": string difficulty (must be one of \"Easy\", \"Medium\", \"Hard\")\n"
-        "   - \"key_points\": list of 3-4 key bullet points representing what recruiters expect or look for in the answer.\n"
-        "   - \"sample_answer_structure\": string showing the structured template or key steps to answer, keeping it short/focused and avoiding a long script to keep the guide readable.\n"
-        "6. \"technical_questions\": list of EXACTLY 15 personalized technical questions based on the candidate's skills and tech stack. Include a mix of difficulty levels (\"Easy\", \"Medium\", \"Hard\"). Format each question with \"question\", \"difficulty\", \"key_points\", and \"sample_answer_structure\" as above.\n"
-        "7. \"jd_questions\": list of 5-8 personalized questions targeting the specific requirements of the Job Description. If no Job Description is provided, generate 5 standard questions matching the candidate's primary skills. Each question has the same structure.\n"
-        "8. \"project_questions\": list of 3-5 questions deep-diving into the candidate's actual listed projects (architecture, technical challenges, choices, scalability). Each question has the same structure.\n"
-        "9. \"resume_questions\": list of 3-5 questions focusing on certifications listed, potential transitions/gaps, or tool choices. Each question has the same structure.\n"
-        "10. \"behavioral_questions\": list of EXACTLY 10 behavioral questions mapping to candidate experience using the STAR (Situation, Task, Action, Result) response model. Format each question with \"question\", \"difficulty\", \"key_points\", and \"sample_answer_structure\" as above.\n\n"
+        "5. \"resume_questions\": list of EXACTLY 10 personalized questions based on the candidate's uploaded resume (previous experience, education, skills, certifications, timeline/transitions).\n"
+        "6. \"jd_questions\": list of EXACTLY 10 personalized questions based on the target job description (if provided, otherwise standard questions matching the target job role). Each question must tie to specific job requirements.\n"
+        "7. \"technical_questions\": list of EXACTLY 10 personalized technical/coding questions based on the candidate's skills and tech stack.\n"
+        "8. \"hr_questions\": list of EXACTLY 10 personalized human resources/screening questions mapping to cultural fit, salary expectations, motivation, and professional behavior.\n"
+        "9. \"behavioral_questions\": list of EXACTLY 10 personalized behavioral questions (STAR scenario prep) relevant to their experience.\n"
+        "10. \"scenario_questions\": list of EXACTLY 10 personalized scenario-based questions (e.g. 'How would you handle a situation where...', dealing with team dynamic, timeline stress, production bugs).\n"
+        "11. \"project_questions\": list of EXACTLY 10 personalized project-based questions deep-diving into the candidate's actual projects (architecture, technical choices, challenges, scalability).\n"
+        "12. \"problem_solving_questions\": list of EXACTLY 10 personalized problem solving / logical reasoning / analytical questions.\n\n"
+        "For each question, provide a JSON object with keys:\n"
+        " - \"question\": string question text\n"
+        " - \"difficulty\": string difficulty (must be one of \"Easy\", \"Medium\", \"Hard\")\n\n"
         "CRITICAL RULES:\n"
+        "- Do NOT include any answers, talking points, guidelines, or key points under any circumstances. Strictly generate only the questions and their difficulties.\n"
         "- Do NOT fabricate facts about the candidate.\n"
-        "- Keep 'sample_answer_structure' concise and structural (e.g. \"1. State the main goal... 2. Describe the obstacle... 3. Explain the outcome...\") rather than writing a word-for-word long script.\n"
+        "- Avoid duplicate or repetitive questions across the categories.\n"
         "- Return ONLY a valid JSON object in response. No markdown wrappers or comments."
     )
 
@@ -1169,15 +1181,21 @@ def generate_interview_prep_with_gemini(resume: models.Resume, jd_text: Optional
         hr_readiness=data.get("hr_readiness", 0),
         communication_readiness=data.get("communication_readiness", 0),
         overall_readiness=data.get("overall_readiness", 0),
-        hr_questions=[InterviewQuestion2Schema(**q) for q in data.get("hr_questions", [])],
-        technical_questions=[InterviewQuestion2Schema(**q) for q in data.get("technical_questions", [])],
-        jd_questions=[InterviewQuestion2Schema(**q) for q in data.get("jd_questions", [])],
-        project_questions=[InterviewQuestion2Schema(**q) for q in data.get("project_questions", [])],
         resume_questions=[InterviewQuestion2Schema(**q) for q in data.get("resume_questions", [])],
-        behavioral_questions=[InterviewQuestion2Schema(**q) for q in data.get("behavioral_questions", [])]
+        jd_questions=[InterviewQuestion2Schema(**q) for q in data.get("jd_questions", [])],
+        technical_questions=[InterviewQuestion2Schema(**q) for q in data.get("technical_questions", [])],
+        hr_questions=[InterviewQuestion2Schema(**q) for q in data.get("hr_questions", [])],
+        behavioral_questions=[InterviewQuestion2Schema(**q) for q in data.get("behavioral_questions", [])],
+        scenario_questions=[InterviewQuestion2Schema(**q) for q in data.get("scenario_questions", [])],
+        project_questions=[InterviewQuestion2Schema(**q) for q in data.get("project_questions", [])],
+        problem_solving_questions=[InterviewQuestion2Schema(**q) for q in data.get("problem_solving_questions", [])]
     )
 
-def generate_interview_prep_local(resume: models.Resume, jd_text: Optional[str] = None) -> InterviewPrepSchema:
+def generate_interview_prep_local(
+    resume: models.Resume,
+    jd_text: Optional[str] = None,
+    job_role: Optional[str] = None
+) -> InterviewPrepSchema:
     # 1. Compute mock readiness scores
     skills = resume.skills or []
     projects = resume.projects or []
@@ -1204,146 +1222,102 @@ def generate_interview_prep_local(resume: models.Resume, jd_text: Optional[str] 
     hr_list = [
         {
             "question": f"Tell me about yourself. How does your background as a {career_level} prepare you for this role?",
-            "difficulty": "Easy",
-            "key_points": ["Strong overview of experience", "Relevance to target role", "Confident communication"],
-            "sample_answer_structure": "1. Briefly introduce your background. 2. Highlight 1-2 major achievements. 3. Connect your expertise to the job's core challenges."
+            "difficulty": "Easy"
         },
         {
             "question": "Why are you interested in this role and our company?",
-            "difficulty": "Easy",
-            "key_points": ["Knowledge of company mission/product", "Clear career alignment", "Enthusiasm for the challenge"],
-            "sample_answer_structure": "1. Express alignment with company values. 2. Reference a specific project or product of the company. 3. Explain how this role advances your goals."
+            "difficulty": "Easy"
         },
         {
             "question": f"Why should we hire you? What makes your skill set in {skills_str} unique?",
-            "difficulty": "Medium",
-            "key_points": ["Direct match with job requirements", "Proven problem-solving experience", "Unique perspective or soft skills"],
-            "sample_answer_structure": "1. Summarize your technical strength. 2. Connect it to immediate value for their team. 3. Highlight soft skills like collaboration or speed of learning."
+            "difficulty": "Medium"
         },
         {
             "question": f"Tell me about a challenge you faced in your past role at {company_str}.",
-            "difficulty": "Medium",
-            "key_points": ["Clarity of the obstacle", "Action taken to resolve it", "Learning or outcome obtained"],
-            "sample_answer_structure": "1. Describe the situation and obstacle. 2. Explain your specific actions. 3. Share the positive result and what you learned."
+            "difficulty": "Medium"
         },
         {
             "question": "Describe a situation where you worked under pressure or tight deadlines.",
-            "difficulty": "Medium",
-            "key_points": ["Task prioritization", "Maintaining composure", "Delivery quality under constraint"],
-            "sample_answer_structure": "1. Detail the source of pressure or tight deadline. 2. Describe how you prioritized tasks. 3. Explain the outcome and team impact."
+            "difficulty": "Medium"
         },
         {
             "question": "Where do you see yourself in 5 years?",
-            "difficulty": "Easy",
-            "key_points": ["Realistic career trajectory", "Ambition to grow", "Commitment to the domain"],
-            "sample_answer_structure": "1. Express interest in deepening technical/leadership skills. 2. Describe how you want to add value to the organization. 3. Emphasize continuous growth."
+            "difficulty": "Easy"
         },
         {
             "question": "What is your greatest professional strength?",
-            "difficulty": "Easy",
-            "key_points": ["Self-awareness", "Relevance to the job description", "Concrete example of application"],
-            "sample_answer_structure": "1. Clearly state the strength (e.g., problem solving). 2. Provide a short anecdote. 3. Connect it back to the target role."
+            "difficulty": "Easy"
         },
         {
             "question": "What do you consider your greatest weakness, and how are you working to improve it?",
-            "difficulty": "Medium",
-            "key_points": ["Honest self-awareness", "Actionable improvement plan", "Not a disguised strength"],
-            "sample_answer_structure": "1. Name a real but non-critical weakness. 2. Explain the proactive steps you are taking to overcome it. 3. Show a positive trend."
+            "difficulty": "Medium"
         },
         {
             "question": "How do you handle conflict or differing opinions within a project team?",
-            "difficulty": "Medium",
-            "key_points": ["Active listening", "Professional and calm demeanor", "Collaboration toward a common goal"],
-            "sample_answer_structure": "1. Describe your listening-first approach. 2. Detail how you find common ground or compromise. 3. Share a constructive resolution."
+            "difficulty": "Medium"
         },
         {
             "question": "Why are you looking to leave your current role / why did you leave your last role?",
-            "difficulty": "Medium",
-            "key_points": ["Positive tone towards past employer", "Desire for growth/challenges", "Logical career progression"],
-            "sample_answer_structure": "1. Express gratitude for what you learned in your previous role. 2. Frame the exit around seeking new growth opportunities. 3. Align the shift with this specific role."
+            "difficulty": "Medium"
         }
     ]
 
-    # 3. Technical Questions (15) based on skills mapping
+    # 3. Technical Questions (10) based on skills mapping or SWE catalog
     skill_q_catalog = {
         "python": [
             {
                 "question": "Explain the difference between deep and shallow copying in Python.",
-                "difficulty": "Easy",
-                "key_points": ["Shallow copy constructs a new compound object and inserts references to the original objects.", "Deep copy recursively inserts copies of the original objects.", "Use of the 'copy' module (`copy()` vs `deepcopy()`)."],
-                "sample_answer_structure": "1. Define shallow copy (references copied). 2. Define deep copy (recursively duplicate objects). 3. Contrast behavior for nested lists/dicts."
+                "difficulty": "Easy"
             },
             {
                 "question": "How does memory management and garbage collection work in Python?",
-                "difficulty": "Medium",
-                "key_points": ["Reference counting as primary mechanism", "Generational garbage collection for cyclic references", "Python memory manager and private heap space"],
-                "sample_answer_structure": "1. Explain reference counting (increases/decreases). 2. Detail generational GC (young, middle, old generations). 3. Mention how cyclic references are detected."
+                "difficulty": "Medium"
             },
             {
                 "question": "What are Python decorators, and how would you implement a rate-limiting decorator?",
-                "difficulty": "Hard",
-                "key_points": ["Functions that modify the behavior of other functions", "Use of closure and wrapper functions", "State tracking (e.g. timestamp list or counter) inside the decorator"],
-                "sample_answer_structure": "1. Define decorators and the '@' syntax. 2. Describe closure mechanism. 3. Draft structure of wrapper tracking timestamps."
+                "difficulty": "Hard"
             }
         ],
         "sql": [
             {
                 "question": "What is the difference between WHERE and HAVING clauses in SQL?",
-                "difficulty": "Easy",
-                "key_points": ["WHERE filters rows before aggregation.", "HAVING filters groups after aggregation.", "HAVING is used with GROUP BY and aggregate functions like COUNT, SUM."],
-                "sample_answer_structure": "1. State the order of execution. 2. Clarify that WHERE applies to individual rows. 3. Explain HAVING's reliance on aggregated groups."
+                "difficulty": "Easy"
             },
             {
                 "question": "Explain the difference between clustered and non-clustered indexes.",
-                "difficulty": "Medium",
-                "key_points": ["Clustered index determines the physical order of data in the table (only one per table).", "Non-clustered index creates a separate structure containing key values and pointers to data rows.", "Performance implications for read vs write operations."],
-                "sample_answer_structure": "1. Define clustered index (physical ordering). 2. Define non-clustered index (index lookup table). 3. Contrast read speeds and space usage."
+                "difficulty": "Medium"
             },
             {
                 "question": "How would you optimize a slow-running SQL query with multiple joins and aggregations?",
-                "difficulty": "Hard",
-                "key_points": ["Use EXPLAIN to analyze the execution plan", "Check index usage and add missing indexes on join columns", "Avoid SELECT *; rewrite subqueries as JOINs or CTEs where applicable"],
-                "sample_answer_structure": "1. Analyze with EXPLAIN/EXPLAIN ANALYZE. 2. Verify proper indexing on JOIN/WHERE keys. 3. Optimize joins, replace cursor loops, and partition large datasets."
+                "difficulty": "Hard"
             }
         ],
         "javascript": [
             {
                 "question": "What is the difference between let, const, and var in JavaScript?",
-                "difficulty": "Easy",
-                "key_points": ["var is function-scoped and hoisted.", "let and const are block-scoped and not hoisted in the same way (temporal dead zone).", "const values cannot be reassigned (though objects can still be mutated)."],
-                "sample_answer_structure": "1. Explain scoping difference (block vs function). 2. Discuss hoisting and temporal dead zone. 3. Detail reassignment restrictions on const."
+                "difficulty": "Easy"
             },
             {
                 "question": "Explain event delegation in JavaScript and why it is useful.",
-                "difficulty": "Medium",
-                "key_points": ["Attaching a single event listener to a parent element rather than multiple to children.", "Relies on event bubbling/propagation.", "Improves memory usage and dynamically handles new elements."],
-                "sample_answer_structure": "1. Describe the bubble phase of JS events. 2. Detail using `event.target` to identify children. 3. Mention memory and dynamic child creation benefits."
+                "difficulty": "Medium"
             },
             {
                 "question": "What is the difference between the event loop, call stack, and microtask queue?",
-                "difficulty": "Hard",
-                "key_points": ["Call stack handles synchronous execution", "Microtask queue (Promises, queueMicrotask) has higher priority than macrotask queue (setTimeout, setInterval)", "Event loop continuously checks stack and moves tasks from queues"],
-                "sample_answer_structure": "1. Trace execution flow of a script. 2. Contrast microtasks (promise resolve) and macrotasks (timers). 3. Detail event loop tick logic."
+                "difficulty": "Hard"
             }
         ],
         "react": [
             {
                 "question": "What are React hooks, and what rules must you follow when using them?",
-                "difficulty": "Easy",
-                "key_points": ["Functions that let you hook into state and lifecycles in functional components.", "Only call hooks at the top level (not inside loops or conditions).", "Only call hooks from React function components or custom hooks."],
-                "sample_answer_structure": "1. Introduce hook benefits. 2. State Rule 1 (Top-level call). 3. State Rule 2 (React component context)."
+                "difficulty": "Easy"
             },
             {
                 "question": "Explain React's Virtual DOM and reconciliation process.",
-                "difficulty": "Medium",
-                "key_points": ["Lightweight representation of the real DOM in memory", "Diffing algorithm compares virtual trees on state change", "Batched updates to the real DOM for performance optimization"],
-                "sample_answer_structure": "1. Define Virtual DOM representation. 2. Describe diffing mechanism (O(n) heuristic). 3. Explain batch updates and patch operations."
+                "difficulty": "Medium"
             },
             {
                 "question": "How do you optimize a large React application with slow rendering performance?",
-                "difficulty": "Hard",
-                "key_points": ["Use React.memo for component memoization", "Use useMemo and useCallback to preserve reference equality", "Code-splitting with React.lazy and Suspense", "Analyze with React Profiler"],
-                "sample_answer_structure": "1. Diagnose bottlenecks using Profiler. 2. Prevent unnecessary re-renders (memoization). 3. Optimize bundle sizes (lazy loading, virtualized lists)."
+                "difficulty": "Hard"
             }
         ]
     }
@@ -1351,63 +1325,43 @@ def generate_interview_prep_local(resume: models.Resume, jd_text: Optional[str] 
     swe_catalog = [
         {
             "question": "What is Git branching strategy, and how do you resolve merge conflicts?",
-            "difficulty": "Easy",
-            "key_points": ["Git Flow / GitHub Flow models", "Feature branching and pull request reviews", "Using merge tools and manual conflict resolution"],
-            "sample_answer_structure": "1. Describe your preferred branch model (e.g. Git Flow). 2. Explain merge conflict occurrence. 3. Detail locating differences, editing conflict markers, and staging/committing."
+            "difficulty": "Easy"
         },
         {
             "question": "Explain the difference between REST and GraphQL APIs.",
-            "difficulty": "Medium",
-            "key_points": ["REST uses multiple endpoints; GraphQL uses a single endpoint with queries.", "REST can cause over-fetching or under-fetching; GraphQL lets client request exact fields.", "Caching is easier in REST (HTTP standard) than in GraphQL."],
-            "sample_answer_structure": "1. Define REST architecture. 2. Define GraphQL schema approach. 3. Contrast data-fetching efficiency and caching."
+            "difficulty": "Medium"
         },
         {
             "question": "What is system scalability, and what is the difference between horizontal and vertical scaling?",
-            "difficulty": "Easy",
-            "key_points": ["Horizontal scaling (adding more machines/nodes)", "Vertical scaling (adding resources like CPU/RAM to a single machine)", "Load balancing and hardware limits"],
-            "sample_answer_structure": "1. Explain scaling needs. 2. Define horizontal scaling (scaling out, clustering). 3. Define vertical scaling (scaling up, hardware limits)."
+            "difficulty": "Easy"
         },
         {
             "question": "How do you ensure web application security against OWASP Top 10 vulnerabilities like SQL Injection and XSS?",
-            "difficulty": "Medium",
-            "key_points": ["Input validation and output encoding", "Parameterized queries/ORMs to block SQLi", "Using secure headers, HTTPS, and CSP policies"],
-            "sample_answer_structure": "1. Explain how injection occurs (treating user input as code). 2. Explain defense for SQLi (ORM/parameterization). 3. Explain defense for XSS (sanitization/CSP)."
+            "difficulty": "Medium"
         },
         {
             "question": "What are SOLID design principles? Explain two of them.",
-            "difficulty": "Hard",
-            "key_points": ["Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, Dependency Inversion", "Promotes maintainable and modular code", "Concrete code example showing violation vs compliance"],
-            "sample_answer_structure": "1. List the SOLID acronym. 2. Focus on Single Responsibility (one reason to change). 3. Focus on Open/Closed (open for extension, closed for modification)."
+            "difficulty": "Hard"
         },
         {
             "question": "Describe the difference between Monolithic and Microservices architectures.",
-            "difficulty": "Medium",
-            "key_points": ["Monolith is single deployable unit; Microservices are distributed independent services.", "Microservices communicate via API/RPC/Message Broker.", "Monolith is easier to deploy initially, microservices scale better and allow tech stack flexibility."],
-            "sample_answer_structure": "1. Define monolith. 2. Define microservices. 3. Contrast database isolation, scalability, and deployment overhead."
+            "difficulty": "Medium"
         },
         {
             "question": "What is CI/CD (Continuous Integration / Continuous Deployment) and why is it important?",
-            "difficulty": "Easy",
-            "key_points": ["Automating code compilation, linting, and testing", "Automating release/deployment to staging and production", "Fewer manual errors and faster feedback loops"],
-            "sample_answer_structure": "1. Define CI (automated testing on commit). 2. Define CD (automated release delivery). 3. Explain benefits of small, frequent releases."
+            "difficulty": "Easy"
         },
         {
             "question": "How do you design a database schema for a high-concurrency e-commerce order system?",
-            "difficulty": "Hard",
-            "key_points": ["Normalization vs denormalization for read speed", "Transaction isolation levels and locking (optimistic vs pessimistic)", "Read replicas, indexing, and sharding for scale"],
-            "sample_answer_structure": "1. Outline core tables (Users, Products, Orders, OrderItems). 2. Discuss transaction handling (ensuring stock inventory updates). 3. Discuss scaling techniques (cache databases, replica nodes)."
+            "difficulty": "Hard"
         },
         {
             "question": "What is the purpose of unit testing, and how does it differ from integration testing?",
-            "difficulty": "Easy",
-            "key_points": ["Unit testing tests individual isolated components (mocking dependencies).", "Integration testing verifies components work together correctly.", "Unit tests are fast; integration tests involve DB or network calls."],
-            "sample_answer_structure": "1. Define unit test focus. 2. Define integration test scope. 3. Emphasize importance of mocking and test pyramid."
+            "difficulty": "Easy"
         },
         {
             "question": "Explain Docker containerization and its benefits over traditional Virtual Machines.",
-            "difficulty": "Medium",
-            "key_points": ["Containers share the host OS kernel; VMs run a guest OS.", "Containers are lightweight, fast to start, and consume less memory.", "Ensures consistent environment from development to production."],
-            "sample_answer_structure": "1. Detail shared kernel vs hypervisor virtualization. 2. Focus on performance, startup speed, and resource footprint. 3. Mention dev-prod parity."
+            "difficulty": "Medium"
         }
     ]
 
@@ -1425,111 +1379,109 @@ def generate_interview_prep_local(resume: models.Resume, jd_text: Optional[str] 
             seen_questions.add(q["question"])
             
     for q in swe_catalog:
-        if len(tech_list) >= 15:
+        if len(tech_list) >= 10:
             break
         if q["question"] not in seen_questions:
             tech_list.append(q)
             seen_questions.add(q["question"])
             
-    while len(tech_list) < 15:
+    while len(tech_list) < 10:
         idx = len(tech_list)
         tech_list.append({
             "question": f"Explain key architectural patterns you have used in your software projects (Pattern #{idx}).",
-            "difficulty": "Medium",
-            "key_points": ["Structural patterns", "Trade-offs and architectural decisions", "Real-world project example"],
-            "sample_answer_structure": "1. Introduce the pattern. 2. Explain why it was selected. 3. Detail the results."
+            "difficulty": "Medium"
         })
         
-    tech_list = tech_list[:15]
+    tech_list = tech_list[:10]
 
-    # 4. JD Questions (5)
+    # 4. JD Questions (10)
     jd_list = []
+    target_role = job_role or (resume.profession or "your target role")
     if jd_text:
         jd_keywords = extract_skills_from_text(jd_text)
         if not jd_keywords:
-            jd_keywords = ["required skills"]
+            jd_keywords = ["key requirements"]
             
-        jd_list = []
         difficulties = ["Medium", "Hard", "Medium", "Easy", "Medium"]
-        for idx, kw in enumerate(jd_keywords[:5]):
+        for idx, kw in enumerate(jd_keywords[:8]):
             diff = difficulties[idx % len(difficulties)]
             jd_list.append({
                 "question": f"The job description highlights {kw.upper()} as a key requirement. Can you describe a project where you applied {kw.upper()} to solve a business problem?",
-                "difficulty": diff,
-                "key_points": [f"Deep proficiency in {kw.upper()}", "Practical integration details", "Outcome and value delivery"],
-                "sample_answer_structure": f"1. Introduce the project context. 2. Describe the problem requiring {kw.upper()}. 3. Explain how you implemented it and the final outcomes."
-            })
-        
-        while len(jd_list) < 5:
-            jd_list.append({
-                "question": f"How do you keep up-to-date with the evolving technologies mentioned in the job description?",
-                "difficulty": "Easy",
-                "key_points": ["Continuous learning habit", "Engaging with technical publications/communities", "Personal side projects"],
-                "sample_answer_structure": "1. Mention platforms or publications you read. 2. Discuss hands-on side projects or sandboxes. 3. Align learning with company domain."
+                "difficulty": diff
             })
     else:
-        fallback_skills = skills[:3] if skills else ["relevant tools"]
-        jd_list = [
-            {
-                "question": f"In the absence of a target Job Description, how do you align your expertise in {s.upper()} with industry standards?",
-                "difficulty": "Easy",
-                "key_points": ["Best practices implementation", "Code review & quality tools", "Understanding general architectural patterns"],
-                "sample_answer_structure": "1. Explain adherence to official style guides. 2. Describe code reviews and linters. 3. Discuss scaling techniques."
-            } for s in fallback_skills
-        ]
-        while len(jd_list) < 5:
+        fallback_skills = skills[:5] if skills else ["relevant tools"]
+        for idx, s in enumerate(fallback_skills[:5]):
             jd_list.append({
-                "question": "How do you evaluate whether a new framework or technology is appropriate for a project?",
-                "difficulty": "Medium",
-                "key_points": ["Community support and documentation", "Security and stability", "Team learning curve vs speed benefits"],
-                "sample_answer_structure": "1. Discuss security and maturity analysis. 2. Explain proof-of-concept testing. 3. Review team readiness."
+                "question": f"How do you align your expertise in {s.upper()} with the standard requirements for a {target_role} role?",
+                "difficulty": "Easy"
             })
             
-    # 5. Project Questions (3-5)
+    generic_jd = [
+        f"How do your qualifications align with the primary goals of the {target_role} position?",
+        "Why is this company's domain or industry a strong fit for your career background?",
+        "How would you approach your first 30 days in this role to ensure a smooth transition?",
+        "Describe your experience collaborating with cross-functional teams (product, design, QA) as required in this role.",
+        "The job description indicates a fast-paced environment. How do you manage stress and maintain quality under pressure?",
+        "What unique value or perspective do you bring that directly addresses the key goals of this job?"
+    ]
+    for q_text in generic_jd:
+        if len(jd_list) >= 10:
+            break
+        jd_list.append({
+            "question": q_text,
+            "difficulty": "Medium"
+        })
+    while len(jd_list) < 10:
+        idx = len(jd_list)
+        jd_list.append({
+            "question": f"How do you prepare yourself to meet the key performance indicators for a {target_role} (KPI #{idx})?",
+            "difficulty": "Medium"
+        })
+    jd_list = jd_list[:10]
+
+    # 5. Project Questions (10)
     project_list = []
     if projects:
-        for proj in projects[:5]:
+        for idx, proj in enumerate(projects[:10]):
             title = proj.get("title") or "listed project"
             tech = proj.get("technologies") or []
             tech_str = f" using {', '.join(tech)}" if tech else ""
+            diff = "Medium" if idx % 2 == 0 else "Hard"
             project_list.append({
                 "question": f"In your project '{title}'{tech_str}, what was the most complex technical challenge you faced and how did you resolve it?",
-                "difficulty": "Medium",
-                "key_points": ["Problem identification", "Systematic debugging/troubleshooting", "Final architectural fix"],
-                "sample_answer_structure": f"1. Explain the project's background and purpose. 2. Detail the technical bottleneck or crash. 3. Discuss the solution you coded and the improvements."
+                "difficulty": diff
             })
-    else:
-        project_list = [
-            {
-                "question": "Describe a system architecture design you are proud of. What trade-offs did you evaluate?",
-                "difficulty": "Medium",
-                "key_points": ["System architecture design", "Trade-offs and architectural decisions", "Evaluating alternatives"],
-                "sample_answer_structure": "1. Describe the user request/goal. 2. Outline the tech stack selected. 3. Explain the trade-offs (e.g. speed vs complexity)."
-            },
-            {
-                "question": "How do you handle project management, scoping, and estimating delivery timelines?",
-                "difficulty": "Easy",
-                "key_points": ["Deconstructing tasks into smaller components", "Sprint planning / Agile methodology", "Buffer inclusion for edge cases"],
-                "sample_answer_structure": "1. Explain modular breakdown. 2. Discuss historical velocity estimation. 3. Mention stakeholder updates."
-            },
-            {
-                "question": "What is your approach to handling legacy codebases or undocumented systems in projects?",
-                "difficulty": "Medium",
-                "key_points": ["Careful reverse-engineering", "Adding unit test coverage before refactoring", "Documenting as you explore"],
-                "sample_answer_structure": "1. Explain reading tests/logs first. 2. Focus on small, safe, incremental edits. 3. Highlight updating docs."
-            }
-        ]
+            
+    generic_projects = [
+        "Describe a system architecture design you are proud of. What trade-offs did you evaluate?",
+        "How do you handle project management, scoping, and estimating delivery timelines?",
+        "What is your approach to handling legacy codebases or undocumented systems in projects?",
+        "How do you ensure proper test coverage and automated QA in your software projects?",
+        "Describe a time when you had to refactor a critical component in an active project without downtime.",
+        "How do you manage configurations and secrets securely across development and production environments?",
+        "What metrics or tools do you use to measure the quality and performance of your projects?",
+        "Describe how you coordinate database migrations when releasing updates to your application.",
+        "How do you design APIs that are easy to consume and backward-compatible for other teams?",
+        "Describe how you implement logging, monitoring, and alerting in your production systems."
+    ]
+    for q_text in generic_projects:
+        if len(project_list) >= 10:
+            break
+        project_list.append({
+            "question": q_text,
+            "difficulty": "Medium"
+        })
+    project_list = project_list[:10]
 
-    # 6. Resume Questions (3-5)
+    # 6. Resume Questions (10)
     resume_list = []
     if certs:
-        for c in certs[:2]:
+        for c in certs[:3]:
             cert_name = c.get("name") or "certification"
             resume_list.append({
                 "question": f"You completed the '{cert_name}' certification. How have you applied this knowledge to real-world projects?",
-                "difficulty": "Medium",
-                "key_points": ["Theoretical foundations mapping to practice", "Demonstrating upskilling interest", "Post-certification projects"],
-                "sample_answer_structure": "1. State the core concept learned. 2. Identify a project where you implemented it. 3. Explain the outcome."
+                "difficulty": "Medium"
             })
     
     if len(experience) >= 2:
@@ -1537,80 +1489,163 @@ def generate_interview_prep_local(resume: models.Resume, jd_text: Optional[str] 
         comp_b = experience[1].get("company", "previous employer")
         resume_list.append({
             "question": f"Walk me through the transition from your role at {comp_b} to your role at {comp_a}. What drove your decision?",
-            "difficulty": "Easy",
-            "key_points": ["Logical career growth motivation", "Leaving on good terms", "Desire for new challenges"],
-            "sample_answer_structure": "1. Highlight achievements at the previous company. 2. State the skill or challenge you wanted to seek next. 3. Align that with the new role."
+            "difficulty": "Easy"
         })
         
-    while len(resume_list) < 3:
+    generic_resume = [
+        "If you look back at your resume, what is one area you plan to develop or improve next?",
+        "How has your formal education or self-study influenced your technical approach in recent years?",
+        "Explain how the skills list on your resume maps to the core responsibilities of your target role.",
+        "Describe a role or experience listed on your resume where you had to quickly adapt to a new industry.",
+        "In your most recent job, what was your most significant quantifiable achievement?",
+        "How do you balance technical development with teamwork or leadership responsibilities shown on your resume?",
+        "What is a tech stack choice on your resume that you would do differently today and why?",
+        "Explain how you structured the description of your achievements on your resume to reflect business impact."
+    ]
+    for q_text in generic_resume:
+        if len(resume_list) >= 10:
+            break
         resume_list.append({
-            "question": "If you look back at your resume, what is one area you plan to develop or improve next?",
-            "difficulty": "Easy",
-            "key_points": ["Growth mindset", "Awareness of industry trends", "Proactive study plans"],
-            "sample_answer_structure": "1. Identify an emerging tool (e.g., Docker, cloud services). 2. Detail current steps (courses, sandboxes). 3. Show alignment with this role."
+            "question": q_text,
+            "difficulty": "Medium"
         })
+    while len(resume_list) < 10:
+        idx = len(resume_list)
+        resume_list.append({
+            "question": f"Walk me through a key highlight on your resume that demonstrates your ability to adapt (Highlight #{idx}).",
+            "difficulty": "Medium"
+        })
+    resume_list = resume_list[:10]
         
     # 7. STAR Behavioral Questions (10)
     behavioral_list = [
         {
             "question": "Describe a time you had to learn a new technology or tool extremely quickly to complete a task.",
-            "difficulty": "Medium",
-            "key_points": ["Speed of learning", "Utilization of documentation/guides", "Successful task delivery"],
-            "sample_answer_structure": "Situation: A project required X tool in 1 week.\nTask: Learn X and integrate it.\nAction: Read official docs, built a test sandbox.\nResult: Delivered task on time, standard compliant."
+            "difficulty": "Medium"
         },
         {
             "question": "Tell me about a time you had a disagreement with a team member. How did you resolve it?",
-            "difficulty": "Medium",
-            "key_points": ["Empathy and active listening", "Focusing on data/facts rather than emotion", "Constructive team resolution"],
-            "sample_answer_structure": "Situation: Disagreed on architecture choice with colleague.\nTask: Reach consensus for project timeline.\nAction: Scheduled a call, listed pros/cons of both approaches.\nResult: Compromised on hybrid design, project delivered successfully."
+            "difficulty": "Medium"
         },
         {
             "question": "Tell me about a project that failed or didn't go as planned. What did you do?",
-            "difficulty": "Medium",
-            "key_points": ["Taking responsibility", "Root cause analysis", "Post-mortem learning application"],
-            "sample_answer_structure": "Situation: Project deployment failed due to network configuration.\nTask: Restore service and prevent reoccurrence.\nAction: Led rollback, identified firewall rule, updated deployment script.\nResult: Added healthchecks, no similar failures since."
+            "difficulty": "Medium"
         },
         {
             "question": "Describe a situation where you went above and beyond what was expected of you.",
-            "difficulty": "Easy",
-            "key_points": ["Proactive initiative", "Creating value beyond minimum requirements", "Positive team or customer impact"],
-            "sample_answer_structure": "Situation: Customer reports complex bug at end of business day.\nTask: Solve immediately to prevent system downtime.\nAction: Stayed online, traced logs, hotfixed configuration.\nResult: Restored uptime, received praise from stakeholders."
+            "difficulty": "Easy"
         },
         {
             "question": "Give an example of how you set goals and achieve them in a project context.",
-            "difficulty": "Easy",
-            "key_points": ["SMART goal setting", "Progress tracking methodologies", "Accountability and follow-through"],
-            "sample_answer_structure": "Situation: Tasked with reducing database page load times.\nTask: Reduce latency by 20% in 2 weeks.\nAction: Added indexes, rewrote complex query joins.\nResult: Latency dropped by 35%, exceeded target."
+            "difficulty": "Easy"
         },
         {
             "question": "Describe a time you had to deliver bad news to a manager or a stakeholder. How did you handle it?",
-            "difficulty": "Hard",
-            "key_points": ["Prompt communication", "Offering solutions along with the problem", "Honesty and transparent tracking"],
-            "sample_answer_structure": "Situation: Third-party API integration delayed by vendor outage.\nTask: Report milestone slippage of 3 days.\nAction: Notified manager immediately, proposed mock-API tests to save time.\nResult: Team worked around delay, client approved adjusted schedule."
+            "difficulty": "Hard"
         },
         {
             "question": "Tell me about a time you had to handle multiple competing priorities under a tight schedule.",
-            "difficulty": "Medium",
-            "key_points": ["Eisenhower matrix / prioritization criteria", "Communicating expectations clearly", "Time blocking and focused delivery"],
-            "sample_answer_structure": "Situation: Had 3 urgent bugs and 1 feature release in same week.\nTask: Manage delivery without slipping release.\nAction: Sorted by severity, communicated status, scheduled focus sessions.\nResult: Resolved critical bugs, deployed feature with 1-day extension approved."
+            "difficulty": "Medium"
         },
         {
             "question": "Describe a time you had to work with someone who had a very different style or background than yours.",
-            "difficulty": "Easy",
-            "key_points": ["Cultural sensitivity / appreciation of diversity", "Adapting communication style", "Finding common working agreements"],
-            "sample_answer_structure": "Situation: Paired with remote offshore designer with language barrier.\nTask: Align front-end styles for web dashboard.\nAction: Shifted to visual mocks and detailed written descriptions.\nResult: Unified coding standards, finished layout 2 days early."
+            "difficulty": "Easy"
         },
         {
             "question": "Tell me about a time you noticed an inefficiency in a team process and took steps to improve it.",
-            "difficulty": "Medium",
-            "key_points": ["Proactive optimization focus", "Involving the team in the solution", "Measurable efficiency gains"],
-            "sample_answer_structure": "Situation: Manual server deployments took 1 hour of dev time every day.\nTask: Automate deploy scripts.\nAction: Wrote simple GitHub Action workflow to automate build/copy.\nResult: Reduced deploy time to 3 minutes, saved 5 hours/week for devs."
+            "difficulty": "Medium"
         },
         {
             "question": "Describe a time you received constructive feedback that was difficult to hear. How did you react?",
-            "difficulty": "Medium",
-            "key_points": ["Defusal of defensive posture", "Active listening and clarifying questions", "Actionable behavior adjustment"],
-            "sample_answer_structure": "Situation: Lead dev feedback suggested code reviews lacked sufficient explanation.\nTask: Improve code review quality.\nAction: Accepted input, created review checklists, explained 'why' behind changes.\nResult: Team collaboration improved, code quality increased."
+            "difficulty": "Medium"
+        }
+    ]
+
+    # 8. Scenario-Based Questions (10)
+    scenario_list = [
+        {
+            "question": "How would you handle a situation where a critical database goes down in production on a weekend?",
+            "difficulty": "Hard"
+        },
+        {
+            "question": "If you realize a day before release that a critical security vulnerability exists in your code, what do you do?",
+            "difficulty": "Hard"
+        },
+        {
+            "question": "How would you handle a product manager requesting a new feature that shifts the architecture mid-sprint?",
+            "difficulty": "Medium"
+        },
+        {
+            "question": "Describe how you would approach onboarding to a completely new legacy codebase with zero active documentation.",
+            "difficulty": "Medium"
+        },
+        {
+            "question": "If two senior developers are locked in a heated debate over system design choices, how do you help resolve it?",
+            "difficulty": "Medium"
+        },
+        {
+            "question": "You notice a team member is consistently missing sprint deliverables and seems disengaged. How do you handle it?",
+            "difficulty": "Medium"
+        },
+        {
+            "question": "How would you prioritize tasks if you were assigned three urgent bugs by different stakeholders at the same time?",
+            "difficulty": "Medium"
+        },
+        {
+            "question": "A customer reports a major bug that you cannot reproduce in your local or staging environments. What is your process?",
+            "difficulty": "Hard"
+        },
+        {
+            "question": "How do you handle a situation where your manager gives you a task with a deadline you believe is highly unrealistic?",
+            "difficulty": "Medium"
+        },
+        {
+            "question": "Describe how you would manage an API integration outage from a third-party partner that is blocking user signups.",
+            "difficulty": "Medium"
+        }
+    ]
+
+    # 9. Problem Solving Questions (10)
+    problem_solving_list = [
+        {
+            "question": "Explain how you would design a rate limiter for a public API endpoint.",
+            "difficulty": "Hard"
+        },
+        {
+            "question": "How would you optimize a system that suffers from frequent database deadlocks under high write concurrency?",
+            "difficulty": "Hard"
+        },
+        {
+            "question": "Describe the algorithm and data structures you would use to find duplicate files in a massive filesystem.",
+            "difficulty": "Medium"
+        },
+        {
+            "question": "How do you detect memory leaks in a running long-term background daemon process?",
+            "difficulty": "Medium"
+        },
+        {
+            "question": "Explain how you would design a URL shortening service like Bitly, focusing on scalability.",
+            "difficulty": "Hard"
+        },
+        {
+            "question": "How would you design a distributed cache system that maintains consistency across multiple regions?",
+            "difficulty": "Hard"
+        },
+        {
+            "question": "What strategy would you use to process a 100GB text file on a machine with only 4GB of RAM?",
+            "difficulty": "Hard"
+        },
+        {
+            "question": "Describe how you would debug a slow memory footprint growth in a web application.",
+            "difficulty": "Medium"
+        },
+        {
+            "question": "How would you design a leaderboard system for a mobile game with millions of active users?",
+            "difficulty": "Hard"
+        },
+        {
+            "question": "Explain the trade-offs between using a SQL database vs. a NoSQL database for storing user session data.",
+            "difficulty": "Medium"
         }
     ]
 
@@ -1619,41 +1654,37 @@ def generate_interview_prep_local(resume: models.Resume, jd_text: Optional[str] 
         hr_readiness=hr_score,
         communication_readiness=comm_score,
         overall_readiness=overall_score,
-        hr_questions=[InterviewQuestion2Schema(
-            question=str(q["question"]),
-            difficulty=str(q["difficulty"]),
-            key_points=list(q.get("key_points", [])),
-            sample_answer_structure=str(q.get("sample_answer_structure", ""))
-        ) for q in hr_list],
-        technical_questions=[InterviewQuestion2Schema(
-            question=str(q["question"]),
-            difficulty=str(q["difficulty"]),
-            key_points=list(q.get("key_points", [])),
-            sample_answer_structure=str(q.get("sample_answer_structure", ""))
-        ) for q in tech_list],
-        jd_questions=[InterviewQuestion2Schema(
-            question=str(q["question"]),
-            difficulty=str(q["difficulty"]),
-            key_points=list(q.get("key_points", [])),
-            sample_answer_structure=str(q.get("sample_answer_structure", ""))
-        ) for q in jd_list],
-        project_questions=[InterviewQuestion2Schema(
-            question=str(q["question"]),
-            difficulty=str(q["difficulty"]),
-            key_points=list(q.get("key_points", [])),
-            sample_answer_structure=str(q.get("sample_answer_structure", ""))
-        ) for q in project_list],
         resume_questions=[InterviewQuestion2Schema(
             question=str(q["question"]),
-            difficulty=str(q["difficulty"]),
-            key_points=list(q.get("key_points", [])),
-            sample_answer_structure=str(q.get("sample_answer_structure", ""))
+            difficulty=str(q["difficulty"])
         ) for q in resume_list],
+        jd_questions=[InterviewQuestion2Schema(
+            question=str(q["question"]),
+            difficulty=str(q["difficulty"])
+        ) for q in jd_list],
+        technical_questions=[InterviewQuestion2Schema(
+            question=str(q["question"]),
+            difficulty=str(q["difficulty"])
+        ) for q in tech_list],
+        hr_questions=[InterviewQuestion2Schema(
+            question=str(q["question"]),
+            difficulty=str(q["difficulty"])
+        ) for q in hr_list],
         behavioral_questions=[InterviewQuestion2Schema(
             question=str(q["question"]),
-            difficulty=str(q["difficulty"]),
-            key_points=list(q.get("key_points", [])),
-            sample_answer_structure=str(q.get("sample_answer_structure", ""))
-        ) for q in behavioral_list]
+            difficulty=str(q["difficulty"])
+        ) for q in behavioral_list],
+        scenario_questions=[InterviewQuestion2Schema(
+            question=str(q["question"]),
+            difficulty=str(q["difficulty"])
+        ) for q in scenario_list],
+        project_questions=[InterviewQuestion2Schema(
+            question=str(q["question"]),
+            difficulty=str(q["difficulty"])
+        ) for q in project_list],
+        problem_solving_questions=[InterviewQuestion2Schema(
+            question=str(q["question"]),
+            difficulty=str(q["difficulty"])
+        ) for q in problem_solving_list]
     )
 

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'resumeiq-v1';
+const CACHE_NAME = 'resumeiq-v2';
 const ASSETS = [
   '/',
   '/assets/styles.css',
@@ -35,12 +35,22 @@ self.addEventListener('activate', (e) => {
 });
 
 self.addEventListener('fetch', (e) => {
-  // Only intercept requests for same-origin static files
+  // Network-First strategy for local testing and automatic updates
   if (e.request.url.startsWith(self.location.origin) && !e.request.url.includes('/api/v1/')) {
     e.respondWith(
-      caches.match(e.request).then((cachedResponse) => {
-        return cachedResponse || fetch(e.request);
-      })
+      fetch(e.request)
+        .then((response) => {
+          if (response.status === 200) {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(e.request, responseClone);
+            });
+          }
+          return response;
+        })
+        .catch(() => {
+          return caches.match(e.request);
+        })
     );
   }
 });

@@ -12,10 +12,6 @@ def send_email(to_email: str, subject: str, html_content: str):
     if not settings.BREVO_API_KEY.strip():
         raise ValueError("BREVO_API_KEY is empty.")
 
-    # 3. Before making the request, log status:
-    logger.info("BREVO_API_KEY loaded: %s", bool(settings.BREVO_API_KEY))
-    logger.info("BREVO sender: %s", settings.SMTP_SENDER)
-
     # 1. Endpoint
     url = "https://api.brevo.com/v3/smtp/email"
 
@@ -42,7 +38,6 @@ def send_email(to_email: str, subject: str, html_content: str):
     }
 
     try:
-        logger.info(f"Sending email via Brevo REST API to {to_email}...")
         # 5. Send request
         response = requests.post(
             url,
@@ -51,10 +46,6 @@ def send_email(to_email: str, subject: str, html_content: str):
             timeout=30,
         )
         
-        # 6. Log response status and body
-        logger.info("Status Code: %s", response.status_code)
-        logger.info("Response Body: %s", response.text)
-
         if response.status_code == 201:
             logger.info(f"Email sent successfully to {to_email}")
         else:

@@ -5,13 +5,13 @@ import urllib.request
 import ssl
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, KeepTogether
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, KeepTogether, Image as RLImage
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 import app.models as models
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from app.services.cover_letter import generate_cover_letter_text
 from app.services.industry_data import INDUSTRY_DATA_MAP
 
@@ -825,7 +825,44 @@ def make_pdf_progress_bar(percentage, fill_color, bg_color="#e2e8f0", total_widt
     return bar_tbl
 
 
-def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str) -> io.BytesIO:
+def make_rl_profile_image(profile_photo_data: str, customization: Dict[str, Any]) -> Optional[Any]:
+    if not profile_photo_data or not profile_photo_data.startswith("data:image/"):
+        return None
+    try:
+        import base64
+        from PIL import Image as PILImage
+        
+        # Decode base64
+        header, encoded = profile_photo_data.split(",", 1)
+        data = base64.b64decode(encoded)
+        image_stream = io.BytesIO(data)
+        
+        # Crop square in PIL
+        pil_img = PILImage.open(image_stream)
+        width, height = pil_img.size
+        min_dim = min(width, height)
+        
+        left = (width - min_dim) / 2
+        top = (height - min_dim) / 2
+        right = (width + min_dim) / 2
+        bottom = (height + min_dim) / 2
+        
+        pil_img = pil_img.crop((left, top, right, bottom))
+        
+        # Save to memory stream
+        temp_stream = io.BytesIO()
+        pil_img.save(temp_stream, format="PNG")
+        temp_stream.seek(0)
+        
+        size = 65
+        return RLImage(temp_stream, width=size, height=size)
+    except Exception as e:
+        import logging
+        logging.getLogger("app.services.pdf_generator").error(f"Failed to generate profile photo: {str(e)}")
+        return None
+
+
+def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str, customization: Optional[Dict[str, Any]] = None) -> io.BytesIO:
     """
     Generates a beautifully formatted, single/multi-page resume PDF strictly
     based on the selected template style and custom candidate data.
@@ -833,22 +870,32 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
     resume_data = clean_ligatures(resume_data)
     buffer = io.BytesIO()
     
+    if customization is None:
+        customization = resume_data.get("customization") or {}
+        
     # 1. Setup margins & document properties based on template
     top_margin = 36
     bottom_margin = 36
     left_margin = 36
     right_margin = 36
     
-    if template_name == "Minimal Elegant":
-        top_margin = 48
-        bottom_margin = 48
-        left_margin = 48
-        right_margin = 48
-    elif template_name in ["Executive", "Executive Resume"]:
-        top_margin = 54
-        bottom_margin = 54
-        left_margin = 54
-        right_margin = 54
+    cust_margin = customization.get("marginSize")
+    if cust_margin is not None:
+        try:
+            top_margin = bottom_margin = left_margin = right_margin = float(cust_margin)
+        except (ValueError, TypeError):
+            pass
+    else:
+        if template_name == "Minimal Elegant":
+            top_margin = 48
+            bottom_margin = 48
+            left_margin = 48
+            right_margin = 48
+        elif template_name in ["Executive", "Executive Resume"]:
+            top_margin = 54
+            bottom_margin = 54
+            left_margin = 54
+            right_margin = 54
 
     doc = SimpleDocTemplate(
         buffer,
@@ -869,7 +916,7 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
     font_bold = "DejaVuSans-Bold"
     font_italic = "DejaVuSans-Oblique"
     
-    # Color & Font configurations
+    # Template base styling defaults
     if template_name == "ATS Professional":
         primary_color = colors.HexColor("#0f172a") # dark slate
         accent_color = colors.HexColor("#334155")  # slate-700
@@ -926,14 +973,70 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
         font_family = "DejaVuSans"
         font_bold = "DejaVuSans-Bold"
         font_italic = "DejaVuSans-Oblique"
- 
+
+    # Font Family Customization
+    cust_font = customization.get("fontFamily")
+    if cust_font:
+        if cust_font in ["DejaVuSerif", "Georgia", "serif"]:
+            font_family = "DejaVuSerif"
+            font_bold = "DejaVuSerif-Bold"
+            font_italic = "DejaVuSerif-Italic"
+        elif cust_font in ["Courier", "monospace"]:
+            font_family = "Courier"
+            font_bold = "Courier-Bold"
+            font_italic = "Courier-Oblique"
+        else:
+            font_family = "DejaVuSans"
+            font_bold = "DejaVuSans-Bold"
+            font_italic = "DejaVuSans-Oblique"
+
+    # Color Customization
+    cust_primary = customization.get("primaryColor")
+    if cust_primary:
+        try:
+            primary_color = colors.HexColor(cust_primary)
+        except Exception:
+            pass
+    cust_accent = customization.get("accentColor")
+    if cust_accent:
+        try:
+            accent_color = colors.HexColor(cust_accent)
+            divider_color = colors.HexColor(cust_accent + "40") if len(cust_accent) == 7 else colors.HexColor("#cbd5e1")
+        except Exception:
+            pass
+
+    # Sizing & Line Spacing Customization
+    base_font_size = 9.5
+    cust_font_size = customization.get("fontSize")
+    if cust_font_size is not None:
+        try:
+            base_font_size = float(cust_font_size)
+        except (ValueError, TypeError):
+            pass
+
+    line_spacing = 1.3
+    cust_line_spacing = customization.get("lineSpacing")
+    if cust_line_spacing is not None:
+        try:
+            line_spacing = float(cust_line_spacing)
+        except (ValueError, TypeError):
+            pass
+
+    sec_spacing_before = 7.0
+    cust_sec_spacing = customization.get("sectionSpacing")
+    if cust_sec_spacing is not None:
+        try:
+            sec_spacing_before = float(cust_sec_spacing)
+        except (ValueError, TypeError):
+            pass
+
     # Define Styles
     name_style = ParagraphStyle(
         'ResumeName',
         parent=styles['Heading1'],
         fontName=font_bold,
-        fontSize=20,
-        leading=24,
+        fontSize=base_font_size * 2.1,
+        leading=base_font_size * 2.1 * line_spacing,
         textColor=primary_color,
         spaceAfter=2
     )
@@ -942,8 +1045,8 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
         'ResumeContact',
         parent=styles['Normal'],
         fontName=font_family,
-        fontSize=9,
-        leading=12,
+        fontSize=base_font_size * 0.9,
+        leading=base_font_size * 0.9 * line_spacing,
         textColor=colors.HexColor("#475569"),
         spaceAfter=8
     )
@@ -952,10 +1055,10 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
         'ResumeSectionTitle',
         parent=styles['Heading2'],
         fontName=font_bold,
-        fontSize=11.5,
-        leading=14.5,
+        fontSize=base_font_size * 1.2,
+        leading=base_font_size * 1.2 * line_spacing,
         textColor=accent_color,
-        spaceBefore=7,
+        spaceBefore=sec_spacing_before,
         spaceAfter=3,
         keepWithNext=True
     )
@@ -964,8 +1067,8 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
         'ResumeBody',
         parent=styles['Normal'],
         fontName=font_family,
-        fontSize=9,
-        leading=12.5,
+        fontSize=base_font_size,
+        leading=base_font_size * line_spacing,
         textColor=colors.HexColor("#1f2937"),
         spaceAfter=3
     )
@@ -982,8 +1085,8 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
         'JobHeaderLeft',
         parent=body_style,
         fontName=font_bold,
-        fontSize=9.5,
-        leading=12.5,
+        fontSize=base_font_size * 1.0,
+        leading=base_font_size * 1.0 * line_spacing,
         textColor=colors.HexColor("#1f2937")
     )
     
@@ -991,8 +1094,8 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
         'JobHeaderRight',
         parent=body_style,
         fontName=font_italic,
-        fontSize=8.5,
-        leading=12.5,
+        fontSize=base_font_size * 0.9,
+        leading=base_font_size * 0.9 * line_spacing,
         textColor=colors.HexColor("#64748b"),
         alignment=2 # Right aligned
     )
@@ -1052,6 +1155,10 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
         )
         
         # Row 1 Left: Contact
+        profile_img = make_rl_profile_image(customization.get("profilePhoto"), customization)
+        if profile_img:
+            left_row1.append(profile_img)
+            left_row1.append(Spacer(1, 8))
         left_row1.append(Paragraph("CONTACT INFO", side_sec_title))
         left_row1.append(Paragraph(f"✉ {email}", side_body))
         left_row1.append(Paragraph(f"☎ {phone}", side_body))
@@ -1179,24 +1286,70 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
                 right_row4.append(edu_table)
                 right_row4.append(Spacer(1, 4))
                 
+        # Append Achievements, Leadership, Interests, Referees to Modern Professional main column
+        achievements = resume_data.get("achievements")
+        if achievements:
+            right_row4.append(Paragraph("ACHIEVEMENTS", section_title_style))
+            for ach in achievements:
+                right_row4.append(Paragraph(f"• {ach}", bullet_style))
+            right_row4.append(Spacer(1, 4))
+            
+        leadership = resume_data.get("leadership")
+        if leadership:
+            right_row4.append(Paragraph("LEADERSHIP", section_title_style))
+            for lead in leadership:
+                right_row4.append(Paragraph(f"• {lead}", bullet_style))
+            right_row4.append(Spacer(1, 4))
+            
+        interests = resume_data.get("interests")
+        if interests:
+            right_row4.append(Paragraph("INTERESTS & HOBBIES", section_title_style))
+            right_row4.append(Paragraph(", ".join(interests), body_style))
+            right_row4.append(Spacer(1, 4))
+            
+        referees = resume_data.get("referees")
+        if referees:
+            right_row4.append(Paragraph("REFERENCES", section_title_style))
+            for ref in referees:
+                right_row4.append(Paragraph(f"• {ref}", bullet_style))
+            right_row4.append(Spacer(1, 4))
+            
         # Build multi-row table to allow ReportLab to split across pages
-        table_data = [
-            [left_row1, right_row1],
-            [left_row2, right_row2],
-            [left_row3, right_row3],
-            [left_row4, right_row4]
-        ]
+        sidebar_on_right = customization.get("sidebarLayout") == "right"
+        if sidebar_on_right:
+            table_data = [
+                [right_row1, left_row1],
+                [right_row2, left_row2],
+                [right_row3, left_row3],
+                [right_row4, left_row4]
+            ]
+            col_widths = [375, 165]
+            style_cmds = [
+                ('PADDING', (0,0), (-1,-1), 6),
+                ('VALIGN', (0,0), (-1,-1), 'TOP'),
+                ('BACKGROUND', (1,0), (1,-1), colors.HexColor("#f8fafc")), # sidebar background on right
+                ('LINEBEFORE', (1,0), (1,-1), 1, colors.HexColor("#cbd5e1")),
+            ]
+        else:
+            table_data = [
+                [left_row1, right_row1],
+                [left_row2, right_row2],
+                [left_row3, right_row3],
+                [left_row4, right_row4]
+            ]
+            col_widths = [165, 375]
+            style_cmds = [
+                ('PADDING', (0,0), (-1,-1), 6),
+                ('VALIGN', (0,0), (-1,-1), 'TOP'),
+                ('BACKGROUND', (0,0), (0,-1), colors.HexColor("#f8fafc")), # sidebar background on left
+                ('LINEAFTER', (0,0), (0,-1), 1, colors.HexColor("#cbd5e1")),
+            ]
         
         # Filter out rows where both left and right are empty
         table_data = [row for row in table_data if row[0] or row[1]]
         
-        outer_table = Table(table_data, colWidths=[165, 375])
-        outer_table.setStyle(TableStyle([
-            ('PADDING', (0,0), (-1,-1), 6),
-            ('VALIGN', (0,0), (-1,-1), 'TOP'),
-            ('BACKGROUND', (0,0), (0,-1), colors.HexColor("#f8fafc")), # sidebar background
-            ('LINEAFTER', (0,0), (0,-1), 1, colors.HexColor("#cbd5e1")),
-        ]))
+        outer_table = Table(table_data, colWidths=col_widths)
+        outer_table.setStyle(TableStyle(style_cmds))
         doc.build([outer_table])
         buffer.seek(0)
         return buffer
@@ -1295,8 +1448,40 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
                             left_row3.append(Paragraph(f"• {b_text}", bullet_style))
                 left_row3.append(Spacer(1, 4))
                 
+        # Append Achievements, Leadership, Interests, Referees to Creative template main column
+        achievements = resume_data.get("achievements")
+        if achievements:
+            left_row3.append(Paragraph("ACHIEVEMENTS", section_title_style))
+            for ach in achievements:
+                left_row3.append(Paragraph(f"• {ach}", bullet_style))
+            left_row3.append(Spacer(1, 4))
+            
+        leadership = resume_data.get("leadership")
+        if leadership:
+            left_row3.append(Paragraph("LEADERSHIP", section_title_style))
+            for lead in leadership:
+                left_row3.append(Paragraph(f"• {lead}", bullet_style))
+            left_row3.append(Spacer(1, 4))
+            
+        interests = resume_data.get("interests")
+        if interests:
+            left_row3.append(Paragraph("INTERESTS & HOBBIES", section_title_style))
+            left_row3.append(Paragraph(", ".join(interests), body_style))
+            left_row3.append(Spacer(1, 4))
+            
+        referees = resume_data.get("referees")
+        if referees:
+            left_row3.append(Paragraph("REFERENCES", section_title_style))
+            for ref in referees:
+                left_row3.append(Paragraph(f"• {ref}", bullet_style))
+            left_row3.append(Spacer(1, 4))
+            
         # Right Side Content (Sidebar Content)
         # Row 1 Right: Contact
+        profile_img = make_rl_profile_image(customization.get("profilePhoto"), customization)
+        if profile_img:
+            right_row1.append(profile_img)
+            right_row1.append(Spacer(1, 8))
         right_row1.append(Paragraph("GET IN TOUCH", side_sec_title))
         right_row1.append(Paragraph(f"✉ {email}", side_body))
         right_row1.append(Paragraph(f"☎ {phone}", side_body))
@@ -1338,22 +1523,39 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
                 c_name = cert.get("name") if isinstance(cert, dict) else getattr(cert, 'name', '')
                 right_row3.append(Paragraph(f"• {c_name}", side_body))
                 
-        table_data = [
-            [left_row1, right_row1],
-            [left_row2, right_row2],
-            [left_row3, right_row3]
-        ]
+        sidebar_on_left = customization.get("sidebarLayout") == "left"
+        if sidebar_on_left:
+            table_data = [
+                [right_row1, left_row1],
+                [right_row2, left_row2],
+                [right_row3, left_row3]
+            ]
+            col_widths = [165, 375]
+            style_cmds = [
+                ('PADDING', (0,0), (-1,-1), 6),
+                ('VALIGN', (0,0), (-1,-1), 'TOP'),
+                ('BACKGROUND', (0,0), (0,-1), colors.HexColor("#fff1f2")), # pinkish sidebar background on left
+                ('LINEAFTER', (0,0), (0,-1), 1, colors.HexColor("#f472b6")),
+            ]
+        else:
+            table_data = [
+                [left_row1, right_row1],
+                [left_row2, right_row2],
+                [left_row3, right_row3]
+            ]
+            col_widths = [375, 165]
+            style_cmds = [
+                ('PADDING', (0,0), (-1,-1), 6),
+                ('VALIGN', (0,0), (-1,-1), 'TOP'),
+                ('BACKGROUND', (1,0), (1,-1), colors.HexColor("#fff1f2")), # pinkish sidebar background on right
+                ('LINEBEFORE', (1,0), (1,-1), 1, colors.HexColor("#f472b6")),
+            ]
         
         # Filter out empty rows
         table_data = [row for row in table_data if row[0] or row[1]]
         
-        outer_table = Table(table_data, colWidths=[375, 165])
-        outer_table.setStyle(TableStyle([
-            ('PADDING', (0,0), (-1,-1), 6),
-            ('VALIGN', (0,0), (-1,-1), 'TOP'),
-            ('BACKGROUND', (1,0), (1,-1), colors.HexColor("#fff1f2")), # pinkish sidebar background
-            ('LINEBEFORE', (1,0), (1,-1), 1, colors.HexColor("#f472b6")),
-        ]))
+        outer_table = Table(table_data, colWidths=col_widths)
+        outer_table.setStyle(TableStyle(style_cmds))
         doc.build([outer_table])
         buffer.seek(0)
         return buffer
@@ -1361,45 +1563,84 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
     # Single column layout for ATS Professional, Software Engineer, Data Analyst, Executive, Minimal, Student
     story = []
     
-    if template_name in ["Executive", "Executive Resume"]:
-        # Centered header style
-        name_style_centered = ParagraphStyle(
-            'ExecName', parent=name_style, alignment=1, fontSize=22, leading=26, textColor=primary_color
-        )
-        contact_style_centered = ParagraphStyle(
-            'ExecContact', parent=contact_style, alignment=1, fontSize=9.5, leading=13, textColor=colors.HexColor("#4b5563")
-        )
-        story.append(Paragraph(name.upper(), name_style_centered))
-        contact_parts = [email, phone]
-        contact_text = "  •  ".join(contact_parts)
-        story.append(Paragraph(contact_text, contact_style_centered))
-        story.append(Spacer(1, 4))
-        add_divider(story, divider_color)
-    elif template_name == "Minimal Elegant":
-        # Minimal left aligned header
-        story.append(Paragraph(name, name_style))
-        contact_text = f"{email}   |   {phone}"
-        story.append(Paragraph(contact_text, contact_style))
-        story.append(Spacer(1, 2))
-        add_divider(story, divider_color)
-    elif template_name == "Software Engineer":
-        # Developer clean header
-        story.append(Paragraph(f"&lt; {name} /&gt;", name_style))
-        github_slug = name.lower().replace(" ", "").replace("-", "")
-        contact_text = f"// {email}   |   {phone}   |   github.com/{github_slug}"
-        story.append(Paragraph(contact_text, contact_style))
-        story.append(Spacer(1, 4))
-        add_divider(story, accent_color)
+    # Dynamic Header Rendering
+    custom_header = customization.get("headerLayout")
+    show_icons = customization.get("showIcons", True)
+    
+    email_str = f"✉ {email}" if show_icons else (email or "")
+    phone_str = f"☎ {phone}" if show_icons else (phone or "")
+    
+    if custom_header:
+        if custom_header == "center":
+            name_style_centered = ParagraphStyle(
+                'CentName', parent=name_style, alignment=1, fontSize=base_font_size * 2.1, leading=base_font_size * 2.1 * line_spacing, textColor=primary_color
+            )
+            contact_style_centered = ParagraphStyle(
+                'CentContact', parent=contact_style, alignment=1, fontSize=base_font_size * 0.9, leading=base_font_size * 0.9 * line_spacing, textColor=colors.HexColor("#475569")
+            )
+            story.append(Paragraph(name.upper(), name_style_centered))
+            contact_parts = [email_str, phone_str]
+            contact_text = "  •  ".join([c for c in contact_parts if c])
+            story.append(Paragraph(contact_text, contact_style_centered))
+            story.append(Spacer(1, 4))
+            add_divider(story, divider_color)
+        elif custom_header == "split":
+            split_left = ParagraphStyle('SplitLeft', parent=name_style, fontSize=base_font_size * 2.1, leading=base_font_size * 2.1 * line_spacing, textColor=primary_color)
+            split_right = ParagraphStyle('SplitRight', parent=contact_style, alignment=2, fontSize=base_font_size * 0.9, leading=base_font_size * 0.9 * line_spacing, textColor=colors.HexColor("#475569"))
+            contact_text = "<br/>".join([c for c in [email_str, phone_str] if c])
+            header_tbl = Table([[Paragraph(name, split_left), Paragraph(contact_text, split_right)]], colWidths=[340, 200])
+            header_tbl.setStyle(TableStyle([
+                ('PADDING', (0,0), (-1,-1), 0),
+                ('VALIGN', (0,0), (-1,-1), 'BOTTOM')
+            ]))
+            story.append(header_tbl)
+            story.append(Spacer(1, 4))
+            add_divider(story, divider_color)
+        else: # "left"
+            story.append(Paragraph(name, name_style))
+            contact_text = "   |   ".join([c for c in [email_str, phone_str] if c])
+            story.append(Paragraph(contact_text, contact_style))
+            story.append(Spacer(1, 4))
+            add_divider(story, divider_color)
     else:
-        # Standard left aligned header
-        story.append(Paragraph(name, name_style))
-        contact_parts = [email, phone]
-        contact_text = "  |  ".join(contact_parts)
-        story.append(Paragraph(contact_text, contact_style))
-        story.append(Spacer(1, 4))
-        add_divider(story, divider_color)
-        
-    # Professional Summary
+        # Standard templates default headers
+        if template_name in ["Executive", "Executive Resume"]:
+            name_style_centered = ParagraphStyle(
+                'ExecName', parent=name_style, alignment=1, fontSize=22, leading=26, textColor=primary_color
+            )
+            contact_style_centered = ParagraphStyle(
+                'ExecContact', parent=contact_style, alignment=1, fontSize=9.5, leading=13, textColor=colors.HexColor("#4b5563")
+            )
+            story.append(Paragraph(name.upper(), name_style_centered))
+            contact_parts = [email_str, phone_str]
+            contact_text = "  •  ".join([c for c in contact_parts if c])
+            story.append(Paragraph(contact_text, contact_style_centered))
+            story.append(Spacer(1, 4))
+            add_divider(story, divider_color)
+        elif template_name == "Minimal Elegant":
+            story.append(Paragraph(name, name_style))
+            contact_text = f"{email_str}   |   {phone_str}"
+            story.append(Paragraph(contact_text, contact_style))
+            story.append(Spacer(1, 2))
+            add_divider(story, divider_color)
+        elif template_name == "Software Engineer":
+            story.append(Paragraph(f"&lt; {name} /&gt;", name_style))
+            github_slug = name.lower().replace(" ", "").replace("-", "")
+            github_str = f"github.com/{github_slug}"
+            github_contact = f"   |   {github_str}" if show_icons else f"   |   {github_str}"
+            contact_text = f"// {email_str}   |   {phone_str}{github_contact}"
+            story.append(Paragraph(contact_text, contact_style))
+            story.append(Spacer(1, 4))
+            add_divider(story, accent_color)
+        else:
+            story.append(Paragraph(name, name_style))
+            contact_parts = [email_str, phone_str]
+            contact_text = "  |  ".join([c for c in contact_parts if c])
+            story.append(Paragraph(contact_text, contact_style))
+            story.append(Spacer(1, 4))
+            add_divider(story, divider_color)
+            
+    # Professional Summary / Objective Section
     if summary_text:
         story.append(Paragraph("PROFESSIONAL SUMMARY", section_title_style))
         story.append(Paragraph(summary_text, body_style))
@@ -1407,15 +1648,16 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
         add_divider(story, divider_color)
 
     # Dynamic sections ordering
-    sections = ["experience", "projects", "skills", "education", "cert_lang"]
-    
-    if template_name in ["Student/Fresher", "Student / Fresher"]:
-        sections = ["education", "projects", "skills", "experience", "cert_lang"]
-    elif template_name == "Data Analyst":
-        sections = ["skills", "experience", "projects", "education", "cert_lang"]
-    elif template_name == "Software Engineer":
-        sections = ["skills", "projects", "experience", "education", "cert_lang"]
-        
+    sections = customization.get("section_order") or resume_data.get("section_order")
+    if not sections:
+        sections = ["experience", "projects", "skills", "education", "cert_lang"]
+        if template_name in ["Student/Fresher", "Student / Fresher"]:
+            sections = ["education", "projects", "skills", "experience", "cert_lang"]
+        elif template_name == "Data Analyst":
+            sections = ["skills", "experience", "projects", "education", "cert_lang"]
+        elif template_name == "Software Engineer":
+            sections = ["skills", "projects", "experience", "education", "cert_lang"]
+            
     for sec in sections:
         if sec == "experience" and experience:
             story.append(Paragraph("WORK EXPERIENCE", section_title_style))
@@ -1454,7 +1696,6 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
                 tech = ", ".join(proj.get("technologies") or [])
                 
                 if template_name == "Software Engineer":
-                    # Code tags formatting
                     story.append(Paragraph(f"<b>{title}</b> <font face='Courier' color='{accent_color.hexval()}'>[{tech}]</font>", job_header_left))
                 else:
                     tech_suffix = f" ({tech})" if tech else ""
@@ -1522,9 +1763,52 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
                 story.append(Spacer(1, 2))
             add_divider(story, divider_color)
             
+        elif sec == "certifications" and certifications:
+            story.append(Paragraph("CERTIFICATIONS", section_title_style))
+            cert_items = []
+            for cert in certifications:
+                c_name = cert.get("name") if isinstance(cert, dict) else getattr(cert, 'name', '')
+                c_issuer = cert.get("issuer") if isinstance(cert, dict) else getattr(cert, 'issuer', '')
+                issuer_str = f" ({c_issuer})" if c_issuer else ""
+                cert_items.append(f"{c_name}{issuer_str}")
+            story.append(Paragraph(", ".join(cert_items), body_style))
+            story.append(Spacer(1, 4))
+            add_divider(story, divider_color)
+            
+        elif sec == "languages" and languages:
+            story.append(Paragraph("LANGUAGES", section_title_style))
+            lang_items = []
+            for lang in languages:
+                l_name = lang.get("language") if isinstance(lang, dict) else getattr(lang, 'language', '')
+                prof = lang.get("proficiency") if isinstance(lang, dict) else getattr(lang, 'proficiency', '')
+                prof_str = f" ({prof})" if prof else ""
+                lang_items.append(f"{l_name}{prof_str}")
+            story.append(Paragraph(", ".join(lang_items), body_style))
+            story.append(Spacer(1, 4))
+            add_divider(story, divider_color)
+            
+        elif sec == "achievements" and resume_data.get("achievements"):
+            story.append(Paragraph("ACHIEVEMENTS", section_title_style))
+            for ach in resume_data["achievements"]:
+                story.append(Paragraph(f"• {ach}", bullet_style))
+            story.append(Spacer(1, 4))
+            add_divider(story, divider_color)
+            
+        elif sec == "interests" and resume_data.get("interests"):
+            story.append(Paragraph("INTERESTS & HOBBIES", section_title_style))
+            story.append(Paragraph(", ".join(resume_data["interests"]), body_style))
+            story.append(Spacer(1, 4))
+            add_divider(story, divider_color)
+            
+        elif sec == "referees" and resume_data.get("referees"):
+            story.append(Paragraph("REFERENCES", section_title_style))
+            for ref in resume_data["referees"]:
+                story.append(Paragraph(f"• {ref}", bullet_style))
+            story.append(Spacer(1, 4))
+            add_divider(story, divider_color)
+            
         elif sec == "cert_lang" and (certifications or languages):
             story.append(Paragraph("CERTIFICATIONS & LANGUAGES", section_title_style))
-            
             cert_items = []
             if certifications:
                 for cert in certifications:
@@ -1532,7 +1816,6 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
                     c_issuer = cert.get("issuer") if isinstance(cert, dict) else getattr(cert, 'issuer', '')
                     issuer_str = f" ({c_issuer})" if c_issuer else ""
                     cert_items.append(f"{c_name}{issuer_str}")
-                    
             lang_items = []
             if languages:
                 for lang in languages:
@@ -1540,16 +1823,16 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
                     prof = lang.get("proficiency") if isinstance(lang, dict) else getattr(lang, 'proficiency', '')
                     prof_str = f" ({prof})" if prof else ""
                     lang_items.append(f"{l_name}{prof_str}")
-                    
             extras = []
             if cert_items:
                 extras.append(f"<b>Certifications:</b> {', '.join(cert_items)}")
             if lang_items:
                 extras.append(f"<b>Languages:</b> {', '.join(lang_items)}")
-                
             for ext in extras:
                 story.append(Paragraph(ext, body_style))
-                
+            story.append(Spacer(1, 4))
+            add_divider(story, divider_color)
+            
     doc.build(story)
     buffer.seek(0)
     return buffer
@@ -1684,33 +1967,22 @@ def generate_interview_prep_pdf(resume_data: Dict[str, Any], prep_data: Dict[str
         for idx, q_item in enumerate(questions_list):
             q_text = q_item.get("question") if isinstance(q_item, dict) else getattr(q_item, "question", "")
             diff = q_item.get("difficulty") if isinstance(q_item, dict) else getattr(q_item, "difficulty", "Medium")
-            key_points = q_item.get("key_points") if isinstance(q_item, dict) else getattr(q_item, "key_points", [])
-            structure = q_item.get("sample_answer_structure") if isinstance(q_item, dict) else getattr(q_item, "sample_answer_structure", "")
             
             story.append(Paragraph(f"Question {idx+1}: {q_text} ({diff} Difficulty)", h2_style))
             
-            if export_type == "guide":
-                if key_points:
-                    story.append(Paragraph("<b>Key talking points to cover:</b>", body_bold))
-                    for pt in key_points:
-                        story.append(Paragraph(f"• {pt}", bullet_style))
-                if structure:
-                    story.append(Paragraph(f"<b>Suggested answer structure:</b>", body_bold))
-                    story.append(Paragraph(structure.replace("\n", "<br/>"), body_style))
-                story.append(Spacer(1, 8))
-            else:
-                # Add lines/space for notes
-                story.append(Spacer(1, 20))
-                story.append(Paragraph("Notes / Practice Answers: __________________________________________________________________________________________", ParagraphStyle('NotesLine', parent=body_style, textColor=colors.HexColor("#cbd5e1"))))
-                story.append(Spacer(1, 8))
+            story.append(Spacer(1, 15))
+            story.append(Paragraph("Notes / Practice Answers: __________________________________________________________________________________________", ParagraphStyle('NotesLine', parent=body_style, textColor=colors.HexColor("#cbd5e1"))))
+            story.append(Spacer(1, 8))
 
     # Append all categories of questions
-    append_questions_section("1. Technical & Coding Prep Questions", prep_data.get("technical_questions", []))
-    append_questions_section("2. Project Experience Deep-Dives", prep_data.get("project_questions", []))
-    append_questions_section("3. Job Description Specific Fit", prep_data.get("jd_questions", []))
-    append_questions_section("4. Resume Verification & Background", prep_data.get("resume_questions", []))
+    append_questions_section("1. Resume-Based Questions", prep_data.get("resume_questions", []))
+    append_questions_section("2. Job Description-Based Questions", prep_data.get("jd_questions", []))
+    append_questions_section("3. Technical Questions", prep_data.get("technical_questions", []))
+    append_questions_section("4. HR Questions", prep_data.get("hr_questions", []))
     append_questions_section("5. STAR Behavioral Scenarios", prep_data.get("behavioral_questions", []))
-    append_questions_section("6. HR Screening & Soft Skills", prep_data.get("hr_questions", []))
+    append_questions_section("6. Scenario-Based Questions", prep_data.get("scenario_questions", []))
+    append_questions_section("7. Project-Based Questions", prep_data.get("project_questions", []))
+    append_questions_section("8. Problem Solving Questions", prep_data.get("problem_solving_questions", []))
     
     doc.build(story)
     buffer.seek(0)
@@ -1724,7 +1996,7 @@ class NumberedJDCanvas(canvas.Canvas):
 
     def showPage(self):
         self._saved_page_states.append(dict(self.__dict__))
-        self._startPage()
+        self._startPage()  # type: ignore
 
     def save(self):
         num_pages = len(self._saved_page_states)
@@ -1752,7 +2024,7 @@ class NumberedJDCanvas(canvas.Canvas):
         # Running footer
         self.line(36, 42, 576, 42)
         self.drawString(36, 30, "Report generated by ResumeIQ 2.0 Engine")
-        page_text = f"Page {self._pageNumber} of {page_count}"
+        page_text = f"Page {self._pageNumber} of {page_count}"  # type: ignore
         self.drawRightString(576, 30, page_text)
         self.restoreState()
 

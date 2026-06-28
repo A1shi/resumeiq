@@ -25,18 +25,18 @@ from app.services.pdf_generator import (
 router = APIRouter(prefix="/resumes", tags=["Resumes"])
 logger = logging.getLogger("app.routers.resume")
 
-ALLOWED_EXTENSIONS = {".pdf", ".docx"}
+ALLOWED_EXTENSIONS = {".pdf", ".docx", ".jpg", ".jpeg"}
 
 @router.post("/upload", response_model=schemas.ResumeResponse, status_code=status.HTTP_201_CREATED)
 async def upload_resume(
-    file: UploadFile = File(..., description="PDF or DOCX resume file"),
+    file: UploadFile = File(..., description="PDF, DOCX, or Image resume file"),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_verified_user)
 ):
     """
     Upload a resume, extract text, parse it with Gemini AI, and save it in the database.
     """
-    # 1. Validate file extension
+    # 1. Validate file extension and size
     filename = file.filename
     if not filename:
         raise HTTPException(
@@ -47,7 +47,28 @@ async def upload_resume(
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported file type. Only PDF and DOCX files are allowed."
+            detail="Unsupported file type. Only PDF, DOCX, and JPG/JPEG image files are allowed."
+        )
+
+    # Validate file size (5MB limit)
+    try:
+        file.file.seek(0, os.SEEK_END)
+        file_size = file.file.tell()
+        file.file.seek(0)
+        
+        MAX_FILE_SIZE = 5 * 1024 * 1024
+        if file_size > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="File size exceeds the maximum limit of 5MB."
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to check file size: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to validate file size."
         )
 
     # 2. Save the uploaded file to disk
@@ -498,6 +519,9 @@ def update_resume_details(
         resume.leadership = resume_data.leadership
         resume.interests = resume_data.interests
         resume.referees = resume_data.referees
+        resume.achievements = resume_data.achievements or []
+        resume.section_order = resume_data.section_order or []
+        resume.customization = resume_data.customization or {}
         
         # Update Phase 2 fields if changed/provided
         resume.profession = resume_data.profession
@@ -614,7 +638,7 @@ def generate_interview_prep(
     current_user: models.User = Depends(get_current_verified_user)
 ):
     """
-    Generates customized interview preparation Q&As based on resume and optional target Job Description.
+    Generates customized interview preparation questions based on resume, optional Job Description and target Job Role.
     Saves the output within the resume's ats_analysis.interview_prep object.
     """
     resume = db.query(models.Resume).filter(models.Resume.id == resume_id).first()
@@ -638,19 +662,20 @@ def generate_interview_prep(
         db.refresh(resume)
 
     jd_text = request.jd_text if request else None
+    job_role = request.job_role if request else None
 
     # Try Gemini, fallback to local rule-based engine
     prep_data = None
     if settings.GEMINI_API_KEY:
         try:
             logger.info("Generating interview prep with Gemini AI...")
-            prep_data = generate_interview_prep_with_gemini(resume, jd_text)
+            prep_data = generate_interview_prep_with_gemini(resume, jd_text, job_role)
         except Exception as e:
             logger.warning(f"Failed to generate interview prep with Gemini: {str(e)}. Falling back to local.")
             
     if not prep_data:
         logger.info("Generating interview prep with local rules...")
-        prep_data = generate_interview_prep_local(resume, jd_text)
+        prep_data = generate_interview_prep_local(resume, jd_text, job_role)
 
     # Save within resume's ats_analysis object
     ats_dict = dict(resume.ats_analysis)
@@ -660,6 +685,76 @@ def generate_interview_prep(
     updated_analysis = schemas.ATSAnalysisSchema(**ats_dict)
     
     resume.ats_analysis = updated_analysis.model_dump()
+    db.commit()
+    db.refresh(resume)
+
+    return updated_analysis
+
+@router.post("/{resume_id}/interview-prep/toggle-status", response_model=schemas.ATSAnalysisSchema)
+def toggle_interview_question_status(
+    resume_id: int,
+    request: schemas.ToggleStatusRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_verified_user)
+):
+    """
+    Toggles the state of a specific interview question (completed, favorite, needs_practice).
+    """
+    resume = db.query(models.Resume).filter(models.Resume.id == resume_id).first()
+    if not resume:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Resume with ID {resume_id} not found."
+        )
+    if resume.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access this resume."
+        )
+
+    if not resume.ats_analysis or "interview_prep" not in resume.ats_analysis or not resume.ats_analysis["interview_prep"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Interview preparation questions have not been generated for this resume."
+        )
+
+    from copy import deepcopy
+    from sqlalchemy.orm.attributes import flag_modified
+
+    ats_dict = deepcopy(resume.ats_analysis)
+    prep_dict = ats_dict["interview_prep"]
+    
+    category = request.category
+    question_idx = request.question_idx
+    status_type = request.status_type
+
+    if category not in prep_dict:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid category '{category}'."
+        )
+
+    questions_list = prep_dict[category]
+    if question_idx < 0 or question_idx >= len(questions_list):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid question index {question_idx} for category '{category}'."
+        )
+
+    question = questions_list[question_idx]
+    if status_type not in ["completed", "favorite", "needs_practice"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid status type '{status_type}'."
+        )
+
+    # Toggle the status
+    question[status_type] = not question.get(status_type, False)
+
+    # Save and commit
+    updated_analysis = schemas.ATSAnalysisSchema(**ats_dict)
+    resume.ats_analysis = updated_analysis.model_dump()
+    flag_modified(resume, "ats_analysis")
     db.commit()
     db.refresh(resume)
 
@@ -723,6 +818,481 @@ def export_interview_prep(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to export interview prep PDF: {str(e)}"
         )
+
+
+# --- Phase 6 Professional Resume Builder & Versioning Endpoints ---
+
+@router.post("/create", response_model=schemas.ResumeResponse, status_code=status.HTTP_201_CREATED)
+def create_resume_from_scratch(
+    resume_data: schemas.ResumeParsedSchema,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_verified_user)
+):
+    """
+    Create a new resume from scratch without uploading one.
+    """
+    try:
+        db_resume = models.Resume(
+            user_id=current_user.id,
+            filename="Resume_Built_From_Scratch.pdf",
+            file_path="",
+            raw_text="",
+            name=resume_data.name,
+            email=resume_data.email,
+            phone=resume_data.phone,
+            summary=resume_data.summary,
+            skills=resume_data.skills,
+            education=[edu.model_dump() for edu in resume_data.education],
+            experience=[exp.model_dump() for exp in resume_data.experience],
+            projects=[proj.model_dump() for proj in resume_data.projects],
+            certifications=[cert.model_dump() for cert in resume_data.certifications],
+            languages=[lang.model_dump() for lang in resume_data.languages],
+            leadership=resume_data.leadership or [],
+            interests=resume_data.interests or [],
+            referees=resume_data.referees or [],
+            achievements=resume_data.achievements or [],
+            section_order=resume_data.section_order or [],
+            customization=resume_data.customization or {},
+            profession=resume_data.profession or "General Professional",
+            industry=resume_data.industry or "General",
+            seniority=resume_data.seniority,
+            experience_level=resume_data.experience_level,
+            career_objective=resume_data.career_objective,
+            profession_confidence=100.0,
+            validation_passed=True,
+            validation_reason="Created manually from scratch"
+        )
+        
+        # Calculate initial ATS Score details for empty/baseline state
+        ats_analysis = evaluate_resume_ats(db_resume)
+        db_resume.ats_score = ats_analysis.ats_score
+        db_resume.ats_analysis = ats_analysis.model_dump()
+        
+        db.add(db_resume)
+        db.commit()
+        db.refresh(db_resume)
+        return db_resume
+    except Exception as e:
+        logger.error(f"Failed to create resume from scratch: {str(e)}")
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create resume from scratch: {str(e)}"
+        )
+
+
+@router.post("/{resume_id}/version", response_model=schemas.ResumeResponse)
+def save_resume_version(
+    resume_id: int,
+    version_name: str = Query(..., description="The name of this version"),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_verified_user)
+):
+    """
+    Save the current resume state as a new historical version.
+    """
+    parent = db.query(models.Resume).filter(
+        models.Resume.id == resume_id, 
+        models.Resume.user_id == current_user.id
+    ).first()
+    if not parent:
+        raise HTTPException(status_code=404, detail="Parent resume not found.")
+        
+    try:
+        version = models.Resume(
+            user_id=current_user.id,
+            parent_id=parent.id,
+            version_name=version_name,
+            filename=f"{parent.filename} ({version_name})",
+            file_path=parent.file_path,
+            raw_text=parent.raw_text,
+            name=parent.name,
+            email=parent.email,
+            phone=parent.phone,
+            summary=parent.summary,
+            skills=parent.skills,
+            education=parent.education,
+            experience=parent.experience,
+            projects=parent.projects,
+            certifications=parent.certifications,
+            languages=parent.languages,
+            leadership=parent.leadership,
+            interests=parent.interests,
+            referees=parent.referees,
+            achievements=parent.achievements,
+            section_order=parent.section_order,
+            customization=parent.customization,
+            profession=parent.profession,
+            industry=parent.industry,
+            seniority=parent.seniority,
+            experience_level=parent.experience_level,
+            career_objective=parent.career_objective,
+            profession_confidence=parent.profession_confidence,
+            validation_passed=parent.validation_passed,
+            validation_reason=parent.validation_reason,
+            ats_score=parent.ats_score,
+            ats_analysis=parent.ats_analysis
+        )
+        db.add(version)
+        db.commit()
+        db.refresh(version)
+        return version
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to save resume version: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to save version: {str(e)}")
+
+
+@router.get("/{resume_id}/versions", response_model=List[schemas.ResumeResponse])
+def get_resume_versions(
+    resume_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_verified_user)
+):
+    """
+    Get all historical versions associated with a parent resume.
+    """
+    versions = db.query(models.Resume).filter(
+        models.Resume.parent_id == resume_id,
+        models.Resume.user_id == current_user.id
+    ).order_by(models.Resume.created_at.desc()).all()
+    return versions
+
+
+@router.post("/{resume_id}/restore/{version_id}", response_model=schemas.ResumeResponse)
+def restore_resume_version(
+    resume_id: int,
+    version_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_verified_user)
+):
+    """
+    Restore the parent resume's content from a previously saved version.
+    """
+    parent = db.query(models.Resume).filter(
+        models.Resume.id == resume_id, 
+        models.Resume.user_id == current_user.id
+    ).first()
+    version = db.query(models.Resume).filter(
+        models.Resume.id == version_id, 
+        models.Resume.user_id == current_user.id,
+        models.Resume.parent_id == resume_id
+    ).first()
+    if not parent or not version:
+        raise HTTPException(status_code=404, detail="Parent resume or version not found.")
+        
+    try:
+        parent.name = version.name
+        parent.email = version.email
+        parent.phone = version.phone
+        parent.summary = version.summary
+        parent.skills = version.skills
+        parent.education = version.education
+        parent.experience = version.experience
+        parent.projects = version.projects
+        parent.certifications = version.certifications
+        parent.languages = version.languages
+        parent.leadership = version.leadership
+        parent.interests = version.interests
+        parent.referees = version.referees
+        parent.achievements = version.achievements
+        parent.section_order = version.section_order
+        parent.customization = version.customization
+        parent.profession = version.profession
+        parent.industry = version.industry
+        parent.seniority = version.seniority
+        parent.experience_level = version.experience_level
+        parent.career_objective = version.career_objective
+        parent.ats_score = version.ats_score
+        parent.ats_analysis = version.ats_analysis
+        
+        db.commit()
+        db.refresh(parent)
+        return parent
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to restore version: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to restore version: {str(e)}")
+
+
+@router.post("/{resume_id}/duplicate", response_model=schemas.ResumeResponse)
+def duplicate_resume(
+    resume_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_verified_user)
+):
+    """
+    Duplicate a resume to create a new standalone resume document.
+    """
+    source = db.query(models.Resume).filter(
+        models.Resume.id == resume_id, 
+        models.Resume.user_id == current_user.id
+    ).first()
+    if not source:
+        raise HTTPException(status_code=404, detail="Source resume not found.")
+        
+    try:
+        duplicated = models.Resume(
+            user_id=current_user.id,
+            parent_id=None,
+            version_name=None,
+            filename=f"Copy_of_{source.filename}",
+            file_path=source.file_path,
+            raw_text=source.raw_text,
+            name=source.name,
+            email=source.email,
+            phone=source.phone,
+            summary=source.summary,
+            skills=source.skills,
+            education=source.education,
+            experience=source.experience,
+            projects=source.projects,
+            certifications=source.certifications,
+            languages=source.languages,
+            leadership=source.leadership,
+            interests=source.interests,
+            referees=source.referees,
+            achievements=source.achievements,
+            section_order=source.section_order,
+            customization=source.customization,
+            profession=source.profession,
+            industry=source.industry,
+            seniority=source.seniority,
+            experience_level=source.experience_level,
+            career_objective=source.career_objective,
+            profession_confidence=source.profession_confidence,
+            validation_passed=source.validation_passed,
+            validation_reason=source.validation_reason,
+            ats_score=source.ats_score,
+            ats_analysis=source.ats_analysis
+        )
+        db.add(duplicated)
+        db.commit()
+        db.refresh(duplicated)
+        return duplicated
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to duplicate resume: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to duplicate resume: {str(e)}")
+
+
+@router.put("/{resume_id}/rename", response_model=schemas.ResumeResponse)
+def rename_resume(
+    resume_id: int,
+    name: str = Query(..., description="The new filename or version name"),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_verified_user)
+):
+    """
+    Rename a resume or a specific version name.
+    """
+    resume = db.query(models.Resume).filter(
+        models.Resume.id == resume_id, 
+        models.Resume.user_id == current_user.id
+    ).first()
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found.")
+        
+    try:
+        if resume.parent_id is not None:
+            resume.version_name = name
+            # Keep structural naming consistent
+            resume.filename = f"{resume.filename.split(' (')[0]} ({name})"
+        else:
+            resume.filename = name
+            
+        db.commit()
+        db.refresh(resume)
+        return resume
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to rename resume: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to rename: {str(e)}")
+
+
+@router.post("/{resume_id}/ai-improve")
+def ai_improve_resume(
+    resume_id: int,
+    request: Optional[schemas.JDMatchRequest] = None,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_verified_user)
+):
+    """
+    Improve resume content using AI and calculate a dynamic estimated post-improvement score.
+    """
+    resume = db.query(models.Resume).filter(
+        models.Resume.id == resume_id, 
+        models.Resume.user_id == current_user.id
+    ).first()
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found.")
+        
+    jd_text = request.jd_text if request else None
+    
+    try:
+        # 1. Generate text improvements (rephrase summary, polish bullets)
+        improvements = generate_resume_enhancements(resume, jd_text)
+        
+        # 2. Evaluate current score
+        current_score = resume.ats_score or 0
+        if current_score == 0 and resume.ats_analysis:
+            current_score = resume.ats_analysis.get("ats_score", 0)
+            
+        if current_score == 0:
+            base_ats = evaluate_resume_ats(resume)
+            current_score = base_ats.ats_score
+            
+        # 3. Compute estimated score after applying improvements in-memory
+        virtual_resume = models.Resume(
+            name=resume.name,
+            email=resume.email,
+            phone=resume.phone,
+            raw_text=resume.raw_text,
+            profession=resume.profession,
+            skills=list(set((resume.skills or []) + improvements.get("keyword_suggestions", []))),
+            education=resume.education,
+            experience=resume.experience,
+            projects=resume.projects,
+            certifications=resume.certifications,
+            languages=resume.languages,
+            leadership=resume.leadership,
+            interests=resume.interests,
+            referees=resume.referees,
+            achievements=resume.achievements,
+            section_order=resume.section_order,
+            customization=resume.customization
+        )
+        
+        if improvements.get("improved_summary"):
+            virtual_resume.summary = improvements["improved_summary"]
+            virtual_resume.career_objective = improvements["improved_summary"]
+            
+        if improvements.get("improved_experience"):
+            improved_exp_list = []
+            for exp in (resume.experience or []):
+                role = exp.get("role")
+                company = exp.get("company")
+                improved_desc = exp.get("description")
+                for imp_exp in improvements["improved_experience"]:
+                    if imp_exp.get("role") == role and imp_exp.get("company") == company:
+                        improved_desc = imp_exp.get("improved")
+                        break
+                improved_exp_list.append({
+                    **exp,
+                    "description": improved_desc
+                })
+            virtual_resume.experience = improved_exp_list
+            
+        if improvements.get("improved_projects"):
+            improved_proj_list = []
+            for proj in (resume.projects or []):
+                title = proj.get("title")
+                improved_desc = proj.get("description")
+                for imp_proj in improvements["improved_projects"]:
+                    if imp_proj.get("title") == title:
+                        improved_desc = imp_proj.get("improved")
+                        break
+                improved_proj_list.append({
+                    **proj,
+                    "description": improved_desc
+                })
+            virtual_resume.projects = improved_proj_list
+            
+        # Run ATS parser over the virtual model
+        improved_ats_analysis = evaluate_resume_ats(virtual_resume)
+        estimated_score = max(current_score, improved_ats_analysis.ats_score)
+        
+        return {
+            "current_score": current_score,
+            "estimated_score": estimated_score,
+            "improvements": improvements
+        }
+    except Exception as e:
+        logger.error(f"AI improvement generation failed: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate improvements: {str(e)}"
+        )
+
+
+@router.post("/{resume_id}/suggest-skills")
+def suggest_skills(
+    resume_id: int,
+    role: Optional[str] = Query(None, description="Optional target career role"),
+    request: Optional[schemas.JDMatchRequest] = None,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_verified_user)
+):
+    """
+    Generate targeted skill suggestions based on resume, target role, and target Job Description.
+    """
+    resume = db.query(models.Resume).filter(
+        models.Resume.id == resume_id, 
+        models.Resume.user_id == current_user.id
+    ).first()
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found.")
+        
+    jd_text = request.jd_text if request else None
+    target_role = role or resume.profession or "General Professional"
+    
+    # 1. Use Gemini AI if key configured
+    if settings.GEMINI_API_KEY:
+        try:
+            import google.generativeai as genai
+            prompt = (
+                f"You are a professional career coach. Review the candidate resume details, target role, and job description:\n\n"
+                f"Candidate Current Skills: {', '.join(resume.skills or [])}\n"
+                f"Target Role: {target_role}\n"
+                f"Job Description: {jd_text or 'N/A'}\n\n"
+                "Suggest additions to make the resume competitive. Provide:\n"
+                "1. Technical Skills\n"
+                "2. Soft Skills\n"
+                "3. Tools (software platforms, systems)\n"
+                "4. Certifications\n"
+                "5. Missing Keywords (keywords from the job description not in candidate skills)\n\n"
+                "Return the response as a strict JSON object with this exact structure:\n"
+                "{\n"
+                "  \"technical_skills\": [\"string\"],\n"
+                "  \"soft_skills\": [\"string\"],\n"
+                "  \"tools\": [\"string\"],\n"
+                "  \"certifications\": [\"string\"],\n"
+                "  \"missing_keywords\": [\"string\"]\n"
+                "}"
+            )
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            response = model.generate_content(prompt, generation_config={"response_mime_type": "application/json"})
+            import json
+            return json.loads(response.text)
+        except Exception as e:
+            logger.warning(f"Gemini skill suggestion failed, falling back to local defaults: {e}")
+            
+    # 2. Local Fallback logic
+    try:
+        from app.services.enhancement import get_profession_defaults
+        defaults = get_profession_defaults(target_role)
+        
+        missing_keys = []
+        if jd_text:
+            from app.services.matcher import extract_jd_keywords
+            _, missing_keys = extract_jd_keywords(jd_text)
+            c_skills_lower = [s.lower() for s in (resume.skills or [])]
+            missing_keys = [k for k in missing_keys if k.lower() not in c_skills_lower]
+            
+        return {
+            "technical_skills": defaults.get("keywords", ["System Design", "Unit Testing", "API Development"])[:4],
+            "soft_skills": ["Team Collaboration", "Agile Methodologies", "Problem Solving", "Technical Writing"],
+            "tools": ["Git", "Docker", "JIRA", "Confluence"],
+            "certifications": ["AWS Certified Solutions Architect", "Certified ScrumMaster (CSM)", "Google Cloud Engineer"],
+            "missing_keywords": missing_keys[:5] if missing_keys else ["Scalability", "Security Principles", "Data Engineering"]
+        }
+    except Exception as e:
+        logger.error(f"Fallback skill suggestion failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate skill suggestions: {str(e)}"
+        )
+
 
 
 

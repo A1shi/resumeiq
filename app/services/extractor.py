@@ -70,6 +70,33 @@ def extract_text_from_docx(file_path: str) -> str:
         
     return "\n".join(text_content).strip()
 
+def extract_text_from_image_gemini(file_path: str) -> str:
+    """
+    Extract raw text from a JPG/JPEG image using Gemini Multimodal capability.
+    """
+    from PIL import Image
+    import google.generativeai as genai
+    from app.config import settings
+
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"File not found: {file_path}")
+
+    try:
+        img = Image.open(file_path)
+        genai.configure(api_key=settings.GEMINI_API_KEY)
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        
+        response = model.generate_content([
+            "Extract all readable text from this resume image. Output only the plain text found in the image. Keep the original structure as much as possible.",
+            img
+        ])
+        if response.text:
+            return response.text.strip()
+        raise ValueError("Gemini returned empty text for the image.")
+    except Exception as e:
+        # Fallback error message if Gemini OCR fails/is offline
+        raise ValueError(f"Failed to perform OCR on image: {str(e)}")
+
 def extract_text(file_path: str) -> str:
     """
     General purpose text extraction router based on file extension.
@@ -80,5 +107,7 @@ def extract_text(file_path: str) -> str:
         return extract_text_from_pdf(file_path)
     elif ext in [".docx", ".doc"]:
         return extract_text_from_docx(file_path)
+    elif ext in [".jpg", ".jpeg", ".png"]:
+        return extract_text_from_image_gemini(file_path)
     else:
-        raise ValueError(f"Unsupported file format: {ext}. Only PDF and DOCX are supported.")
+        raise ValueError(f"Unsupported file format: {ext}. Only PDF, DOCX, and JPG/JPEG are supported.")

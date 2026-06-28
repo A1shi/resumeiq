@@ -86,3 +86,30 @@ dependencies {
     androidTestImplementation(platform(libs.androidx.compose.bom))
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
+
+tasks.register("copyReleaseOutputs") {
+    val version = android.defaultConfig.versionName ?: "1.2"
+    val projectDir = rootProject.projectDir
+    val buildDirFile = layout.buildDirectory
+    
+    doLast {
+        val releaseDir = File(projectDir, "release")
+        if (releaseDir.exists()) {
+            releaseDir.deleteRecursively()
+        }
+        releaseDir.mkdirs()
+        
+        val buildDir = buildDirFile.get().asFile
+        val apkFile = File(buildDir, "outputs/apk/release/app-release.apk")
+        val aabFile = File(buildDir, "outputs/bundle/release/app-release.aab")
+        
+        if (apkFile.exists()) {
+            apkFile.copyTo(File(releaseDir, "ResumeIQ-v${version}-release.apk"), overwrite = true)
+            println("Copied APK to ${releaseDir}/ResumeIQ-v${version}-release.apk")
+        }
+        if (aabFile.exists()) {
+            aabFile.copyTo(File(releaseDir, "ResumeIQ-v${version}-release.aab"), overwrite = true)
+            println("Copied AAB to ${releaseDir}/ResumeIQ-v${version}-release.aab")
+        }
+    }
+}

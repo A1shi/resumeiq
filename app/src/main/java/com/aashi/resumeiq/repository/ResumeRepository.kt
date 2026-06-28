@@ -116,10 +116,20 @@ class ResumeRepository(
         }
     }
 
-    suspend fun generateInterviewPrep(id: Int, jdText: String? = null): Result<ATSAnalysisSchema> {
+    suspend fun generateInterviewPrep(id: Int, jdText: String? = null, jobRole: String? = null): Result<ATSAnalysisSchema> {
         return try {
-            val request = jdText?.let { JDMatchRequest(it) }
+            val request = if (jdText != null || jobRole != null) JDMatchRequest(jdText, jobRole) else null
             val response = apiService.generateInterviewPrep(id, request)
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun toggleInterviewQuestionStatus(id: Int, category: String, questionIdx: Int, statusType: String): Result<ATSAnalysisSchema> {
+        return try {
+            val request = ToggleStatusRequest(category, questionIdx, statusType)
+            val response = apiService.toggleInterviewQuestionStatus(id, request)
             Result.success(response)
         } catch (e: Exception) {
             Result.failure(e)

@@ -64,6 +64,13 @@ class Resume(Base):
     interests: Any = Column(JSON, nullable=False, default=list)
     referees: Any = Column(JSON, nullable=False, default=list)
     
+    # Phase 6 additions
+    parent_id: Any = Column(Integer, ForeignKey("resumes.id", ondelete="CASCADE"), nullable=True)
+    version_name: Any = Column(String(255), nullable=True)
+    customization: Any = Column(JSON, nullable=False, default=dict)
+    achievements: Any = Column(JSON, nullable=False, default=list)
+    section_order: Any = Column(JSON, nullable=False, default=list)
+    
     # ATS Scoring Cache Fields
     ats_score: Any = Column(Integer, nullable=True)
     ats_analysis: Any = Column(JSON, nullable=True)
@@ -81,14 +88,14 @@ class Resume(Base):
         if not self.matches:
             return None
         # Sort matches by ID descending (most recent first)
-        sorted_matches = sorted(self.matches, key=lambda m: m.id, reverse=True)
+        sorted_matches = sorted(list(self.matches), key=lambda m: m.id, reverse=True)
         return sorted_matches[0].match_score
 
     @property
     def latest_match_title(self) -> Optional[str]:
         if not self.matches:
             return None
-        sorted_matches = sorted(self.matches, key=lambda m: m.id, reverse=True)
+        sorted_matches = sorted(list(self.matches), key=lambda m: m.id, reverse=True)
         return sorted_matches[0].job_title
 
 

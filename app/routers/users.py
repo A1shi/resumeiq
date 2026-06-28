@@ -32,13 +32,16 @@ def create_user(user_in: schemas.UserCreate, db: Session) -> models.User:
     """
     Validates email uniqueness, hashes the password, and stores the user in the database.
     """
+    # Normalize email explicitly
+    email_normalized = user_in.email.strip().lower()
+    
     # Check email uniqueness validation
-    existing_user = db.query(models.User).filter(models.User.email == user_in.email).first()
+    existing_user = db.query(models.User).filter(models.User.email == email_normalized).first()
     if existing_user:
-        logger.warning(f"Registration failed: Email {user_in.email} is already registered.")
+        logger.warning(f"Registration failed: Email {email_normalized} is already registered.")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
+            status_code=status.HTTP_409_CONFLICT,
+            detail="An account with this email already exists. Please log in or reset your password."
         )
 
     is_first_user = db.query(models.User).count() == 0
@@ -51,7 +54,7 @@ def create_user(user_in: schemas.UserCreate, db: Session) -> models.User:
     is_verified = False
     
     # Auto-verify test domain to bypass verification in automated tests
-    if user_in.email.endswith("@test.com"):
+    if email_normalized.endswith("@test.com"):
         is_verified = True
 
     now_utc = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
@@ -59,7 +62,7 @@ def create_user(user_in: schemas.UserCreate, db: Session) -> models.User:
 
     db_user = models.User(
         full_name=user_in.full_name,
-        email=user_in.email,
+        email=email_normalized,
         password_hash=password_hash,
         is_verified=is_verified,
         verification_token=verification_code,
@@ -139,7 +142,8 @@ def login_user(response: Response, user_in: schemas.UserLogin, db: Session = Dep
     """
     Authenticate email & password, set a secure session cookie, and return the token.
     """
-    user = db.query(models.User).filter(models.User.email == user_in.email).first()
+    email_normalized = user_in.email.strip().lower()
+    user = db.query(models.User).filter(models.User.email == email_normalized).first()
     if not user or not verify_password(user_in.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -189,7 +193,8 @@ def verify_email(payload: schemas.UserVerify, response: Response, db: Session = 
     Verify a user's email using their verification token.
     On success, auto-authenticates the user and sets the session cookie.
     """
-    user = db.query(models.User).filter(models.User.email == payload.email).first()
+    email_normalized = payload.email.strip().lower()
+    user = db.query(models.User).filter(models.User.email == email_normalized).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -271,7 +276,8 @@ def resend_verification(payload: schemas.ForgotPasswordRequest, db: Session = De
     """
     Resend verification code to the user's email.
     """
-    user = db.query(models.User).filter(models.User.email == payload.email).first()
+    email_normalized = payload.email.strip().lower()
+    user = db.query(models.User).filter(models.User.email == email_normalized).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -343,7 +349,8 @@ def forgot_password(payload: schemas.ForgotPasswordRequest, db: Session = Depend
     """
     Generate a password reset code for the user.
     """
-    user = db.query(models.User).filter(models.User.email == payload.email).first()
+    email_normalized = payload.email.strip().lower()
+    user = db.query(models.User).filter(models.User.email == email_normalized).first()
     if not user:
         # Avoid user enumeration, return same response
         return {"message": "If this email is registered, a reset code has been sent."}
@@ -411,7 +418,8 @@ def reset_password(payload: schemas.ResetPasswordRequest, db: Session = Depends(
     """
     Reset user's password using reset token.
     """
-    user = db.query(models.User).filter(models.User.email == payload.email).first()
+    email_normalized = payload.email.strip().lower()
+    user = db.query(models.User).filter(models.User.email == email_normalized).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -462,19 +470,20 @@ def update_profile(
     """
     Update the current user's profile details.
     """
-    if user_update.email != current_user.email:
+    email_normalized = user_update.email.strip().lower()
+    if email_normalized != current_user.email:
         # Validate uniqueness of new email
-        existing_user = db.query(models.User).filter(models.User.email == user_update.email).first()
+        existing_user = db.query(models.User).filter(models.User.email == email_normalized).first()
         if existing_user:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered"
+                status_code=status.HTTP_409_CONFLICT,
+                detail="An account with this email already exists. Please log in or reset your password."
             )
-        current_user.email = user_update.email
+        current_user.email = email_normalized
         
         # Reset verification status on email change
         is_verified = False
-        if user_update.email.endswith("@test.com"):
+        if email_normalized.endswith("@test.com"):
             is_verified = True
             
         current_user.is_verified = is_verified
@@ -588,4 +597,37 @@ def get_dashboard_stats(
         highest_ats_score=highest_score,
         recent_analyses=recent_items
     )
+
+
+@router.delete("/me", status_code=status.HTTP_200_OK)
+def delete_account(
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Permanently delete the user's account and all associated data.
+    """
+    import os
+    try:
+        # Delete associated resume files from uploads folder
+        for resume in current_user.resumes:
+            if resume.file_path and os.path.exists(resume.file_path):
+                try:
+                    os.remove(resume.file_path)
+                    logger.info(f"Deleted file during account deletion: {resume.file_path}")
+                except Exception as e:
+                    logger.error(f"Failed to delete file {resume.file_path} during account deletion: {str(e)}")
+
+        db.delete(current_user)
+        db.commit()
+        response.delete_cookie(key="session_token")
+        return {"message": "Account deleted successfully"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete account: {str(e)}"
+        )
+
 

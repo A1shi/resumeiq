@@ -5,39 +5,40 @@ logger = logging.getLogger("app.migrations")
 
 def run_migrations(engine):
     """
-    Ensures database schema consistency. Checks if the resumes table
-    contains the user_id column, adding it dynamically if missing.
+    Ensures database schema consistency. Checks if tables contain
+    the required columns, adding them dynamically if missing.
     """
     try:
+        from sqlalchemy import inspect
+        inspector = inspect(engine)
+        
         with engine.begin() as conn:
             # Check and add columns to users table
-            res_users = conn.execute(text("PRAGMA table_info(users)"))
-            user_columns = [row[1] for row in res_users.fetchall()]
+            user_columns = [col["name"] for col in inspector.get_columns("users")]
             if "is_verified" not in user_columns:
                 logger.info("Database migration: adding 'is_verified' column to users table...")
-                conn.execute(text("ALTER TABLE users ADD COLUMN is_verified BOOLEAN DEFAULT 0 NOT NULL"))
+                conn.execute(text("ALTER TABLE users ADD COLUMN is_verified BOOLEAN DEFAULT FALSE NOT NULL"))
             if "verification_token" not in user_columns:
                 logger.info("Database migration: adding 'verification_token' column to users table...")
                 conn.execute(text("ALTER TABLE users ADD COLUMN verification_token VARCHAR(255) NULL"))
             if "verification_token_expires" not in user_columns:
                 logger.info("Database migration: adding 'verification_token_expires' column to users table...")
-                conn.execute(text("ALTER TABLE users ADD COLUMN verification_token_expires DATETIME NULL"))
+                conn.execute(text("ALTER TABLE users ADD COLUMN verification_token_expires TIMESTAMP NULL"))
             if "verification_token_sent_at" not in user_columns:
                 logger.info("Database migration: adding 'verification_token_sent_at' column to users table...")
-                conn.execute(text("ALTER TABLE users ADD COLUMN verification_token_sent_at DATETIME NULL"))
+                conn.execute(text("ALTER TABLE users ADD COLUMN verification_token_sent_at TIMESTAMP NULL"))
             if "reset_token" not in user_columns:
                 logger.info("Database migration: adding 'reset_token' column to users table...")
                 conn.execute(text("ALTER TABLE users ADD COLUMN reset_token VARCHAR(255) NULL"))
             if "reset_token_expires" not in user_columns:
                 logger.info("Database migration: adding 'reset_token_expires' column to users table...")
-                conn.execute(text("ALTER TABLE users ADD COLUMN reset_token_expires DATETIME NULL"))
+                conn.execute(text("ALTER TABLE users ADD COLUMN reset_token_expires TIMESTAMP NULL"))
             if "reset_token_sent_at" not in user_columns:
                 logger.info("Database migration: adding 'reset_token_sent_at' column to users table...")
-                conn.execute(text("ALTER TABLE users ADD COLUMN reset_token_sent_at DATETIME NULL"))
+                conn.execute(text("ALTER TABLE users ADD COLUMN reset_token_sent_at TIMESTAMP NULL"))
 
-            # Fetch table columns info
-            result = conn.execute(text("PRAGMA table_info(resumes)"))
-            columns = [row[1] for row in result.fetchall()]
+            # Fetch table columns info for resumes
+            columns = [col["name"] for col in inspector.get_columns("resumes")]
             
             if "user_id" not in columns:
                 logger.info("Database migration: adding 'user_id' column to resumes table...")
@@ -113,14 +114,29 @@ def run_migrations(engine):
                 conn.execute(text("ALTER TABLE resumes ADD COLUMN validation_reason TEXT NULL"))
             if "created_at" not in columns:
                 logger.info("Database migration: adding 'created_at' column to resumes table...")
-                conn.execute(text("ALTER TABLE resumes ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP"))
+                conn.execute(text("ALTER TABLE resumes ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"))
             if "updated_at" not in columns:
                 logger.info("Database migration: adding 'updated_at' column to resumes table...")
-                conn.execute(text("ALTER TABLE resumes ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP"))
+                conn.execute(text("ALTER TABLE resumes ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"))
+            
+            if "parent_id" not in columns:
+                logger.info("Database migration: adding 'parent_id' column to resumes table...")
+                conn.execute(text("ALTER TABLE resumes ADD COLUMN parent_id INTEGER REFERENCES resumes(id) ON DELETE CASCADE"))
+            if "version_name" not in columns:
+                logger.info("Database migration: adding 'version_name' column to resumes table...")
+                conn.execute(text("ALTER TABLE resumes ADD COLUMN version_name VARCHAR(255) NULL"))
+            if "customization" not in columns:
+                logger.info("Database migration: adding 'customization' column to resumes table...")
+                conn.execute(text("ALTER TABLE resumes ADD COLUMN customization JSON DEFAULT '{}'"))
+            if "achievements" not in columns:
+                logger.info("Database migration: adding 'achievements' column to resumes table...")
+                conn.execute(text("ALTER TABLE resumes ADD COLUMN achievements JSON DEFAULT '[]'"))
+            if "section_order" not in columns:
+                logger.info("Database migration: adding 'section_order' column to resumes table...")
+                conn.execute(text("ALTER TABLE resumes ADD COLUMN section_order JSON DEFAULT '[]'"))
             
             # Check and add user_id to job_matches table
-            res_matches = conn.execute(text("PRAGMA table_info(job_matches)"))
-            match_columns = [row[1] for row in res_matches.fetchall()]
+            match_columns = [col["name"] for col in inspector.get_columns("job_matches")]
             if "user_id" not in match_columns:
                 logger.info("Database migration: adding 'user_id' column to job_matches table...")
                 conn.execute(text("ALTER TABLE job_matches ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE CASCADE"))
@@ -139,14 +155,32 @@ def run_migrations(engine):
                 conn.execute(text("ALTER TABLE job_matches ADD COLUMN interview_questions JSON DEFAULT '[]'"))
 
             # Check and add user_id to recruiter_simulations table
-            res_sims = conn.execute(text("PRAGMA table_info(recruiter_simulations)"))
-            sim_columns = [row[1] for row in res_sims.fetchall()]
+            sim_columns = [col["name"] for col in inspector.get_columns("recruiter_simulations")]
             if "user_id" not in sim_columns:
                 logger.info("Database migration: adding 'user_id' column to recruiter_simulations table...")
                 conn.execute(text("ALTER TABLE recruiter_simulations ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE CASCADE"))
-                logger.info("Database migration: recruiter_simulations table updated successfully with 'user_id'.")
+                
+            # 1. Trim and lowercase all user emails
+            logger.info("Database migration: normalizing existing emails (lowercase and trimmed)...")
+            conn.execute(text("UPDATE users SET email = LOWER(TRIM(email))"))
+
+            # 2. Find and delete duplicate users, keeping only the first registered user per email
+            logger.info("Database migration: deduplicating users table...")
+            conn.execute(text("""
+                DELETE FROM users
+                WHERE id NOT IN (
+                    SELECT MIN(id)
+                    FROM users
+                    GROUP BY email
+                )
+            """))
+
+            # 3. Create unique index on users.email to enforce uniqueness constraint
+            logger.info("Database migration: ensuring unique index on users.email...")
+            conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_email ON users(email)"))
             
-            conn.commit()
+            # Since we are using engine.begin(), the transaction commits automatically on block exit,
+            # but committing explicitly is safe or can be left to the transaction manager.
     except Exception as e:
         logger.error(f"Database migration failed: {str(e)}")
         raise RuntimeError(f"Database migration failure: {str(e)}")

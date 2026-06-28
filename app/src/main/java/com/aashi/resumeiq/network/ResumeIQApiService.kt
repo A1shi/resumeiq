@@ -109,6 +109,12 @@ interface ResumeIQApiService {
         @Body request: JDMatchRequest? = null
     ): ATSAnalysisSchema
 
+    @POST("resumes/{id}/interview-prep/toggle-status")
+    suspend fun toggleInterviewQuestionStatus(
+        @Path("id") id: Int,
+        @Body request: ToggleStatusRequest
+    ): ATSAnalysisSchema
+
 
     // --- Job Description Matching & Screening ---
 

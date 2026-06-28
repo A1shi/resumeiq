@@ -2,7 +2,7 @@ import logging
 import google.generativeai as genai
 from app.config import settings
 import app.models as models
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from app.services.scoring import clean_fabricated_metrics
 
 logger = logging.getLogger("app.services.enhancement")
@@ -14,7 +14,7 @@ if settings.GEMINI_API_KEY:
     except Exception as e:
         logger.error(f"Failed to configure google.generativeai client: {e}")
 
-def generate_resume_enhancements_with_gemini(resume: models.Resume) -> Dict[str, Any]:
+def generate_resume_enhancements_with_gemini(resume: models.Resume, jd_text: Optional[str] = None) -> Dict[str, Any]:
     """Generates professional rephrasings strictly grounded in parsed content using Gemini."""
     prompt = (
         "You are an expert resume polisher. You will receive parsed resume content.\n"
@@ -27,6 +27,11 @@ def generate_resume_enhancements_with_gemini(resume: models.Resume) -> Dict[str,
         "- NEVER invent, assume, or fabricate any numbers, percentages, dollar amounts, metrics, timelines, companies, or accomplishments (e.g., do NOT add things like '25% increase', 'zero-downtime', 'scaled to 1M users', 'saved $50k' if they are not in the source text).\n"
         "- Only improve readability, use strong action verbs (e.g. 'Developed', 'Optimized', 'Designed'), correct grammar, and format as bullet points.\n"
         "- Ground every suggestion STRICTLY in the provided experience/project descriptions.\n\n"
+    )
+    if jd_text:
+        prompt += f"Target Job Description:\n{jd_text}\n\nAlign all improvements to align with the job description requirements while strictly preserving truth.\n\n"
+
+    prompt += (
         f"Candidate Name: {resume.name or 'Candidate'}\n"
         f"Current Skills: {', '.join(resume.skills or [])}\n"
         f"Work Experience:\n"
@@ -300,8 +305,9 @@ def get_profession_defaults(detected_prof: str) -> dict:
     
     return defaults.get(detected_prof, defaults["General Professional"])
 
-def generate_resume_enhancements_local(resume: models.Resume) -> Dict[str, Any]:
+def generate_resume_enhancements_local(resume: models.Resume, jd_text: Optional[str] = None) -> Dict[str, Any]:
     """Generates local rephrasings strictly grounded in parsed content."""
+    from typing import Optional
     detected_prof = getattr(resume, "profession", "General Professional") or "General Professional"
     prof_defaults = get_profession_defaults(detected_prof)
     
@@ -392,7 +398,17 @@ def generate_resume_enhancements_local(resume: models.Resume) -> Dict[str, Any]:
         })
 
     keyword_suggestions = prof_defaults["keywords"]
-    if resume.skills:
+    if jd_text:
+        try:
+            from app.services.matcher import extract_jd_keywords
+            _, jd_keys = extract_jd_keywords(jd_text)
+            c_skills_lower = [s.lower() for s in (resume.skills or [])]
+            extra_keywords = [k for k in jd_keys if k.lower() not in c_skills_lower]
+            if extra_keywords:
+                keyword_suggestions = extra_keywords[:5]
+        except Exception:
+            pass
+    elif resume.skills:
         c_skills_lower = [s.lower() for s in resume.skills]
         keyword_suggestions = [ks for ks in keyword_suggestions if ks.lower() not in c_skills_lower]
 
@@ -403,13 +419,13 @@ def generate_resume_enhancements_local(resume: models.Resume) -> Dict[str, Any]:
         "keyword_suggestions": keyword_suggestions
     }
 
-def generate_resume_enhancements(resume: models.Resume) -> Dict[str, Any]:
+def generate_resume_enhancements(resume: models.Resume, jd_text: Optional[str] = None) -> Dict[str, Any]:
     """Generates side-by-side resume improvement suggestions without faking metrics."""
     if settings.GEMINI_API_KEY:
         try:
-            return generate_resume_enhancements_with_gemini(resume)
+            return generate_resume_enhancements_with_gemini(resume, jd_text)
         except Exception as e:
             logger.warning(f"Gemini resume enhancement failed, falling back to local: {e}")
-            return generate_resume_enhancements_local(resume)
+            return generate_resume_enhancements_local(resume, jd_text)
     else:
-        return generate_resume_enhancements_local(resume)
+        return generate_resume_enhancements_local(resume, jd_text)

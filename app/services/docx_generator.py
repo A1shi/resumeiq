@@ -5,7 +5,7 @@ from docx.shared import Pt, Inches, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import parse_xml, OxmlElement
 from docx.oxml.ns import nsdecls, qn
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 LIGATURE_MAP = {
     '\ufb00': 'ff',
@@ -113,7 +113,7 @@ def categorize_skills(skills_list):
     return {k: v for k, v in categories.items() if v}
 
 
-def generate_resume_template_docx(resume_data: Dict[str, Any], template_name: str) -> io.BytesIO:
+def generate_resume_template_docx(resume_data: Dict[str, Any], template_name: str, customization: Optional[Dict[str, Any]] = None) -> io.BytesIO:
     """
     Generates a beautifully formatted resume DOCX strictly based on the selected
     template style and custom candidate data.
@@ -121,12 +121,23 @@ def generate_resume_template_docx(resume_data: Dict[str, Any], template_name: st
     resume_data = clean_ligatures(resume_data)
     doc = Document()
     
-    # Page setup - 0.5 inch margins for professional compact look
+    if customization is None:
+        customization = resume_data.get("customization") or {}
+        
+    # Page setup - margins customization (default 0.5 inch)
+    margin_val = 0.5
+    cust_margin = customization.get("marginSize")
+    if cust_margin is not None:
+        try:
+            margin_val = float(cust_margin) / 72.0
+        except (ValueError, TypeError):
+            pass
+            
     for section in doc.sections:
-        section.top_margin = Inches(0.5)
-        section.bottom_margin = Inches(0.5)
-        section.left_margin = Inches(0.5)
-        section.right_margin = Inches(0.5)
+        section.top_margin = Inches(margin_val)
+        section.bottom_margin = Inches(margin_val)
+        section.left_margin = Inches(margin_val)
+        section.right_margin = Inches(margin_val)
         
     # Helpers for margins, borders and shading
     def set_cell_shading(cell, color_hex):
@@ -180,7 +191,7 @@ def generate_resume_template_docx(resume_data: Dict[str, Any], template_name: st
         font_name = 'Segoe UI'
         primary_color = RGBColor(0x0f, 0x17, 0x2a)
         accent_color = RGBColor(0x63, 0x66, 0xf1)
-        border_color_hex = "C7D2FE"
+        border_color_hex = "CBD5E1"
     elif template_name == "Data Analyst":
         font_name = 'Calibri'
         primary_color = RGBColor(0x1f, 0x29, 0x37)
@@ -475,15 +486,17 @@ def generate_resume_template_docx(resume_data: Dict[str, Any], template_name: st
             add_bottom_border(p_sec, border_color_hex)
             add_p(summary_text, size=9.5, space_after=8)
             
-        # Determine section order based on template
-        sections = ["experience", "projects", "skills", "education", "cert_lang"]
-        if template_name in ["Student/Fresher", "Student / Fresher"]:
-            sections = ["education", "projects", "skills", "experience", "cert_lang"]
-        elif template_name == "Data Analyst":
-            sections = ["skills", "experience", "projects", "education", "cert_lang"]
-        elif template_name == "Software Engineer":
-            sections = ["skills", "projects", "experience", "education", "cert_lang"]
-            
+        # Determine section order based on template/customization
+        sections = customization.get("section_order") or resume_data.get("section_order")
+        if not sections:
+            sections = ["experience", "projects", "skills", "education", "cert_lang"]
+            if template_name in ["Student/Fresher", "Student / Fresher"]:
+                sections = ["education", "projects", "skills", "experience", "cert_lang"]
+            elif template_name == "Data Analyst":
+                sections = ["skills", "experience", "projects", "education", "cert_lang"]
+            elif template_name == "Software Engineer":
+                sections = ["skills", "projects", "experience", "education", "cert_lang"]
+                
         for sec in sections:
             if sec == "experience" and experience:
                 p_sec = add_p("WORK EXPERIENCE", bold=True, size=12, color=accent_color, space_before=10, space_after=4)
@@ -612,6 +625,50 @@ def generate_resume_template_docx(resume_data: Dict[str, Any], template_name: st
                     r_sch.font.size = Pt(9.5)
                     r_sch.font.color.rgb = RGBColor(0x47, 0x55, 0x69)
                     
+            elif sec == "certifications" and certifications:
+                p_sec = add_p("CERTIFICATIONS", bold=True, size=12, color=accent_color, space_before=10, space_after=4)
+                add_bottom_border(p_sec, border_color_hex)
+                
+                cert_items = []
+                for cert in certifications:
+                    c_name = safe_get(cert, "name")
+                    c_issuer = safe_get(cert, "issuer")
+                    issuer_str = f" ({c_issuer})" if c_issuer else ""
+                    cert_items.append(f"{c_name}{issuer_str}")
+                if cert_items:
+                    add_p(", ".join(cert_items), size=9.5, space_after=6)
+                    
+            elif sec == "languages" and languages:
+                p_sec = add_p("LANGUAGES", bold=True, size=12, color=accent_color, space_before=10, space_after=4)
+                add_bottom_border(p_sec, border_color_hex)
+                
+                lang_items = []
+                for lang in languages:
+                    l_name = safe_get(lang, "language")
+                    prof = safe_get(lang, "proficiency")
+                    prof_str = f" ({prof})" if prof else ""
+                    lang_items.append(f"{l_name}{prof_str}")
+                if lang_items:
+                    add_p(", ".join(lang_items), size=9.5, space_after=6)
+                    
+            elif sec == "achievements" and resume_data.get("achievements"):
+                p_sec = add_p("ACHIEVEMENTS", bold=True, size=12, color=accent_color, space_before=10, space_after=4)
+                add_bottom_border(p_sec, border_color_hex)
+                
+                for ach in resume_data["achievements"]:
+                    add_p(f"• {ach}", size=9, space_after=2)
+                    
+            elif sec == "interests" and resume_data.get("interests"):
+                p_sec = add_p("INTERESTS & HOBBIES", bold=True, size=12, color=accent_color, space_before=10, space_after=4)
+                add_bottom_border(p_sec, border_color_hex)
+                add_p(", ".join(resume_data["interests"]), size=9.5, space_after=6)
+                
+            elif sec == "referees" and resume_data.get("referees"):
+                p_sec = add_p("REFERENCES", bold=True, size=12, color=accent_color, space_before=10, space_after=4)
+                add_bottom_border(p_sec, border_color_hex)
+                for ref in resume_data["referees"]:
+                    add_p(f"• {ref}", size=9, space_after=2)
+
             elif sec == "cert_lang" and (certifications or languages):
                 p_sec = add_p("CERTIFICATIONS & LANGUAGES", bold=True, size=12, color=accent_color, space_before=10, space_after=4)
                 add_bottom_border(p_sec, border_color_hex)
