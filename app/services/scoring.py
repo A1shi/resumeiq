@@ -130,125 +130,33 @@ PROFESSION_ROLES_SKILLS_MAP = {
 
 def enrich_ats_report_with_gemini(resume: models.Resume, base_data: dict) -> dict:
     """
-    Enriches the base ATS scores and parsed resume with premium career intelligence from Gemini.
-    Strictly follows anti-fabrication rules to prevent hallucinations.
+    Enriches the base ATS scores and parsed resume with premium career intelligence from ReportGenerator.
     """
-    exp_details = ""
-    for exp in (resume.experience or []):
-        exp_details += f"- Role: {exp.get('role')} at {exp.get('company')}\n  Description: {exp.get('description')}\n"
-    proj_details = ""
-    for proj in (resume.projects or []):
-        proj_details += f"- Project: {proj.get('title')}\n  Description: {proj.get('description')}\n  Tech: {', '.join(proj.get('technologies', []))}\n"
-        
-    detected_profession = getattr(resume, "profession", "General Professional") or "General Professional"
-    detected_industry = getattr(resume, "industry", "General Business") or "General Business"
-    detected_seniority = getattr(resume, "seniority", "Mid") or "Mid"
-    detected_experience_level = getattr(resume, "experience_level", "1-3 Years") or "1-3 Years"
-    detected_objective = getattr(resume, "career_objective", "") or ""
-
-    prompt = (
-        "You are an expert recruiter-grade career intelligence assistant. You are analyzing the following candidate resume:\n\n"
-        f"Candidate Name: {resume.name or 'Candidate'}\n"
-        f"Detected Profession: {detected_profession}\n"
-        f"Detected Industry: {detected_industry}\n"
-        f"Detected Seniority: {detected_seniority}\n"
-        f"Detected Experience Level: {detected_experience_level}\n"
-        f"Detected Career Objective: {detected_objective}\n"
-        f"Skills: {', '.join(resume.skills or [])}\n"
-        f"Experience:\n{exp_details}\n"
-        f"Projects:\n{proj_details}\n"
-        f"Education: {resume.education}\n"
-        f"Certifications: {resume.certifications}\n"
-        f"Languages: {resume.languages}\n\n"
-        f"Base ATS Scores (calculated out of 10):\n"
-        f"- Contact Information: {base_data.get('contact_score')}/10\n"
-        f"- Professional Summary: {base_data.get('summary_score')}/10\n"
-        f"- Skills Density: {base_data.get('skills_score')}/10\n"
-        f"- Work Experience: {base_data.get('experience_score')}/10\n"
-        f"- Projects Showcase: {base_data.get('projects_score')}/10\n"
-        f"- Education: {base_data.get('education_score')}/10\n"
-        f"- Certifications: {base_data.get('certifications_score')}/10\n"
-        f"- Formatting: {base_data.get('formatting_score')}/10\n"
-        f"- Keyword Match: {base_data.get('keyword_score')}/10\n"
-        f"Base Deductions: {base_data.get('deductions')}\n\n"
-        "Please generate a complete, premium, recruiter-grade career intelligence report. "
-        "Your output must be a single strict JSON object containing the following keys:\n"
-        "1. \"readiness_level\": string, one of: \"Beginner\", \"Developing\", \"Competitive\", \"Strong Candidate\", \"Interview Ready\"\n"
-        "2. Justifications for each score category explaining what is good or missing:\n"
-        "   - \"contact_reason\": string justification\n"
-        "   - \"summary_reason\": string justification\n"
-        "   - \"skills_reason\": string justification\n"
-        "   - \"experience_reason\": string justification\n"
-        "   - \"projects_reason\": string justification\n"
-        "   - \"education_reason\": string justification\n"
-        "   - \"certifications_reason\": string justification\n"
-        "   - \"formatting_reason\": string justification\n"
-        "   - \"keyword_reason\": string justification\n"
-        "3. Recruiter View details:\n"
-        "   - \"recruiters_like\": list of 3-4 specific strengths recruiters would appreciate in this resume\n"
-        "   - \"recruiters_reject\": list of 3-4 reasons a recruiter might pass on this resume\n"
-        "   - \"top_risks\": list of 3-4 critical risks/weaknesses\n"
-        "   - \"confidence_level\": string, one of: \"Low\", \"Medium\", \"High\"\n"
-        "4. \"top_matching_roles\": list of 10 matching roles. Each role is a JSON object with: \n"
-        "   - \"role\": role title (e.g. Software Engineer, Backend Developer, Data Analyst, Product Manager, etc. Generate dynamic roles suited to their background)\n"
-        "   - \"match_score\": integer matching percentage (0-100)\n"
-        "   - \"skill_gaps\": list of missing skills for this role\n"
-        "   - \"learning_roadmap\": list of 2-3 actions to qualify\n"
-        "   - \"expected_salary\": string salary range (e.g. \"$110,000 - $145,000\")\n"
-        "   - \"difficulty\": string difficulty (e.g. \"Medium\", \"High\", \"Low\")\n"
-        "5. \"skill_gap_analysis\": JSON object with keys:\n"
-        "   - \"current_skills\": list of candidate's skills\n"
-        "   - \"missing_skills\": list of target skills missing\n"
-        "   - \"future_skills\": list of emerging tools to learn\n"
-        "   - \"high_priority_gaps\": list of high-priority missing skills\n"
-        "   - \"medium_priority_gaps\": list of medium-priority missing skills\n"
-        "   - \"low_priority_gaps\": list of low-priority missing skills\n"
-        "6. Timeline Roadmaps:\n"
-        "   - \"seven_day_plan\": list of immediately actionable tasks (e.g., add LinkedIn, build portfolio)\n"
-        "   - \"thirty_day_plan\": list of 30-day target tasks\n"
-        "   - \"sixty_day_plan\": list of 60-day target tasks\n"
-        "   - \"ninety_day_plan\": list of 90-day target tasks\n"
-        "7. \"ai_resume_enhancement\": JSON object with keys:\n"
-        "   - \"improved_summary\": polished professional summary\n"
-        "   - \"improved_experience\": list of JSON objects, each with 'role', 'company', 'original', and 'improved' (bullet points separated by newlines, using action verbs, preserving actual details/metrics)\n"
-        "   - \"improved_projects\": list of JSON objects, each with 'title', 'original', and 'improved' (polished narrative)\n"
-        "   - \"improved_skills\": list of candidate skills formatted professionally\n"
-        "   - \"keyword_suggestions\": list of keyword suggestions\n"
-        "8. \"job_application_toolkit\": JSON object with keys:\n"
-        "   - \"professional_cover_letter\": full cover letter text\n"
-        "   - \"short_cover_letter\": short cover letter text\n"
-        "   - \"email_application\": email draft text\n"
-        "   - \"linkedin_outreach\": LinkedIn connection note text\n"
-        "   - \"recruiter_intro\": recruiter introduction message text\n"
-        "9. \"interview_preparation\": JSON object with keys:\n"
-        "   - \"hr_questions\": list of 3-5 personalized HR questions\n"
-        "   - \"technical_questions\": list of 3-5 personalized technical questions\n"
-        "   - \"resume_questions\": list of 3-5 personalized resume-specific questions\n"
-        "   - \"project_questions\": list of 3-5 personalized project-specific questions\n"
-        "   - \"behavioral_questions\": list of 3-5 personalized behavioral questions\n"
-        "10. Flat overview meta keys:\n"
-        f"   - \"candidate_profile\": string tag describing background. You MUST base this on the Detected Profession: '{detected_profession}' (e.g. '{detected_seniority} {detected_profession}').\n"
-        f"   - \"career_level\": string. You MUST use/adapt the Detected Seniority: '{detected_seniority}' (one of: 'Entry Level', 'Mid Level', 'Senior Level', 'Executive').\n"
-        f"   - \"industry_classification\": string. You MUST base this on the Detected Industry: '{detected_industry}'.\n"
-        f"   - \"experience_level\": string. You MUST use the Detected Experience Level: '{detected_experience_level}'.\n"
-        f"   - \"professional_summary\": string. You MUST use/adapt the Detected Career Objective: '{detected_objective}' and polish it professionally.\n\n"
-        "CRITICAL RULES FOR INTEGRITY AND QUALITY:\n"
-        "- NEVER invent, assume, or fabricate any numbers, percentages, timelines, companies, or achievements. "
-        "Only improve grammar, readability, and action verbs (e.g., change passive verbs to active verbs). "
-        "Keep existing metrics (like dates and percentages) exactly as they are without fabrication!\n"
-        "- Never convert dates into job titles.\n"
-        "- Never hallucinate skills. All recommendations must be traceable to the parsed resume data.\n"
-        "- NEVER recommend technical infrastructure, DevOps, or software development tools/skills (such as Docker, Kubernetes, AWS, Git, Python, Jenkins, Terraform, CI/CD, etc.) unless the candidate's detected profession is technical (e.g., Software Engineer, Android Developer, Data Analyst, Business Analyst, Graphic Designer, or when the resume contains clear evidence of coding/technical experience). For non-technical professions (such as Nurse, Teacher, Accountant, Customer Service, Hospitality, Sales, HR, etc.), recommend tools and skills that are domain-appropriate (e.g., Epic/Cerner EHR for Nurses, QuickBooks/GAAP for Accountants, Zendesk/CRM for Customer Service, LMS/pedagogy for Teachers).\n"
-        "- Return ONLY a valid JSON object in response. No markdown wrappers or comments."
-    )
+    from app.services.ai_engine import ReportGenerator
     
-    genai.configure(api_key=settings.GEMINI_API_KEY)
-    model = genai.GenerativeModel("gemini-1.5-flash")
-    response = model.generate_content(
-        prompt,
-        generation_config={"response_mime_type": "application/json"}
-    )
-    return json.loads(response.text)
+    resume_data = {
+        "name": resume.name,
+        "email": resume.email,
+        "phone": resume.phone,
+        "summary": resume.summary,
+        "profession": getattr(resume, "profession", "General Professional") or "General Professional",
+        "industry": getattr(resume, "industry", "General Business") or "General Business",
+        "seniority": getattr(resume, "seniority", "Mid") or "Mid",
+        "experience_level": getattr(resume, "experience_level", "1-3 Years") or "1-3 Years",
+        "skills": resume.skills or [],
+        "education": resume.education or [],
+        "experience": resume.experience or [],
+        "projects": resume.projects or [],
+        "certifications": resume.certifications or []
+    }
+    
+    try:
+        return ReportGenerator.generate_full_report(resume_data, base_data)
+    except Exception as e:
+        logger.error(f"ReportGenerator.generate_full_report failed: {str(e)}")
+        # Fall back to local enrichment if generator fails
+        return enrich_ats_report_local(resume, base_data)
+
 
 def clean_fabricated_metrics(original_desc: str, improved_desc: str) -> str:
     """
@@ -852,11 +760,14 @@ def evaluate_resume_ats(resume: models.Resume) -> ATSAnalysisSchema:
     keyword_score = 10
     
     if detected_prof not in PROFESSION_ROLES_SKILLS_MAP:
-        current_prof = "General Professional"
+        import difflib
+        closest = difflib.get_close_matches(detected_prof, PROFESSION_ROLES_SKILLS_MAP.keys(), n=1, cutoff=0.3)
+        current_prof = closest[0] if closest else "General Professional"
     else:
         current_prof = detected_prof
         
     ROLE_SKILLS_MAP = PROFESSION_ROLES_SKILLS_MAP[current_prof]
+
     
     candidate_skills_lower = [s.strip().lower() for s in (resume.skills or [])]
     
@@ -1113,68 +1024,33 @@ def generate_interview_prep_with_gemini(
     job_role: Optional[str] = None
 ) -> InterviewPrepSchema:
     """
-    Generates a highly personalized, recruiter-grade list of interview questions using Gemini AI.
-    Integrates resume data, job role, and target Job Description (if available).
+    Generates a highly personalized, recruiter-grade list of interview questions using modular QuestionGenerator.
     """
-    exp_details = ""
-    for exp in (resume.experience or []):
-        exp_details += f"- Role: {exp.get('role')} at {exp.get('company')}\n  Description: {exp.get('description')}\n"
-    proj_details = ""
-    for proj in (resume.projects or []):
-        proj_details += f"- Project: {proj.get('title')}\n  Description: {proj.get('description')}\n  Tech: {', '.join(proj.get('technologies', []))}\n"
-        
-    jd_prompt_part = ""
-    if jd_text:
-        jd_prompt_part = f"Target Job Description:\n{jd_text}\n\nNote: Please prioritize the requirements of this Job Description in your questions."
-    else:
-        jd_prompt_part = "No Target Job Description is uploaded. Base all questions on the candidate's resume and target job role."
-
-    role_prompt_part = ""
-    target_role = job_role or resume.profession
-    if target_role:
-        role_prompt_part = f"Target Job Role: {target_role}\n\nNote: Customize the questions to target this specific role."
-
-    prompt = (
-        "You are an expert recruiter and technical interviewer. Generate a highly personalized Interview Preparation list of questions based on the candidate's resume:\n\n"
-        f"Candidate Name: {resume.name or 'Candidate'}\n"
-        f"Skills: {', '.join(resume.skills or [])}\n"
-        f"Experience:\n{exp_details}\n"
-        f"Projects:\n{proj_details}\n"
-        f"Education: {resume.education}\n"
-        f"Certifications: {resume.certifications}\n"
-        f"Languages: {resume.languages}\n\n"
-        f"{role_prompt_part}\n\n"
-        f"{jd_prompt_part}\n\n"
-        "Your output must be a single strict JSON object containing the following keys matching the InterviewPrepSchema:\n"
-        "1. \"technical_readiness\": integer mock readiness score out of 100\n"
-        "2. \"hr_readiness\": integer mock readiness score out of 100\n"
-        "3. \"communication_readiness\": integer mock readiness score out of 100\n"
-        "4. \"overall_readiness\": integer mock readiness score out of 100 (weighted/average of the three)\n"
-        "5. \"resume_questions\": list of EXACTLY 10 personalized questions based on the candidate's uploaded resume (previous experience, education, skills, certifications, timeline/transitions).\n"
-        "6. \"jd_questions\": list of EXACTLY 10 personalized questions based on the target job description (if provided, otherwise standard questions matching the target job role). Each question must tie to specific job requirements.\n"
-        "7. \"technical_questions\": list of EXACTLY 10 personalized technical/coding questions based on the candidate's skills and tech stack.\n"
-        "8. \"hr_questions\": list of EXACTLY 10 personalized human resources/screening questions mapping to cultural fit, salary expectations, motivation, and professional behavior.\n"
-        "9. \"behavioral_questions\": list of EXACTLY 10 personalized behavioral questions (STAR scenario prep) relevant to their experience.\n"
-        "10. \"scenario_questions\": list of EXACTLY 10 personalized scenario-based questions (e.g. 'How would you handle a situation where...', dealing with team dynamic, timeline stress, production bugs).\n"
-        "11. \"project_questions\": list of EXACTLY 10 personalized project-based questions deep-diving into the candidate's actual projects (architecture, technical choices, challenges, scalability).\n"
-        "12. \"problem_solving_questions\": list of EXACTLY 10 personalized problem solving / logical reasoning / analytical questions.\n\n"
-        "For each question, provide a JSON object with keys:\n"
-        " - \"question\": string question text\n"
-        " - \"difficulty\": string difficulty (must be one of \"Easy\", \"Medium\", \"Hard\")\n\n"
-        "CRITICAL RULES:\n"
-        "- Do NOT include any answers, talking points, guidelines, or key points under any circumstances. Strictly generate only the questions and their difficulties.\n"
-        "- Do NOT fabricate facts about the candidate.\n"
-        "- Avoid duplicate or repetitive questions across the categories.\n"
-        "- Return ONLY a valid JSON object in response. No markdown wrappers or comments."
-    )
-
-    genai.configure(api_key=settings.GEMINI_API_KEY)
-    model = genai.GenerativeModel("gemini-1.5-flash")
-    response = model.generate_content(
-        prompt,
-        generation_config={"response_mime_type": "application/json"}
-    )
-    data = json.loads(response.text)
+    from app.services.ai_engine import QuestionGenerator
+    
+    resume_data = {
+        "experience": resume.experience or [],
+        "projects": resume.projects or []
+    }
+    
+    profession = job_role or getattr(resume, "profession", "General Professional") or "General Professional"
+    seniority = getattr(resume, "seniority", "Mid") or "Mid"
+    exp_years = getattr(resume, "experience_level", "1-3 Years") or "1-3 Years"
+    skills = resume.skills or []
+    
+    try:
+        data = QuestionGenerator.generate_questions(
+            resume_data=resume_data,
+            profession=profession,
+            seniority=seniority,
+            experience_years=exp_years,
+            skills=skills,
+            jd_text=jd_text
+        )
+    except Exception as e:
+        logger.error(f"QuestionGenerator.generate_questions failed: {str(e)}")
+        # Fall back to local question generator
+        return generate_interview_prep_local(resume, jd_text, job_role)
     
     return InterviewPrepSchema(
         technical_readiness=data.get("technical_readiness", 0),
@@ -1190,6 +1066,7 @@ def generate_interview_prep_with_gemini(
         project_questions=[InterviewQuestion2Schema(**q) for q in data.get("project_questions", [])],
         problem_solving_questions=[InterviewQuestion2Schema(**q) for q in data.get("problem_solving_questions", [])]
     )
+
 
 def generate_interview_prep_local(
     resume: models.Resume,

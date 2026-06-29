@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -54,6 +55,7 @@ fun DashboardScreen(
     onLogout: () -> Unit
 ) {
     val context = LocalContext.current
+    val isDark = isSystemInDarkTheme()
     val contentResolver = context.contentResolver
     val statsState by authViewModel.statsState.collectAsState()
     val uploadState by detailViewModel.uploadState.collectAsState()
@@ -652,14 +654,14 @@ fun DashboardScreen(
                                                 Spacer(modifier = Modifier.height(2.dp))
                                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                                     Text(
-                                                        text = "Score: ${item.atsScore}%",
+                                                        text = "Score: ${item.atsScore ?: 0}%",
                                                         fontSize = 11.sp,
                                                         fontWeight = FontWeight.Bold,
-                                                        color = if (item.atsScore >= 70) Color(0xFF00E676) else Color(0xFFFF9100)
+                                                        color = if ((item.atsScore ?: 0) >= 70) Color(0xFF00E676) else Color(0xFFFF9100)
                                                     )
                                                     Spacer(modifier = Modifier.width(8.dp))
                                                     Text(
-                                                        text = "•  ${item.uploadedAt}",
+                                                        text = "•  ${item.createdAt}",
                                                         fontSize = 11.sp,
                                                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                                                     )

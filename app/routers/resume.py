@@ -179,52 +179,34 @@ def get_available_templates(
     """
     return [
         {
-            "name": "ATS Professional",
-            "description": "Standard single-column format optimized for ATS parsing and readability.",
+            "name": "Classic Slate",
+            "description": "Premium two-column layout with a sleek dark slate sidebar on the left and white content on the right, providing high contrast and elegant readability.",
             "category": "Professional",
-            "supported_formats": ["pdf", "docx"]
+            "supported_formats": ["pdf"]
         },
         {
-            "name": "Modern Professional",
-            "description": "Clean, contemporary design with subtle layout elements and professional formatting.",
-            "category": "Professional",
-            "supported_formats": ["pdf", "docx"]
-        },
-        {
-            "name": "Software Engineer",
-            "description": "Tailored for software engineering and technical roles, highlighting skills, languages, and technical projects.",
-            "category": "Technical",
-            "supported_formats": ["pdf", "docx"]
-        },
-        {
-            "name": "Data Analyst",
-            "description": "Optimized layout for analytical roles, placing focus on skills toolkit and certification credentials.",
-            "category": "Technical",
-            "supported_formats": ["pdf", "docx"]
-        },
-        {
-            "name": "Executive",
-            "description": "Premium layout with generous margins and dignified structure for senior candidates and executives.",
-            "category": "Executive",
-            "supported_formats": ["pdf", "docx"]
-        },
-        {
-            "name": "Creative",
-            "description": "Vibrant two-column style showcasing personality, creative projects, and highlighted credentials.",
+            "name": "Modern Teal",
+            "description": "Creative layout featuring a prominent teal header, circular profile picture, dark contact info strip, and clean dual-column layout below.",
             "category": "Creative",
-            "supported_formats": ["pdf", "docx"]
+            "supported_formats": ["pdf"]
         },
         {
-            "name": "Minimal Elegant",
-            "description": "Ultra-clean and modern, utilizing spacious typography and elegant spacing.",
+            "name": "Navy Premium",
+            "description": "Polished executive template with a prominent left-aligned header and a dark navy sidebar on the right for key achievements, skills, and languages.",
+            "category": "Executive",
+            "supported_formats": ["pdf"]
+        },
+        {
+            "name": "Red Accent",
+            "description": "Bold minimalist design with high-impact typography, dark contact banner, and deep red horizontal section dividers.",
             "category": "Minimal",
-            "supported_formats": ["pdf", "docx"]
+            "supported_formats": ["pdf"]
         },
         {
-            "name": "Student/Fresher",
-            "description": "Academic-focused layout prioritizing education history, internships, and dynamic extracurricular credentials.",
-            "category": "Academic",
-            "supported_formats": ["pdf", "docx"]
+            "name": "Corporate Blue",
+            "description": "Dignified and clean corporate template with a subtle blue brand theme, full-width sections, and structured skill grid.",
+            "category": "Corporate",
+            "supported_formats": ["pdf"]
         }
     ]
 
@@ -1260,7 +1242,7 @@ def suggest_skills(
                 "  \"missing_keywords\": [\"string\"]\n"
                 "}"
             )
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            model = genai.GenerativeModel("gemini-2.5-flash")
             response = model.generate_content(prompt, generation_config={"response_mime_type": "application/json"})
             import json
             return json.loads(response.text)

@@ -25,6 +25,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
 import com.aashi.resumeiq.ui.auth.AuthViewModel
 import com.aashi.resumeiq.ui.auth.UiState
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

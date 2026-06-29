@@ -47,11 +47,21 @@ fun InterviewPrepScreen(
 ) {
     val context = LocalContext.current
     val atsState by viewModel.atsState.collectAsState()
+    val detailState by viewModel.detailState.collectAsState()
     val downloadState by viewModel.prepDownloadState.collectAsState()
     val interviewTourCompleted by authViewModel.interviewTourCompleted.collectAsState(initial = true)
 
     var jdText by rememberSaveable { mutableStateOf("") }
     var jobRole by rememberSaveable { mutableStateOf("") }
+
+    LaunchedEffect(detailState) {
+        if (detailState is UiState.Success) {
+            val resume = (detailState as UiState.Success).data
+            if (jobRole.isBlank() && !resume.profession.isNullOrBlank()) {
+                jobRole = resume.profession
+            }
+        }
+    }
     var selectedTabIdx by rememberSaveable { mutableStateOf(0) }
     var activeDifficulty by rememberSaveable { mutableStateOf("ALL") }
     var isPracticeMode by rememberSaveable { mutableStateOf(false) }
@@ -144,13 +154,6 @@ fun InterviewPrepScreen(
                 is UiState.Success -> {
                     val analysis = state.data
                     val prep = analysis.interviewPrep
-
-                    // Sync target role if loaded
-                    LaunchedEffect(analysis) {
-                        if (jobRole.isBlank() && !analysis.profession.isNullOrBlank()) {
-                            jobRole = analysis.profession
-                        }
-                    }
 
                     LazyColumn(
                         verticalArrangement = Arrangement.spacedBy(16.dp),

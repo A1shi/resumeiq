@@ -84,7 +84,7 @@ def extract_text_from_image_gemini(file_path: str) -> str:
     try:
         img = Image.open(file_path)
         genai.configure(api_key=settings.GEMINI_API_KEY)
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        model = genai.GenerativeModel("gemini-2.5-flash")
         
         response = model.generate_content([
             "Extract all readable text from this resume image. Output only the plain text found in the image. Keep the original structure as much as possible.",

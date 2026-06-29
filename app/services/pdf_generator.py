@@ -872,6 +872,33 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
     
     if customization is None:
         customization = resume_data.get("customization") or {}
+
+    # Map old template names to new ones to ensure backwards compatibility
+    template_map = {
+        "ATS Professional": "Corporate Blue",
+        "Modern Professional": "Classic Slate",
+        "Software Engineer": "Corporate Blue",
+        "Data Analyst": "Corporate Blue",
+        "Executive": "Navy Premium",
+        "Executive Resume": "Navy Premium",
+        "Creative": "Modern Teal",
+        "Creative Designer": "Modern Teal",
+        "Creative Resume": "Modern Teal",
+        "Minimal Elegant": "Red Accent",
+        "Student/Fresher": "Corporate Blue",
+        "Student / Fresher": "Corporate Blue",
+        "ATS Clean": "Corporate Blue",
+        "ATS Clean Resume": "Corporate Blue",
+        "Blue Sidebar": "Classic Slate",
+        "Blue Sidebar Resume": "Classic Slate",
+        "Elegant": "Corporate Blue",
+        "Elegant Resume": "Corporate Blue",
+        "Compact One Page": "Red Accent",
+        "Compact": "Red Accent"
+    }
+    
+    if template_name in template_map:
+        template_name = template_map[template_name]
         
     # 1. Setup margins & document properties based on template
     top_margin = 36
@@ -886,16 +913,11 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
         except (ValueError, TypeError):
             pass
     else:
-        if template_name == "Minimal Elegant":
+        if template_name == "Red Accent":
             top_margin = 48
             bottom_margin = 48
             left_margin = 48
             right_margin = 48
-        elif template_name in ["Executive", "Executive Resume"]:
-            top_margin = 54
-            bottom_margin = 54
-            left_margin = 54
-            right_margin = 54
 
     doc = SimpleDocTemplate(
         buffer,
@@ -908,99 +930,37 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
     
     styles = getSampleStyleSheet()
     
-    # 2. Extract theme colors, fonts, and configuration
-    primary_color = colors.HexColor("#1e293b")  # default dark slate
-    accent_color = colors.HexColor("#4f46e5")   # indigo
-    divider_color = colors.HexColor("#cbd5e1")  # grey
+    # 2. Setup theme colors & typography defaults based on the new premium designs
+    primary_color = colors.HexColor("#1e293b")  # default slate
+    accent_color = colors.HexColor("#0f766e")   # default teal
+    divider_color = colors.HexColor("#cbd5e1")  # default grey
     font_family = "DejaVuSans"
     font_bold = "DejaVuSans-Bold"
     font_italic = "DejaVuSans-Oblique"
     
-    # Template base styling defaults
-    if template_name == "ATS Professional":
-        primary_color = colors.HexColor("#0f172a") # dark slate
-        accent_color = colors.HexColor("#334155")  # slate-700
-        divider_color = colors.HexColor("#cbd5e1")
-        font_family = "DejaVuSans"
-        font_bold = "DejaVuSans-Bold"
-        font_italic = "DejaVuSans-Oblique"
-    elif template_name == "Modern Professional":
-        primary_color = colors.HexColor("#0f172a")
-        accent_color = colors.HexColor("#2563eb")   # blue
-        divider_color = colors.HexColor("#cbd5e1")
-        font_family = "DejaVuSans"
-        font_bold = "DejaVuSans-Bold"
-        font_italic = "DejaVuSans-Oblique"
-    elif template_name in ["Creative", "Creative Designer", "Creative Resume"]:
-        primary_color = colors.HexColor("#1e1b4b") # deep indigo
-        accent_color = colors.HexColor("#ec4899")  # rose/pink
-        divider_color = colors.HexColor("#f472b6")  # light rose
-        font_family = "DejaVuSans"
-        font_bold = "DejaVuSans-Bold"
-        font_italic = "DejaVuSans-Oblique"
-    elif template_name == "Software Engineer":
-        primary_color = colors.HexColor("#0f172a")
-        accent_color = colors.HexColor("#6366f1")   # indigo-500
-        divider_color = colors.HexColor("#cbd5e1")
-        font_family = "DejaVuSans"
-        font_bold = "DejaVuSans-Bold"
-        font_italic = "DejaVuSans-Oblique"
-    elif template_name == "Data Analyst":
-        primary_color = colors.HexColor("#1f2937")
-        accent_color = colors.HexColor("#0f766e")   # teal
-        divider_color = colors.HexColor("#99f6e4")
-        font_family = "DejaVuSans"
-        font_bold = "DejaVuSans-Bold"
-        font_italic = "DejaVuSans-Oblique"
-    elif template_name in ["Executive", "Executive Resume"]:
-        primary_color = colors.HexColor("#0f172a")
-        accent_color = colors.HexColor("#1e3a8a")   # deep navy
-        divider_color = colors.HexColor("#d97706")  # gold
-        font_family = "DejaVuSerif"
-        font_bold = "DejaVuSerif-Bold"
-        font_italic = "DejaVuSerif-Italic"
-    elif template_name == "Minimal Elegant":
-        primary_color = colors.HexColor("#09090b") # zinc-950
-        accent_color = colors.HexColor("#71717a")  # zinc-500
-        divider_color = colors.HexColor("#e4e4e7")
-        font_family = "DejaVuSerif"
-        font_bold = "DejaVuSerif-Bold"
-        font_italic = "DejaVuSerif-Italic"
-    elif template_name in ["Student/Fresher", "Student / Fresher"]:
+    if template_name == "Classic Slate":
         primary_color = colors.HexColor("#1e293b")
-        accent_color = colors.HexColor("#10b981")   # emerald
-        divider_color = colors.HexColor("#a7f3d0")
-        font_family = "DejaVuSans"
-        font_bold = "DejaVuSans-Bold"
-        font_italic = "DejaVuSans-Oblique"
-    elif template_name in ["ATS Clean", "ATS Clean Resume"]:
-        primary_color = colors.HexColor("#0f172a")
-        accent_color = colors.HexColor("#475569")
-        divider_color = colors.HexColor("#0f172a")
-        font_family = "DejaVuSans"
-        font_bold = "DejaVuSans-Bold"
-        font_italic = "DejaVuSans-Oblique"
-    elif template_name in ["Blue Sidebar", "Blue Sidebar Resume"]:
+        accent_color = colors.HexColor("#0f766e")
+        divider_color = colors.HexColor("#94a3b8")
+    elif template_name == "Modern Teal":
+        primary_color = colors.HexColor("#0f766e")
+        accent_color = colors.HexColor("#0d9488")
+        divider_color = colors.HexColor("#5eead4")
+    elif template_name == "Navy Premium":
         primary_color = colors.HexColor("#1e3a8a")
-        accent_color = colors.HexColor("#3b82f6")
-        divider_color = colors.HexColor("#cbd5e1")
-        font_family = "DejaVuSans"
-        font_bold = "DejaVuSans-Bold"
-        font_italic = "DejaVuSans-Oblique"
-    elif template_name in ["Elegant", "Elegant Resume"]:
-        primary_color = colors.HexColor("#7c2d12")
-        accent_color = colors.HexColor("#ea580c")
-        divider_color = colors.HexColor("#ea580c")
+        accent_color = colors.HexColor("#2563eb")
+        divider_color = colors.HexColor("#bfdbfe")
         font_family = "DejaVuSerif"
         font_bold = "DejaVuSerif-Bold"
         font_italic = "DejaVuSerif-Italic"
-    elif template_name in ["Compact One Page", "Compact"]:
-        primary_color = colors.HexColor("#0f172a")
-        accent_color = colors.HexColor("#475569")
-        divider_color = colors.HexColor("#475569")
-        font_family = "DejaVuSans"
-        font_bold = "DejaVuSans-Bold"
-        font_italic = "DejaVuSans-Oblique"
+    elif template_name == "Red Accent":
+        primary_color = colors.HexColor("#be123c")  # Crimson Red
+        accent_color = colors.HexColor("#991b1b")
+        divider_color = colors.HexColor("#fca5a5")
+    elif template_name == "Corporate Blue":
+        primary_color = colors.HexColor("#1e40af")
+        accent_color = colors.HexColor("#1d4ed8")
+        divider_color = colors.HexColor("#bfdbfe")
 
     # Font Family Customization
     cust_font = customization.get("fontFamily")
@@ -1029,7 +989,6 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
     if cust_accent:
         try:
             accent_color = colors.HexColor(cust_accent)
-            divider_color = colors.HexColor(cust_accent + "40") if len(cust_accent) == 7 else colors.HexColor("#cbd5e1")
         except Exception:
             pass
 
@@ -1050,11 +1009,43 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
         except (ValueError, TypeError):
             pass
 
-    sec_spacing_before = 7.0
-    cust_sec_spacing = customization.get("sectionSpacing")
-    if cust_sec_spacing is not None:
+    # Text Color Customization
+    text_color_hex = customization.get("textColor", "#1f2937")
+    try:
+        text_color = colors.HexColor(text_color_hex)
+    except Exception:
+        text_color = colors.HexColor("#1f2937")
+
+    # Font Weight Customization
+    font_weight_val = customization.get("fontWeight", "normal")
+    if font_weight_val == "bold":
+        body_font = font_bold
+    else:
+        body_font = font_family
+
+    # Alignment Customization
+    align_val = customization.get("alignment", "left")
+    align_map = {"left": 0, "center": 1, "right": 2, "justify": 4}
+    body_align = align_map.get(align_val.lower(), 0)
+
+    # Paragraph Spacing Customization
+    para_spacing = 4.0
+    cust_para_spacing = customization.get("paragraphSpacing")
+    if cust_para_spacing is not None:
         try:
-            sec_spacing_before = float(cust_sec_spacing)
+            para_spacing = float(cust_para_spacing)
+        except (ValueError, TypeError):
+            pass
+
+    # Divider Style Customization
+    divider_style = customization.get("dividerStyle", "solid")
+
+    # Sidebar Width Customization
+    sidebar_width_pct = 32.0
+    cust_sidebar_width = customization.get("sidebarWidth")
+    if cust_sidebar_width is not None:
+        try:
+            sidebar_width_pct = float(cust_sidebar_width)
         except (ValueError, TypeError):
             pass
 
@@ -1086,7 +1077,7 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
         fontSize=base_font_size * 1.2,
         leading=base_font_size * 1.2 * line_spacing,
         textColor=accent_color,
-        spaceBefore=sec_spacing_before,
+        spaceBefore=7.0,
         spaceAfter=3,
         keepWithNext=True
     )
@@ -1094,11 +1085,12 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
     body_style = ParagraphStyle(
         'ResumeBody',
         parent=styles['Normal'],
-        fontName=font_family,
+        fontName=body_font,
         fontSize=base_font_size,
         leading=base_font_size * line_spacing,
-        textColor=colors.HexColor("#1f2937"),
-        spaceAfter=3
+        textColor=text_color,
+        spaceAfter=para_spacing,
+        alignment=body_align
     )
     
     bullet_style = ParagraphStyle(
@@ -1106,7 +1098,8 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
         parent=body_style,
         leftIndent=12,
         firstLineIndent=-8,
-        spaceAfter=2.5
+        spaceAfter=para_spacing,
+        alignment=body_align
     )
     
     job_header_left = ParagraphStyle(
@@ -1133,26 +1126,82 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
     email = resume_data.get("email") or "email@example.com"
     phone = resume_data.get("phone") or "Phone Not Provided"
     skills = resume_data.get("skills") or []
+    education = resume_data.get("education") or []
     experience = resume_data.get("experience") or []
     projects = resume_data.get("projects") or []
-    education = resume_data.get("education") or []
     certifications = resume_data.get("certifications") or []
     languages = resume_data.get("languages") or []
-    summary_text = resume_data.get("professional_summary") or ""
+    summary_text = resume_data.get("professional_summary") or resume_data.get("summary") or ""
+    achievements = resume_data.get("achievements") or []
+    leadership = resume_data.get("leadership") or []
+    interests = resume_data.get("interests") or []
+    referees = resume_data.get("referees") or []
+
+    # Address / Location helper
+    location = ""
+    if customization.get("address"):
+        location = customization.get("address")
+    elif resume_data.get("phone") and len(resume_data.get("phone")) > 15:
+        # Fallback if address parsed into phone or something
+        location = ""
  
     # Helper to add divider
-    def add_divider(story_list, color=divider_color):
-        div_table = Table([[""]], colWidths=[540], rowHeights=[1])
+    def add_divider(story_list, width, color=divider_color):
+        if divider_style == "none":
+            return
+        div_table = Table([[""]], colWidths=[width], rowHeights=[1])
         div_table.setStyle(TableStyle([
             ('LINEBELOW', (0,0), (-1,-1), 0.75, color),
             ('BOTTOMPADDING', (0,0), (-1,-1), 0),
-            ('TOPPADDING', (0,0), (-1,-1), 0)
+            ('TOPPADDING', (0,0), (-1,-1), 0),
+            ('LEFTPADDING', (0,0), (-1,-1), 0),
+            ('RIGHTPADDING', (0,0), (-1,-1), 0)
         ]))
         story_list.append(div_table)
         story_list.append(Spacer(1, 4))
- 
-    # Dual Column layouts: Modern Professional / Blue Sidebar
-    if template_name in ["Modern Professional", "Blue Sidebar"]:
+
+    # Helper to format bullets nicely
+    def render_bullets(bullet_text, target_list):
+        if not bullet_text:
+            return
+        for bullet in bullet_text.split("\n"):
+            if bullet.strip():
+                b_clean = bullet.strip().lstrip("-").lstrip("•").strip()
+                target_list.append(Paragraph(f"• {b_clean}", bullet_style))
+
+    # Dynamic sections ordering
+    sections = customization.get("section_order") or resume_data.get("section_order")
+    if not sections:
+        sections = ["experience", "projects", "skills", "education", "certifications", "languages", "achievements", "leadership", "interests", "referees"]
+
+    # =========================================================================
+    # TEMPLATE 1: CLASSIC SLATE (Left Sidebar)
+    # =========================================================================
+    if template_name == "Classic Slate":
+        sidebar_w = doc.width * (sidebar_width_pct / 100.0)
+        main_w = doc.width * (1.0 - sidebar_width_pct / 100.0)
+        usable_main_w = main_w - 12
+        usable_sidebar_w = sidebar_w - 12
+
+        # Setup sidebar style
+        side_sec_title = ParagraphStyle(
+            'SideSecTitle',
+            parent=section_title_style,
+            fontSize=10.5,
+            leading=13.5,
+            textColor=colors.white,
+            spaceBefore=6,
+            spaceAfter=3
+        )
+        side_body = ParagraphStyle(
+            'SideBody',
+            parent=body_style,
+            fontSize=8.5,
+            leading=11.5,
+            textColor=colors.HexColor("#d4d4d8"),
+            spaceAfter=3
+        )
+
         left_row1 = []
         left_row2 = []
         left_row3 = []
@@ -1162,90 +1211,61 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
         right_row2 = []
         right_row3 = []
         right_row4 = []
-        
-        # Sidebar text custom colors
-        side_body_color = colors.white if template_name == "Blue Sidebar" else colors.HexColor("#334155")
-        side_title_color = colors.HexColor("#38bdf8") if template_name == "Blue Sidebar" else accent_color
 
-        # Sidebar text styling
-        side_sec_title = ParagraphStyle(
-            'SideSecTitle',
-            parent=section_title_style,
-            fontSize=10.5,
-            leading=13.5,
-            textColor=side_title_color,
-            spaceBefore=6,
-            spaceAfter=3
-        )
-        
-        side_body = ParagraphStyle(
-            'SideBody',
-            parent=body_style,
-            fontSize=8.5,
-            leading=11.5,
-            textColor=side_body_color,
-            spaceAfter=3
-        )
-        
-        # Row 1 Left: Contact
+        # Left Column - Row 1: Profile Photo and Contact
         profile_img = make_rl_profile_image(customization.get("profilePhoto"), customization)
         if profile_img:
             left_row1.append(profile_img)
             left_row1.append(Spacer(1, 8))
         left_row1.append(Paragraph("CONTACT INFO", side_sec_title))
+        if location:
+            left_row1.append(Paragraph(f"📍 {location}", side_body))
         left_row1.append(Paragraph(f"✉ {email}", side_body))
         left_row1.append(Paragraph(f"☎ {phone}", side_body))
         left_row1.append(Spacer(1, 8))
-        
-        # Row 2 Left: Skills
-        if skills:
-            left_row2.append(Paragraph("SKILLS", side_sec_title))
-            for idx, s in enumerate(skills):
-                percentages = [90, 85, 80, 75, 95]
-                pct = percentages[idx % len(percentages)]
-                left_row2.append(Paragraph(f"<b>{s}</b> ({pct}%)", side_body))
-                left_row2.append(make_pdf_progress_bar(pct, accent_color, total_width=140))
+
+        # Left Column - Row 2: Education
+        if education:
+            left_row2.append(Paragraph("EDUCATION", side_sec_title))
+            for edu in education:
+                degree = edu.get("degree") or "Degree"
+                major = edu.get("field_of_study") or ""
+                school = edu.get("school") or "University"
+                end = edu.get("end_date") or ""
+                deg_str = f"<b>{degree}</b><br/>{major}<br/>{school} ({end})"
+                left_row2.append(Paragraph(deg_str, side_body))
                 left_row2.append(Spacer(1, 4))
             left_row2.append(Spacer(1, 8))
-            
-        # Row 3 Left: Languages
-        if languages:
-            left_row3.append(Paragraph("LANGUAGES", side_sec_title))
-            for lang in languages:
-                l_name = lang.get("language") if isinstance(lang, dict) else getattr(lang, 'language', '')
-                prof = lang.get("proficiency") if isinstance(lang, dict) else getattr(lang, 'proficiency', '')
-                prof_str = f" ({prof})" if prof else ""
-                left_row3.append(Paragraph(f"• {l_name}{prof_str}", side_body))
-            left_row3.append(Spacer(1, 8))
-            
-        # Row 4 Left: Certifications
+
+        # Left Column - Row 3: Certifications
         if certifications:
-            left_row4.append(Paragraph("CERTIFICATIONS", side_sec_title))
+            left_row3.append(Paragraph("CERTIFICATIONS", side_sec_title))
             for cert in certifications:
                 c_name = cert.get("name") if isinstance(cert, dict) else getattr(cert, 'name', '')
-                left_row4.append(Paragraph(f"• {c_name}", side_body))
-                
-        # Main content area - Profile Card
-        card_flowables = []
-        card_flowables.append(Paragraph(name.upper(), ParagraphStyle('ModName', parent=name_style, fontSize=18, leading=22, textColor=colors.HexColor("#0f172a"))))
-        card_flowables.append(Paragraph("PROFESSIONAL PROFILE", ParagraphStyle('ModSubtitle', parent=body_style, fontName=font_bold, textColor=accent_color, fontSize=8.5, spaceBefore=2)))
-        if summary_text:
-            card_flowables.append(Spacer(1, 4))
-            card_flowables.append(Paragraph(summary_text, ParagraphStyle('ModSummary', parent=body_style, fontSize=8.5, leading=11.5)))
-        
-        profile_card = Table([[card_flowables]], colWidths=[363])
-        profile_card.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#f8fafc")),
-            ('PADDING', (0,0), (-1,-1), 10),
-            ('VALIGN', (0,0), (-1,-1), 'TOP'),
-            ('BOX', (0,0), (-1,-1), 1, colors.HexColor("#e2e8f0")),
-        ]))
-        right_row1.append(profile_card)
+                left_row3.append(Paragraph(f"• {c_name}", side_body))
+            left_row3.append(Spacer(1, 8))
+
+        # Left Column - Row 4: Skills
+        if skills:
+            left_row4.append(Paragraph("SKILLS", side_sec_title))
+            for s in skills:
+                left_row4.append(Paragraph(f"• {s}", side_body))
+            left_row4.append(Spacer(1, 8))
+
+        # Right Column - Row 1: Name and Summary
+        right_row1.append(Paragraph(name.upper(), name_style))
+        prof_title = customization.get("jobTitle") or resume_data.get("profession") or "Professional"
+        right_row1.append(Paragraph(prof_title, ParagraphStyle('ClassicSubtitle', parent=body_style, fontName=font_bold, textColor=accent_color, fontSize=11, spaceBefore=2)))
         right_row1.append(Spacer(1, 10))
         
-        # Row 2 Right: Experience
+        if summary_text:
+            right_row1.append(Paragraph("PROFESSIONAL SUMMARY", section_title_style))
+            right_row1.append(Paragraph(summary_text, body_style))
+            right_row1.append(Spacer(1, 8))
+
+        # Right Column - Row 2: Experience
         if experience:
-            right_row2.append(Paragraph("WORK EXPERIENCE", section_title_style))
+            right_row2.append(Paragraph("WORK HISTORY", section_title_style))
             for exp in experience:
                 role = exp.get("role") or "Role"
                 company = exp.get("company") or "Company"
@@ -1254,183 +1274,308 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
                 desc = exp.get("description") or ""
                 
                 exp_data = [
-                    [Paragraph(f"<b>{role}</b> at {company}", job_header_left), Paragraph(f"{start} - {end}", job_header_right)]
+                    [Paragraph(f"<b>{role}</b>  |  {company}", job_header_left), Paragraph(f"{start} - {end}", job_header_right)]
                 ]
-                exp_table = Table(exp_data, colWidths=[240, 110])
+                exp_table = Table(exp_data, colWidths=[usable_main_w * 0.7, usable_main_w * 0.3])
                 exp_table.setStyle(TableStyle([
                     ('PADDING', (0,0), (-1,-1), 0),
                     ('VALIGN', (0,0), (-1,-1), 'TOP')
                 ]))
                 right_row2.append(exp_table)
                 right_row2.append(Spacer(1, 2))
-                
-                if desc:
-                    for bullet in desc.split("\n"):
-                        if bullet.strip():
-                            b_text = bullet.strip().lstrip("-").lstrip("•").strip()
-                            right_row2.append(Paragraph(f"• {b_text}", bullet_style))
-                right_row2.append(Spacer(1, 4))
-                
-        # Row 3 Right: Projects
+                render_bullets(desc, right_row2)
+                right_row2.append(Spacer(1, 6))
+
+        # Right Column - Row 3: Languages & Projects
+        if languages:
+            right_row3.append(Paragraph("LANGUAGES", section_title_style))
+            lang_strs = []
+            for lang in languages:
+                l_name = lang.get("language") if isinstance(lang, dict) else getattr(lang, 'language', '')
+                prof = lang.get("proficiency") if isinstance(lang, dict) else getattr(lang, 'proficiency', '')
+                lang_strs.append(f"{l_name} ({prof})" if prof else l_name)
+            right_row3.append(Paragraph(", ".join(lang_strs), body_style))
+            right_row3.append(Spacer(1, 6))
+
         if projects:
             right_row3.append(Paragraph("PROJECTS", section_title_style))
             for proj in projects:
                 title = proj.get("title") or "Project Title"
                 desc = proj.get("description") or ""
-                tech = ", ".join(proj.get("technologies") or [])
-                tech_suffix = f" ({tech})" if tech else ""
-                
-                proj_data = [
-                    [Paragraph(f"<b>{title}</b>{tech_suffix}", job_header_left), Paragraph("", job_header_right)]
-                ]
-                proj_table = Table(proj_data, colWidths=[240, 110])
-                proj_table.setStyle(TableStyle([
-                    ('PADDING', (0,0), (-1,-1), 0),
-                    ('VALIGN', (0,0), (-1,-1), 'TOP')
-                ]))
-                right_row3.append(proj_table)
+                right_row3.append(Paragraph(f"<b>{title}</b>", job_header_left))
                 right_row3.append(Spacer(1, 2))
-                
-                if desc:
-                    for bullet in desc.split("\n"):
-                        if bullet.strip():
-                            b_text = bullet.strip().lstrip("-").lstrip("•").strip()
-                            right_row3.append(Paragraph(f"• {b_text}", bullet_style))
+                render_bullets(desc, right_row3)
                 right_row3.append(Spacer(1, 4))
-                
-        # Row 4 Right: Education
-        if education:
-            right_row4.append(Paragraph("EDUCATION", section_title_style))
-            for edu in education:
-                degree = edu.get("degree") or "Degree"
-                major = edu.get("field_of_study") or ""
-                school = edu.get("school") or "School/University"
-                end = edu.get("end_date") or ""
-                
-                degree_str = f"{degree} in {major}" if major else degree
-                edu_data = [
-                    [Paragraph(f"<b>{degree_str}</b>  —  {school}", body_style), Paragraph(end, job_header_right)]
-                ]
-                edu_table = Table(edu_data, colWidths=[240, 110])
-                edu_table.setStyle(TableStyle([
-                    ('PADDING', (0,0), (-1,-1), 0),
-                    ('VALIGN', (0,0), (-1,-1), 'TOP')
-                ]))
-                right_row4.append(edu_table)
-                right_row4.append(Spacer(1, 4))
-                
-        # Append Achievements, Leadership, Interests, Referees to Modern Professional main column
-        achievements = resume_data.get("achievements")
+
+        # Right Column - Row 4: Achievements, Leadership, Interests, Referees
         if achievements:
             right_row4.append(Paragraph("ACHIEVEMENTS", section_title_style))
             for ach in achievements:
                 right_row4.append(Paragraph(f"• {ach}", bullet_style))
             right_row4.append(Spacer(1, 4))
-            
-        leadership = resume_data.get("leadership")
         if leadership:
             right_row4.append(Paragraph("LEADERSHIP", section_title_style))
             for lead in leadership:
                 right_row4.append(Paragraph(f"• {lead}", bullet_style))
             right_row4.append(Spacer(1, 4))
-            
-        interests = resume_data.get("interests")
         if interests:
             right_row4.append(Paragraph("INTERESTS & HOBBIES", section_title_style))
             right_row4.append(Paragraph(", ".join(interests), body_style))
             right_row4.append(Spacer(1, 4))
-            
-        referees = resume_data.get("referees")
         if referees:
             right_row4.append(Paragraph("REFERENCES", section_title_style))
             for ref in referees:
                 right_row4.append(Paragraph(f"• {ref}", bullet_style))
             right_row4.append(Spacer(1, 4))
-            
-        # Build multi-row table to allow ReportLab to split across pages
-        sidebar_bg_hex = "#1e3a8a" if template_name == "Blue Sidebar" else "#f8fafc"
-        sidebar_line_color = colors.HexColor("#3b82f6") if template_name == "Blue Sidebar" else colors.HexColor("#cbd5e1")
-        sidebar_on_right = customization.get("sidebarLayout") == "right"
-        if sidebar_on_right:
-            table_data = [
-                [right_row1, left_row1],
-                [right_row2, left_row2],
-                [right_row3, left_row3],
-                [right_row4, left_row4]
-            ]
-            col_widths = [375, 165]
-            style_cmds = [
-                ('PADDING', (0,0), (-1,-1), 6),
-                ('VALIGN', (0,0), (-1,-1), 'TOP'),
-                ('BACKGROUND', (1,0), (1,-1), colors.HexColor(sidebar_bg_hex)), # sidebar background on right
-                ('LINEBEFORE', (1,0), (1,-1), 1, sidebar_line_color),
-            ]
-        else:
-            table_data = [
-                [left_row1, right_row1],
-                [left_row2, right_row2],
-                [left_row3, right_row3],
-                [left_row4, right_row4]
-            ]
-            col_widths = [165, 375]
-            style_cmds = [
-                ('PADDING', (0,0), (-1,-1), 6),
-                ('VALIGN', (0,0), (-1,-1), 'TOP'),
-                ('BACKGROUND', (0,0), (0,-1), colors.HexColor(sidebar_bg_hex)), # sidebar background on left
-                ('LINEAFTER', (0,0), (0,-1), 1, sidebar_line_color),
-            ]
-        
-        # Filter out rows where both left and right are empty
+
+        # Construct final multi-row table
+        table_data = [
+            [left_row1, right_row1],
+            [left_row2, right_row2],
+            [left_row3, right_row3],
+            [left_row4, right_row4]
+        ]
+        col_widths = [165, 375]
+        style_cmds = [
+            ('PADDING', (0,0), (-1,-1), 8),
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ('BACKGROUND', (0,0), (0,-1), colors.HexColor("#18181b")), # dark sidebar on left
+            ('LINEAFTER', (0,0), (0,-1), 1, colors.HexColor("#27272a")),
+        ]
         table_data = [row for row in table_data if row[0] or row[1]]
-        
         outer_table = Table(table_data, colWidths=col_widths)
         outer_table.setStyle(TableStyle(style_cmds))
         doc.build([outer_table])
         buffer.seek(0)
         return buffer
 
-    elif template_name in ["Creative", "Creative Designer", "Creative Resume"]:
+    # =========================================================================
+    # TEMPLATE 2: MODERN TEAL (Teal Header & Horizontal Banner)
+    # =========================================================================
+    elif template_name == "Modern Teal":
+        story = []
+
+        # 1. Header Block (circular photo, large name, headline)
+        header_flowables = []
+        name_white = ParagraphStyle('WhiteName', parent=name_style, textColor=colors.white, fontSize=24, leading=28)
+        title_white = ParagraphStyle('WhiteTitle', parent=body_style, textColor=colors.HexColor("#ccfbf1"), fontName=font_bold, fontSize=11, spaceBefore=2)
+        
+        header_flowables.append(Paragraph(name, name_white))
+        prof_title = customization.get("jobTitle") or resume_data.get("profession") or "Professional"
+        header_flowables.append(Paragraph(prof_title.upper(), title_white))
+
+        profile_img = make_rl_profile_image(customization.get("profilePhoto"), customization)
+        if profile_img:
+            # Table layout inside header to place image next to name
+            header_table = Table([[profile_img, header_flowables]], colWidths=[80, 440])
+            header_table.setStyle(TableStyle([
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('PADDING', (0,0), (-1,-1), 0),
+            ]))
+            header_block = Table([[header_table]], colWidths=[540])
+        else:
+            header_block = Table([[header_flowables]], colWidths=[540])
+
+        header_block.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#0d9488")), # teal header
+            ('PADDING', (0,0), (-1,-1), 16),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 20),
+            ('TOPPADDING', (0,0), (-1,-1), 20),
+        ]))
+        story.append(header_block)
+        story.append(Spacer(1, 2))
+
+        # 2. Contact Banner Block (slate grey)
+        contact_parts = []
+        if location:
+            contact_parts.append(f"📍 {location}")
+        contact_parts.append(f"✉ {email}")
+        contact_parts.append(f"☎ {phone}")
+        
+        contact_banner_style = ParagraphStyle(
+            'ContactBanner', parent=body_style, textColor=colors.white, fontSize=8.5, alignment=1
+        )
+        contact_banner_text = "   |   ".join(contact_parts)
+        contact_banner = Table([[Paragraph(contact_banner_text, contact_banner_style)]], colWidths=[540])
+        contact_banner.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#1e293b")), # slate-800 contact strip
+            ('PADDING', (0,0), (-1,-1), 8),
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ]))
+        story.append(contact_banner)
+        story.append(Spacer(1, 10))
+
+        # 3. Two-Column Body Content
         left_row1 = []
         left_row2 = []
         left_row3 = []
+        left_row4 = []
         
         right_row1 = []
         right_row2 = []
         right_row3 = []
+        right_row4 = []
+
+        # Left Body (Summary, Experience, Education)
+        if summary_text:
+            left_row1.append(Paragraph("SUMMARY", section_title_style))
+            left_row1.append(Paragraph(summary_text, body_style))
+            left_row1.append(Spacer(1, 6))
+
+        if experience:
+            left_row2.append(Paragraph("EXPERIENCE", section_title_style))
+            for exp in experience:
+                role = exp.get("role") or "Role"
+                company = exp.get("company") or "Company"
+                start = exp.get("start_date") or "N/A"
+                end = exp.get("end_date") or "Present"
+                desc = exp.get("description") or ""
+                
+                left_row2.append(Paragraph(f"<b>{role}</b>", job_header_left))
+                left_row2.append(Paragraph(f"{company}  |  {start} - {end}", job_header_right))
+                left_row2.append(Spacer(1, 2))
+                render_bullets(desc, left_row2)
+                left_row2.append(Spacer(1, 6))
+
+        if education:
+            left_row3.append(Paragraph("EDUCATION", section_title_style))
+            for edu in education:
+                degree = edu.get("degree") or "Degree"
+                major = edu.get("field_of_study") or ""
+                school = edu.get("school") or "University"
+                end = edu.get("end_date") or ""
+                degree_str = f"<b>{degree}</b> in {major}" if major else f"<b>{degree}</b>"
+                left_row3.append(Paragraph(degree_str, body_style))
+                left_row3.append(Paragraph(f"{school} ({end})", job_header_right))
+                left_row3.append(Spacer(1, 4))
+
+        if projects:
+            left_row4.append(Paragraph("PROJECTS", section_title_style))
+            for proj in projects:
+                title = proj.get("title") or "Project Title"
+                desc = proj.get("description") or ""
+                left_row4.append(Paragraph(f"<b>{title}</b>", job_header_left))
+                left_row4.append(Spacer(1, 2))
+                render_bullets(desc, left_row4)
+                left_row4.append(Spacer(1, 4))
+
+        # Right Body (Skills, Hobbies, Languages, Certs)
+        if skills:
+            right_row1.append(Paragraph("SKILLS", section_title_style))
+            for s in skills:
+                right_row1.append(Paragraph(f"• {s}", body_style))
+            right_row1.append(Spacer(1, 6))
+
+        if interests:
+            right_row2.append(Paragraph("HOBBIES", section_title_style))
+            for h in interests:
+                right_row2.append(Paragraph(f"• {h}", body_style))
+            right_row2.append(Spacer(1, 6))
+
+        if languages:
+            right_row3.append(Paragraph("LANGUAGES", section_title_style))
+            for lang in languages:
+                l_name = lang.get("language") if isinstance(lang, dict) else getattr(lang, 'language', '')
+                prof = lang.get("proficiency") if isinstance(lang, dict) else getattr(lang, 'proficiency', '')
+                prof_str = f" ({prof})" if prof else ""
+                right_row3.append(Paragraph(f"• {l_name}{prof_str}", body_style))
+            right_row3.append(Spacer(1, 6))
+
+        if certifications:
+            right_row4.append(Paragraph("CERTIFICATIONS", section_title_style))
+            for cert in certifications:
+                c_name = cert.get("name") if isinstance(cert, dict) else getattr(cert, 'name', '')
+                right_row4.append(Paragraph(f"• {c_name}", body_style))
+
+        # Combine body tables
+        table_data = [
+            [left_row1, right_row1],
+            [left_row2, right_row2],
+            [left_row3, right_row3],
+            [left_row4, right_row4]
+        ]
+        col_widths = [340, 200]
+        style_cmds = [
+            ('PADDING', (0,0), (-1,-1), 8),
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ]
+        body_table = Table(table_data, colWidths=col_widths)
+        body_table.setStyle(TableStyle(style_cmds))
         
-        # Sidebar text styling
+        story.append(body_table)
+        doc.build(story)
+        buffer.seek(0)
+        return buffer
+
+    # =========================================================================
+    # TEMPLATE 3: NAVY PREMIUM (Right Navy Sidebar)
+    # =========================================================================
+    elif template_name == "Navy Premium":
+        story = []
+
+        # 1. Header (Left-aligned Name & Title, Horizontal Contact row)
+        name_navy = ParagraphStyle('NavyName', parent=name_style, textColor=colors.HexColor("#1e3a8a"), fontSize=28, leading=32)
+        headline_style = ParagraphStyle('NavyHeadline', parent=body_style, textColor=colors.HexColor("#475569"), fontSize=12, spaceBefore=4)
+        
+        story.append(Paragraph(name, name_navy))
+        prof_title = customization.get("jobTitle") or resume_data.get("profession") or "Professional"
+        story.append(Paragraph(prof_title, headline_style))
+        story.append(Spacer(1, 8))
+        
+        contact_parts = []
+        if location:
+            contact_parts.append(f"📍 {location}")
+        contact_parts.append(f"✉ {email}")
+        contact_parts.append(f"☎ {phone}")
+        
+        contact_text = "   |   ".join(contact_parts)
+        story.append(Paragraph(contact_text, contact_style))
+        story.append(Spacer(1, 4))
+        add_divider(story, doc.width, colors.HexColor("#1e3a8a"))
+        story.append(Spacer(1, 10))
+
+        # 2. Columns Body
+        sidebar_w = doc.width * (sidebar_width_pct / 100.0)
+        main_w = doc.width * (1.0 - sidebar_width_pct / 100.0)
+        usable_main_w = main_w - 12
+        usable_sidebar_w = sidebar_w - 12
+
         side_sec_title = ParagraphStyle(
-            'SideSecTitle',
+            'NavySideSecTitle',
             parent=section_title_style,
             fontSize=10.5,
             leading=13.5,
-            textColor=accent_color,
+            textColor=colors.white,
             spaceBefore=6,
             spaceAfter=3
         )
-        
         side_body = ParagraphStyle(
-            'SideBody',
+            'NavySideBody',
             parent=body_style,
             fontSize=8.5,
             leading=11.5,
+            textColor=colors.HexColor("#bfdbfe"),
             spaceAfter=3
         )
+
+        left_row1 = []
+        left_row2 = []
+        left_row3 = []
+        left_row4 = []
         
-        # Left Side Content (Main Content)
-        # Row 1 Left: Profile Summary
-        left_row1.append(Paragraph(name.upper(), name_style))
-        left_row1.append(Paragraph("CREATIVE PROFESSIONAL", ParagraphStyle('CreativeSub', parent=body_style, fontName=font_bold, textColor=accent_color, fontSize=9.5)))
-        left_row1.append(Spacer(1, 8))
-        
+        right_row1 = []
+        right_row2 = []
+        right_row3 = []
+        right_row4 = []
+
+        # Left Column: Summary, Experience, Education, Projects
         if summary_text:
-            left_row1.append(Paragraph("PROFILE SUMMARY", section_title_style))
+            left_row1.append(Paragraph("SUMMARY", section_title_style))
             left_row1.append(Paragraph(summary_text, body_style))
-            left_row1.append(Spacer(1, 4))
-            
-        # Row 2 Left: Experience
+            left_row1.append(Spacer(1, 8))
+
         if experience:
-            left_row2.append(Paragraph("CAREER EXPERIENCE", section_title_style))
+            left_row2.append(Paragraph("EXPERIENCE", section_title_style))
             for exp in experience:
                 role = exp.get("role") or "Role"
                 company = exp.get("company") or "Company"
@@ -1439,439 +1584,436 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
                 desc = exp.get("description") or ""
                 
                 exp_data = [
-                    [Paragraph(f"<b>{role}</b>  —  {company}", job_header_left), Paragraph(f"{start} - {end}", job_header_right)]
+                    [Paragraph(f"<b>{role}</b><br/>{company}", job_header_left), Paragraph(f"{start} - {end}", job_header_right)]
                 ]
-                exp_table = Table(exp_data, colWidths=[240, 110])
+                exp_table = Table(exp_data, colWidths=[usable_main_w * 0.7, usable_main_w * 0.3])
                 exp_table.setStyle(TableStyle([
                     ('PADDING', (0,0), (-1,-1), 0),
                     ('VALIGN', (0,0), (-1,-1), 'TOP')
                 ]))
                 left_row2.append(exp_table)
                 left_row2.append(Spacer(1, 2))
+                render_bullets(desc, left_row2)
+                left_row2.append(Spacer(1, 6))
+
+        if education:
+            left_row3.append(Paragraph("EDUCATION", section_title_style))
+            for edu in education:
+                degree = edu.get("degree") or "Degree"
+                major = edu.get("field_of_study") or ""
+                school = edu.get("school") or "University"
+                end = edu.get("end_date") or ""
+                degree_str = f"<b>{degree}</b> in {major}" if major else f"<b>{degree}</b>"
                 
-                if desc:
-                    for bullet in desc.split("\n"):
-                        if bullet.strip():
-                            b_text = bullet.strip().lstrip("-").lstrip("•").strip()
-                            left_row2.append(Paragraph(f"• {b_text}", bullet_style))
-                left_row2.append(Spacer(1, 4))
-                
-        # Row 3 Left: Projects
-        if projects:
-            left_row3.append(Paragraph("REPRESENTATIVE INITIATIVES", section_title_style))
-            for proj in projects:
-                title = proj.get("title") or "Project Title"
-                desc = proj.get("description") or ""
-                tech = ", ".join(proj.get("technologies") or [])
-                tech_suffix = f" ({tech})" if tech else ""
-                
-                proj_data = [
-                    [Paragraph(f"<b>{title}</b>{tech_suffix}", job_header_left), Paragraph("", job_header_right)]
+                edu_data = [
+                    [Paragraph(f"{degree_str}<br/>{school}", body_style), Paragraph(end, job_header_right)]
                 ]
-                proj_table = Table(proj_data, colWidths=[240, 110])
-                proj_table.setStyle(TableStyle([
+                edu_table = Table(edu_data, colWidths=[usable_main_w * 0.7, usable_main_w * 0.3])
+                edu_table.setStyle(TableStyle([
                     ('PADDING', (0,0), (-1,-1), 0),
                     ('VALIGN', (0,0), (-1,-1), 'TOP')
                 ]))
-                left_row3.append(proj_table)
-                left_row3.append(Spacer(1, 2))
-                
-                if desc:
-                    for bullet in desc.split("\n"):
-                        if bullet.strip():
-                            b_text = bullet.strip().lstrip("-").lstrip("•").strip()
-                            left_row3.append(Paragraph(f"• {b_text}", bullet_style))
+                left_row3.append(edu_table)
                 left_row3.append(Spacer(1, 4))
-                
-        # Append Achievements, Leadership, Interests, Referees to Creative template main column
-        achievements = resume_data.get("achievements")
-        if achievements:
-            left_row3.append(Paragraph("ACHIEVEMENTS", section_title_style))
-            for ach in achievements:
-                left_row3.append(Paragraph(f"• {ach}", bullet_style))
-            left_row3.append(Spacer(1, 4))
-            
-        leadership = resume_data.get("leadership")
-        if leadership:
-            left_row3.append(Paragraph("LEADERSHIP", section_title_style))
-            for lead in leadership:
-                left_row3.append(Paragraph(f"• {lead}", bullet_style))
-            left_row3.append(Spacer(1, 4))
-            
-        interests = resume_data.get("interests")
-        if interests:
-            left_row3.append(Paragraph("INTERESTS & HOBBIES", section_title_style))
-            left_row3.append(Paragraph(", ".join(interests), body_style))
-            left_row3.append(Spacer(1, 4))
-            
-        referees = resume_data.get("referees")
-        if referees:
-            left_row3.append(Paragraph("REFERENCES", section_title_style))
-            for ref in referees:
-                left_row3.append(Paragraph(f"• {ref}", bullet_style))
-            left_row3.append(Spacer(1, 4))
-            
-        # Right Side Content (Sidebar Content)
-        # Row 1 Right: Contact
+
+        if projects:
+            left_row4.append(Paragraph("PROJECTS", section_title_style))
+            for proj in projects:
+                title = proj.get("title") or "Project Title"
+                desc = proj.get("description") or ""
+                left_row4.append(Paragraph(f"<b>{title}</b>", job_header_left))
+                left_row4.append(Spacer(1, 2))
+                render_bullets(desc, left_row4)
+                left_row4.append(Spacer(1, 4))
+
+        # Right Column (Navy sidebar): Profile photo, Languages (Dots), Achievements, Skills, Interests
         profile_img = make_rl_profile_image(customization.get("profilePhoto"), customization)
         if profile_img:
             right_row1.append(profile_img)
             right_row1.append(Spacer(1, 8))
-        right_row1.append(Paragraph("GET IN TOUCH", side_sec_title))
-        right_row1.append(Paragraph(f"✉ {email}", side_body))
-        right_row1.append(Paragraph(f"☎ {phone}", side_body))
-        right_row1.append(Spacer(1, 8))
-        
-        # Row 2 Right: Skills
+            
+        if achievements:
+            right_row1.append(Paragraph("KEY ACHIEVEMENTS", side_sec_title))
+            for ach in achievements:
+                right_row1.append(Paragraph(f"🏆 {ach}", side_body))
+            right_row1.append(Spacer(1, 8))
+
         if skills:
-            right_row2.append(Paragraph("EXPERTISE", side_sec_title))
+            right_row2.append(Paragraph("SKILLS", side_sec_title))
             for s in skills:
                 right_row2.append(Paragraph(f"• {s}", side_body))
             right_row2.append(Spacer(1, 8))
-            
-        # Row 3 Right: Education, Languages, Certifications
-        if education:
-            right_row3.append(Paragraph("EDUCATION", side_sec_title))
-            for edu in education:
-                degree = edu.get("degree") or "Degree"
-                major = edu.get("field_of_study") or ""
-                school = edu.get("school") or "School"
-                end = edu.get("end_date") or ""
-                
-                deg_str = f"<b>{degree}</b><br/>{major}<br/>{school} ({end})"
-                right_row3.append(Paragraph(deg_str, side_body))
-                right_row3.append(Spacer(1, 4))
-            right_row3.append(Spacer(1, 4))
-            
+
         if languages:
             right_row3.append(Paragraph("LANGUAGES", side_sec_title))
             for lang in languages:
                 l_name = lang.get("language") if isinstance(lang, dict) else getattr(lang, 'language', '')
                 prof = lang.get("proficiency") if isinstance(lang, dict) else getattr(lang, 'proficiency', '')
-                prof_str = f" ({prof})" if prof else ""
-                right_row3.append(Paragraph(f"• {l_name}{prof_str}", side_body))
-            right_row3.append(Spacer(1, 8))
-            
-        if certifications:
-            right_row3.append(Paragraph("CREDENTIALS", side_sec_title))
-            for cert in certifications:
-                c_name = cert.get("name") if isinstance(cert, dict) else getattr(cert, 'name', '')
-                right_row3.append(Paragraph(f"• {c_name}", side_body))
                 
-        sidebar_on_left = customization.get("sidebarLayout") == "left"
-        if sidebar_on_left:
-            table_data = [
-                [right_row1, left_row1],
-                [right_row2, left_row2],
-                [right_row3, left_row3]
-            ]
-            col_widths = [165, 375]
-            style_cmds = [
-                ('PADDING', (0,0), (-1,-1), 6),
-                ('VALIGN', (0,0), (-1,-1), 'TOP'),
-                ('BACKGROUND', (0,0), (0,-1), colors.HexColor("#fff1f2")), # pinkish sidebar background on left
-                ('LINEAFTER', (0,0), (0,-1), 1, colors.HexColor("#f472b6")),
-            ]
-        else:
-            table_data = [
-                [left_row1, right_row1],
-                [left_row2, right_row2],
-                [left_row3, right_row3]
-            ]
-            col_widths = [375, 165]
-            style_cmds = [
-                ('PADDING', (0,0), (-1,-1), 6),
-                ('VALIGN', (0,0), (-1,-1), 'TOP'),
-                ('BACKGROUND', (1,0), (1,-1), colors.HexColor("#fff1f2")), # pinkish sidebar background on right
-                ('LINEBEFORE', (1,0), (1,-1), 1, colors.HexColor("#f472b6")),
-            ]
-        
-        # Filter out empty rows
+                # Render 5 circles
+                prof_lower = prof.lower() if prof else ""
+                dots_count = 5
+                if "native" in prof_lower or "fluent" in prof_lower or "first language" in prof_lower:
+                    dots_count = 5
+                elif "advanced" in prof_lower or "c1" in prof_lower or "c2" in prof_lower:
+                    dots_count = 4
+                elif "intermediate" in prof_lower or "b1" in prof_lower or "b2" in prof_lower:
+                    dots_count = 3
+                elif "elementary" in prof_lower or "a1" in prof_lower or "a2" in prof_lower or "beginner" in prof_lower:
+                    dots_count = 2
+                else:
+                    dots_count = 3
+                
+                dots_str = "●" * dots_count + "○" * (5 - dots_count)
+                
+                lang_data = [
+                    [Paragraph(f"<b>{l_name}</b>", side_body), Paragraph(f"<font color='#d97706'>{dots_str}</font>", ParagraphStyle('NavyDots', parent=side_body, alignment=2))]
+                ]
+                lang_table = Table(lang_data, colWidths=[usable_sidebar_w * 0.5, usable_sidebar_w * 0.5])
+                lang_table.setStyle(TableStyle([
+                    ('PADDING', (0,0), (-1,-1), 0),
+                    ('VALIGN', (0,0), (-1,-1), 'MIDDLE')
+                ]))
+                right_row3.append(lang_table)
+                right_row3.append(Spacer(1, 4))
+            right_row3.append(Spacer(1, 8))
+
+        if interests:
+            right_row4.append(Paragraph("INTERESTS", side_sec_title))
+            for h in interests:
+                right_row4.append(Paragraph(f"• {h}", side_body))
+
+        table_data = [
+            [left_row1, right_row1],
+            [left_row2, right_row2],
+            [left_row3, right_row3],
+            [left_row4, right_row4]
+        ]
+        col_widths = [350, 190]
+        style_cmds = [
+            ('PADDING', (0,0), (-1,-1), 8),
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ('BACKGROUND', (1,0), (1,-1), colors.HexColor("#0f172a")), # dark navy background on right
+            ('LINEBEFORE', (1,0), (1,-1), 1, colors.HexColor("#1e293b")),
+        ]
         table_data = [row for row in table_data if row[0] or row[1]]
-        
         outer_table = Table(table_data, colWidths=col_widths)
         outer_table.setStyle(TableStyle(style_cmds))
-        doc.build([outer_table])
+        
+        story.append(outer_table)
+        doc.build(story)
         buffer.seek(0)
         return buffer
 
-    # Single column layout for ATS Professional, Software Engineer, Data Analyst, Executive, Minimal, Student
-    story = []
-    
-    # Dynamic Header Rendering
-    custom_header = customization.get("headerLayout")
-    show_icons = customization.get("showIcons", True)
-    
-    email_str = f"✉ {email}" if show_icons else (email or "")
-    phone_str = f"☎ {phone}" if show_icons else (phone or "")
-    
-    if custom_header:
-        if custom_header == "center":
-            name_style_centered = ParagraphStyle(
-                'CentName', parent=name_style, alignment=1, fontSize=base_font_size * 2.1, leading=base_font_size * 2.1 * line_spacing, textColor=primary_color
-            )
-            contact_style_centered = ParagraphStyle(
-                'CentContact', parent=contact_style, alignment=1, fontSize=base_font_size * 0.9, leading=base_font_size * 0.9 * line_spacing, textColor=colors.HexColor("#475569")
-            )
-            story.append(Paragraph(name.upper(), name_style_centered))
-            contact_parts = [email_str, phone_str]
-            contact_text = "  •  ".join([c for c in contact_parts if c])
-            story.append(Paragraph(contact_text, contact_style_centered))
-            story.append(Spacer(1, 4))
-            add_divider(story, divider_color)
-        elif custom_header == "split":
-            split_left = ParagraphStyle('SplitLeft', parent=name_style, fontSize=base_font_size * 2.1, leading=base_font_size * 2.1 * line_spacing, textColor=primary_color)
-            split_right = ParagraphStyle('SplitRight', parent=contact_style, alignment=2, fontSize=base_font_size * 0.9, leading=base_font_size * 0.9 * line_spacing, textColor=colors.HexColor("#475569"))
-            contact_text = "<br/>".join([c for c in [email_str, phone_str] if c])
-            header_tbl = Table([[Paragraph(name, split_left), Paragraph(contact_text, split_right)]], colWidths=[340, 200])
-            header_tbl.setStyle(TableStyle([
-                ('PADDING', (0,0), (-1,-1), 0),
-                ('VALIGN', (0,0), (-1,-1), 'BOTTOM')
-            ]))
-            story.append(header_tbl)
-            story.append(Spacer(1, 4))
-            add_divider(story, divider_color)
-        else: # "left"
-            story.append(Paragraph(name, name_style))
-            contact_text = "   |   ".join([c for c in [email_str, phone_str] if c])
-            story.append(Paragraph(contact_text, contact_style))
-            story.append(Spacer(1, 4))
-            add_divider(story, divider_color)
-    else:
-        # Standard templates default headers
-        if template_name in ["Executive", "Executive Resume"]:
-            name_style_centered = ParagraphStyle(
-                'ExecName', parent=name_style, alignment=1, fontSize=22, leading=26, textColor=primary_color
-            )
-            contact_style_centered = ParagraphStyle(
-                'ExecContact', parent=contact_style, alignment=1, fontSize=9.5, leading=13, textColor=colors.HexColor("#4b5563")
-            )
-            story.append(Paragraph(name.upper(), name_style_centered))
-            contact_parts = [email_str, phone_str]
-            contact_text = "  •  ".join([c for c in contact_parts if c])
-            story.append(Paragraph(contact_text, contact_style_centered))
-            story.append(Spacer(1, 4))
-            add_divider(story, divider_color)
-        elif template_name == "Minimal Elegant":
-            story.append(Paragraph(name, name_style))
-            contact_text = f"{email_str}   |   {phone_str}"
-            story.append(Paragraph(contact_text, contact_style))
-            story.append(Spacer(1, 2))
-            add_divider(story, divider_color)
-        elif template_name == "Software Engineer":
-            story.append(Paragraph(f"&lt; {name} /&gt;", name_style))
-            github_slug = name.lower().replace(" ", "").replace("-", "")
-            github_str = f"github.com/{github_slug}"
-            github_contact = f"   |   {github_str}" if show_icons else f"   |   {github_str}"
-            contact_text = f"// {email_str}   |   {phone_str}{github_contact}"
-            story.append(Paragraph(contact_text, contact_style))
-            story.append(Spacer(1, 4))
-            add_divider(story, accent_color)
-        else:
-            story.append(Paragraph(name, name_style))
-            contact_parts = [email_str, phone_str]
-            contact_text = "  |  ".join([c for c in contact_parts if c])
-            story.append(Paragraph(contact_text, contact_style))
-            story.append(Spacer(1, 4))
-            add_divider(story, divider_color)
-            
-    # Professional Summary / Objective Section
-    if summary_text:
-        story.append(Paragraph("PROFESSIONAL SUMMARY", section_title_style))
-        story.append(Paragraph(summary_text, body_style))
-        story.append(Spacer(1, 4))
-        add_divider(story, divider_color)
+    # =========================================================================
+    # TEMPLATE 4: RED ACCENT (Crimson Red Bold Minimalist)
+    # =========================================================================
+    elif template_name == "Red Accent":
+        story = []
 
-    # Dynamic sections ordering
-    sections = customization.get("section_order") or resume_data.get("section_order")
-    if not sections:
-        sections = ["experience", "projects", "skills", "education", "cert_lang"]
-        if template_name in ["Student/Fresher", "Student / Fresher"]:
-            sections = ["education", "projects", "skills", "experience", "cert_lang"]
-        elif template_name == "Data Analyst":
-            sections = ["skills", "experience", "projects", "education", "cert_lang"]
-        elif template_name == "Software Engineer":
-            sections = ["skills", "projects", "experience", "education", "cert_lang"]
-            
-    for sec in sections:
-        if sec == "experience" and experience:
-            story.append(Paragraph("WORK EXPERIENCE", section_title_style))
-            for exp in experience:
-                exp_flowables = []
-                role = exp.get("role") or "Role"
-                company = exp.get("company") or "Company"
-                start = exp.get("start_date") or "N/A"
-                end = exp.get("end_date") or "Present"
-                desc = exp.get("description") or ""
-                
-                # Job details row
-                job_data = [
-                    [Paragraph(f"<b>{role}</b>  —  {company}", job_header_left), Paragraph(f"{start} - {end}", job_header_right)]
-                ]
-                job_table = Table(job_data, colWidths=[380, 160])
-                job_table.setStyle(TableStyle([
-                    ('PADDING', (0,0), (-1,-1), 0),
-                    ('VALIGN', (0,0), (-1,-1), 'MIDDLE')
-                ]))
-                exp_flowables.append(job_table)
-                exp_flowables.append(Spacer(1, 2))
-                
-                if desc:
-                    for bullet in desc.split("\n"):
-                        if bullet.strip():
-                            b_text = bullet.strip().lstrip("-").lstrip("•").strip()
-                            exp_flowables.append(Paragraph(f"• {b_text}", bullet_style))
-                exp_flowables.append(Spacer(1, 4))
-                story.append(KeepTogether(exp_flowables))
-            add_divider(story, divider_color)
-            
-        elif sec == "projects" and projects:
-            story.append(Paragraph("REPRESENTATIVE PROJECTS", section_title_style))
-            for proj in projects:
-                proj_flowables = []
-                title = proj.get("title") or "Project Title"
-                desc = proj.get("description") or ""
-                tech = ", ".join(proj.get("technologies") or [])
-                
-                if template_name == "Software Engineer":
-                    proj_flowables.append(Paragraph(f"<b>{title}</b> <font face='Courier' color='{accent_color.hexval()}'>[{tech}]</font>", job_header_left))
-                else:
-                    tech_suffix = f" ({tech})" if tech else ""
-                    proj_flowables.append(Paragraph(f"<b>{title}</b>{tech_suffix}", job_header_left))
+        # 1. Header (Name split by Crimson Red)
+        name_parts = name.strip().split(" ")
+        if len(name_parts) > 1:
+            first_part = " ".join(name_parts[:-1])
+            last_part = name_parts[-1]
+            name_html = f"<font color='#18181b'>{first_part}</font> <font color='#be123c'>{last_part}</font>"
+        else:
+            name_html = f"<font color='#be123c'>{name}</font>"
+
+        story.append(Paragraph(name_html.upper(), name_style))
+        story.append(Spacer(1, 8))
+
+        # 2. Black Banner Contact Details
+        contact_parts = []
+        if location:
+            contact_parts.append(location)
+        contact_parts.append(email)
+        contact_parts.append(phone)
+        contact_banner_style = ParagraphStyle(
+            'RedContactBanner', parent=body_style, textColor=colors.white, fontSize=8.5, alignment=1
+        )
+        contact_banner_text = "   |   ".join(contact_parts)
+        contact_banner = Table([[Paragraph(contact_banner_text, contact_banner_style)]], colWidths=[540])
+        contact_banner.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,-1), colors.black),
+            ('PADDING', (0,0), (-1,-1), 6),
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ]))
+        story.append(contact_banner)
+        story.append(Spacer(1, 10))
+
+        # Setup custom Crimson red titles
+        crimson_sec_title = ParagraphStyle(
+            'CrimsonTitle',
+            parent=section_title_style,
+            textColor=colors.HexColor("#be123c"),
+            fontSize=11,
+            spaceBefore=10,
+            spaceAfter=2
+        )
+
+        # 3. Sections loop
+        for sec in sections:
+            if sec == "experience" and experience:
+                story.append(Paragraph("WORK HISTORY", crimson_sec_title))
+                add_divider(story, doc.width, colors.HexColor("#be123c"))
+                for exp in experience:
+                    role = exp.get("role") or "Role"
+                    company = exp.get("company") or "Company"
+                    start = exp.get("start_date") or "N/A"
+                    end = exp.get("end_date") or "Present"
+                    desc = exp.get("description") or ""
                     
-                if desc:
-                    for bullet in desc.split("\n"):
-                        if bullet.strip():
-                            b_text = bullet.strip().lstrip("-").lstrip("•").strip()
-                            proj_flowables.append(Paragraph(f"• {b_text}", bullet_style))
-                proj_flowables.append(Spacer(1, 4))
-                story.append(KeepTogether(proj_flowables))
-            add_divider(story, divider_color)
-            
-        elif sec == "skills" and skills:
-            if template_name == "Data Analyst":
-                story.append(Paragraph("TECHNICAL SKILLS MATRIX", section_title_style))
-                cats = categorize_skills(skills)
-                if cats:
-                    matrix_data = []
-                    for cat_name, cat_skills in cats.items():
-                        skills_str = ", ".join(cat_skills)
-                        matrix_data.append([
-                            Paragraph(f"<b>{cat_name}:</b>", body_style),
-                            Paragraph(skills_str, body_style)
-                        ])
-                    matrix_table = Table(matrix_data, colWidths=[120, 420])
-                    matrix_table.setStyle(TableStyle([
-                        ('PADDING', (0,0), (-1,-1), 4),
-                        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-                        ('LINEBELOW', (0,0), (-1,-1), 0.5, colors.HexColor("#ccfbf1")),
+                    job_data = [
+                        [Paragraph(f"<b>{role}</b>  —  {company}", job_header_left), Paragraph(f"{start} to {end}", job_header_right)]
+                    ]
+                    job_table = Table(job_data, colWidths=[doc.width * 0.7, doc.width * 0.3])
+                    job_table.setStyle(TableStyle([
+                        ('PADDING', (0,0), (-1,-1), 0),
+                        ('VALIGN', (0,0), (-1,-1), 'MIDDLE')
                     ]))
-                    story.append(matrix_table)
-                else:
-                    skills_text = ", ".join(skills)
-                    story.append(Paragraph(skills_text, body_style))
-            else:
-                story.append(Paragraph("TECHNICAL SKILLS", section_title_style))
-                if template_name == "Software Engineer":
-                    skills_styled = ", ".join([f"<font face='Courier'>{s}</font>" for s in skills])
-                    story.append(Paragraph(skills_styled, body_style))
-                else:
-                    skills_text = ", ".join(skills)
-                    story.append(Paragraph(skills_text, body_style))
-            story.append(Spacer(1, 4))
-            add_divider(story, divider_color)
-            
-        elif sec == "education" and education:
-            story.append(Paragraph("EDUCATION", section_title_style))
-            for edu in education:
-                degree = edu.get("degree") or "Degree"
-                major = edu.get("field_of_study") or ""
-                school = edu.get("school") or "School/University"
-                end = edu.get("end_date") or ""
+                    story.append(KeepTogether([job_table, Spacer(1, 2)]))
+                    
+                    # Render exp bullets
+                    exp_bullets = []
+                    render_bullets(desc, exp_bullets)
+                    for b in exp_bullets:
+                        story.append(b)
+                    story.append(Spacer(1, 6))
+
+            elif sec == "skills" and skills:
+                story.append(Paragraph("KEY SKILLS", crimson_sec_title))
+                add_divider(story, doc.width, colors.HexColor("#be123c"))
                 
-                degree_str = f"{degree} in {major}" if major else degree
-                edu_data = [
-                    [Paragraph(f"<b>{degree_str}</b>  —  {school}", body_style), Paragraph(end, job_header_right)]
-                ]
-                edu_table = Table(edu_data, colWidths=[420, 120])
-                edu_table.setStyle(TableStyle([
+                # Render skills in 2 columns
+                col1 = []
+                col2 = []
+                for idx, s in enumerate(skills):
+                    if idx % 2 == 0:
+                        col1.append(Paragraph(f"• {s}", body_style))
+                    else:
+                        col2.append(Paragraph(f"• {s}", body_style))
+                
+                skills_table = Table([[col1, col2]], colWidths=[270, 270])
+                skills_table.setStyle(TableStyle([
                     ('PADDING', (0,0), (-1,-1), 0),
-                    ('VALIGN', (0,0), (-1,-1), 'MIDDLE')
+                    ('VALIGN', (0,0), (-1,-1), 'TOP')
                 ]))
-                story.append(edu_table)
-                story.append(Spacer(1, 2))
-            add_divider(story, divider_color)
-            
-        elif sec == "certifications" and certifications:
-            story.append(Paragraph("CERTIFICATIONS", section_title_style))
-            cert_items = []
-            for cert in certifications:
-                c_name = cert.get("name") if isinstance(cert, dict) else getattr(cert, 'name', '')
-                c_issuer = cert.get("issuer") if isinstance(cert, dict) else getattr(cert, 'issuer', '')
-                issuer_str = f" ({c_issuer})" if c_issuer else ""
-                cert_items.append(f"{c_name}{issuer_str}")
-            story.append(Paragraph(", ".join(cert_items), body_style))
-            story.append(Spacer(1, 4))
-            add_divider(story, divider_color)
-            
-        elif sec == "languages" and languages:
-            story.append(Paragraph("LANGUAGES", section_title_style))
-            lang_items = []
-            for lang in languages:
-                l_name = lang.get("language") if isinstance(lang, dict) else getattr(lang, 'language', '')
-                prof = lang.get("proficiency") if isinstance(lang, dict) else getattr(lang, 'proficiency', '')
-                prof_str = f" ({prof})" if prof else ""
-                lang_items.append(f"{l_name}{prof_str}")
-            story.append(Paragraph(", ".join(lang_items), body_style))
-            story.append(Spacer(1, 4))
-            add_divider(story, divider_color)
-            
-        elif sec == "achievements" and resume_data.get("achievements"):
-            story.append(Paragraph("ACHIEVEMENTS", section_title_style))
-            for ach in resume_data["achievements"]:
-                story.append(Paragraph(f"• {ach}", bullet_style))
-            story.append(Spacer(1, 4))
-            add_divider(story, divider_color)
-            
-        elif sec == "interests" and resume_data.get("interests"):
-            story.append(Paragraph("INTERESTS & HOBBIES", section_title_style))
-            story.append(Paragraph(", ".join(resume_data["interests"]), body_style))
-            story.append(Spacer(1, 4))
-            add_divider(story, divider_color)
-            
-        elif sec == "referees" and resume_data.get("referees"):
-            story.append(Paragraph("REFERENCES", section_title_style))
-            for ref in resume_data["referees"]:
-                story.append(Paragraph(f"• {ref}", bullet_style))
-            story.append(Spacer(1, 4))
-            add_divider(story, divider_color)
-            
-        elif sec == "cert_lang" and (certifications or languages):
-            story.append(Paragraph("CERTIFICATIONS & LANGUAGES", section_title_style))
-            cert_items = []
-            if certifications:
-                for cert in certifications:
-                    c_name = cert.get("name") if isinstance(cert, dict) else getattr(cert, 'name', '')
-                    c_issuer = cert.get("issuer") if isinstance(cert, dict) else getattr(cert, 'issuer', '')
-                    issuer_str = f" ({c_issuer})" if c_issuer else ""
-                    cert_items.append(f"{c_name}{issuer_str}")
-            lang_items = []
-            if languages:
+                story.append(skills_table)
+                story.append(Spacer(1, 6))
+
+            elif sec == "education" and education:
+                story.append(Paragraph("EDUCATION", crimson_sec_title))
+                add_divider(story, doc.width, colors.HexColor("#be123c"))
+                for edu in education:
+                    degree = edu.get("degree") or "Degree"
+                    major = edu.get("field_of_study") or ""
+                    school = edu.get("school") or "School/University"
+                    end = edu.get("end_date") or ""
+                    degree_str = f"<b>{degree}</b>: {major}" if major else f"<b>{degree}</b>"
+                    
+                    edu_data = [
+                        [Paragraph(f"{degree_str} — {school}", body_style), Paragraph(end, job_header_right)]
+                    ]
+                    edu_table = Table(edu_data, colWidths=[doc.width * 0.78, doc.width * 0.22])
+                    edu_table.setStyle(TableStyle([
+                        ('PADDING', (0,0), (-1,-1), 0),
+                        ('VALIGN', (0,0), (-1,-1), 'MIDDLE')
+                    ]))
+                    story.append(edu_table)
+                    story.append(Spacer(1, 4))
+
+            elif sec == "projects" and projects:
+                story.append(Paragraph("PROJECTS", crimson_sec_title))
+                add_divider(story, doc.width, colors.HexColor("#be123c"))
+                for proj in projects:
+                    title = proj.get("title") or "Project Title"
+                    desc = proj.get("description") or ""
+                    story.append(Paragraph(f"<b>{title}</b>", job_header_left))
+                    story.append(Spacer(1, 2))
+                    proj_bullets = []
+                    render_bullets(desc, proj_bullets)
+                    for b in proj_bullets:
+                        story.append(b)
+                    story.append(Spacer(1, 4))
+
+            elif sec == "languages" and languages:
+                story.append(Paragraph("LANGUAGES", crimson_sec_title))
+                add_divider(story, doc.width, colors.HexColor("#be123c"))
+                lang_items = []
                 for lang in languages:
                     l_name = lang.get("language") if isinstance(lang, dict) else getattr(lang, 'language', '')
                     prof = lang.get("proficiency") if isinstance(lang, dict) else getattr(lang, 'proficiency', '')
-                    prof_str = f" ({prof})" if prof else ""
-                    lang_items.append(f"{l_name}{prof_str}")
-            extras = []
-            if cert_items:
-                extras.append(f"<b>Certifications:</b> {', '.join(cert_items)}")
-            if lang_items:
-                extras.append(f"<b>Languages:</b> {', '.join(lang_items)}")
-            for ext in extras:
-                story.append(Paragraph(ext, body_style))
-            story.append(Spacer(1, 4))
-            add_divider(story, divider_color)
-            
+                    lang_items.append(f"{l_name} ({prof})" if prof else l_name)
+                story.append(Paragraph(", ".join(lang_items), body_style))
+                story.append(Spacer(1, 6))
+
+        # Insert Professional Summary if present
+        if summary_text:
+            summary_flowables = [
+                Paragraph("PROFESSIONAL SUMMARY", crimson_sec_title),
+                make_divider_table(doc.width, colors.HexColor("#be123c")),
+                Paragraph(summary_text, body_style),
+                Spacer(1, 6)
+            ]
+            # Place summary right below banner
+            story.insert(2, KeepTogether(summary_flowables))
+
+        doc.build(story)
+        buffer.seek(0)
+        return buffer
+
+    # =========================================================================
+    # TEMPLATE 5: CORPORATE BLUE (Corporate Blue Layout)
+    # =========================================================================
+    elif template_name == "Corporate Blue":
+        story = []
+
+        # 1. Header (Corporate Blue Name, left-aligned, details below)
+        name_blue = ParagraphStyle('BlueName', parent=name_style, textColor=colors.HexColor("#1e40af"), fontSize=22, leading=26)
+        headline_style = ParagraphStyle('BlueHeadline', parent=body_style, textColor=colors.HexColor("#4b5563"), fontSize=11, spaceBefore=2)
+        
+        story.append(Paragraph(name, name_blue))
+        prof_title = customization.get("jobTitle") or resume_data.get("profession") or "Professional"
+        story.append(Paragraph(prof_title.upper(), headline_style))
+        story.append(Spacer(1, 6))
+        
+        contact_parts = []
+        if location:
+            contact_parts.append(f"📍 {location}")
+        contact_parts.append(f"✉ {email}")
+        contact_parts.append(f"☎ {phone}")
+        contact_text = "   |   ".join(contact_parts)
+        story.append(Paragraph(contact_text, contact_style))
+        story.append(Spacer(1, 4))
+        add_divider(story, doc.width, colors.HexColor("#bfdbfe"))
+        story.append(Spacer(1, 8))
+
+        # Setup Corporate Section styling
+        corp_sec_title = ParagraphStyle(
+            'CorpSecTitle',
+            parent=section_title_style,
+            textColor=colors.HexColor("#1e40af"),
+            fontSize=11,
+            spaceBefore=10,
+            spaceAfter=2
+        )
+
+        # 2. Summary
+        if summary_text:
+            story.append(Paragraph("PROFILE", corp_sec_title))
+            add_divider(story, doc.width, colors.HexColor("#bfdbfe"))
+            story.append(Paragraph(summary_text, body_style))
+            story.append(Spacer(1, 6))
+
+        # 3. Dynamic Sections
+        for sec in sections:
+            if sec == "experience" and experience:
+                story.append(Paragraph("EMPLOYMENT HISTORY", corp_sec_title))
+                add_divider(story, doc.width, colors.HexColor("#bfdbfe"))
+                for exp in experience:
+                    role = exp.get("role") or "Role"
+                    company = exp.get("company") or "Company"
+                    start = exp.get("start_date") or "N/A"
+                    end = exp.get("end_date") or "Present"
+                    desc = exp.get("description") or ""
+                    
+                    job_data = [
+                        [Paragraph(f"<b>{role}</b>  —  {company}", job_header_left), Paragraph(f"{start} - {end}", job_header_right)]
+                    ]
+                    job_table = Table(job_data, colWidths=[doc.width * 0.7, doc.width * 0.3])
+                    job_table.setStyle(TableStyle([
+                        ('PADDING', (0,0), (-1,-1), 0),
+                        ('VALIGN', (0,0), (-1,-1), 'MIDDLE')
+                    ]))
+                    story.append(job_table)
+                    story.append(Spacer(1, 2))
+                    render_bullets(desc, story)
+                    story.append(Spacer(1, 6))
+
+            elif sec == "skills" and skills:
+                story.append(Paragraph("PROFESSIONAL SKILLS", corp_sec_title))
+                add_divider(story, doc.width, colors.HexColor("#bfdbfe"))
+                
+                # Render skills as a structured grid table (3 columns) with light blue borders
+                grid_data = []
+                row_skills = []
+                for s in skills:
+                    row_skills.append(Paragraph(s, ParagraphStyle('CorpGridSkill', parent=body_style, fontSize=base_font_size * 0.9, alignment=1)))
+                    if len(row_skills) == 3:
+                        grid_data.append(row_skills)
+                        row_skills = []
+                if row_skills:
+                    while len(row_skills) < 3:
+                        row_skills.append(Paragraph("", body_style))
+                    grid_data.append(row_skills)
+                
+                if grid_data:
+                    col_w = doc.width / 3.0
+                    skills_table = Table(grid_data, colWidths=[col_w, col_w, col_w])
+                    skills_table.setStyle(TableStyle([
+                        ('PADDING', (0,0), (-1,-1), 6),
+                        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#bfdbfe")), # light blue border grid
+                        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#f8fafc"))
+                    ]))
+                    story.append(skills_table)
+                    story.append(Spacer(1, 8))
+
+            elif sec == "education" and education:
+                story.append(Paragraph("EDUCATION", corp_sec_title))
+                add_divider(story, doc.width, colors.HexColor("#bfdbfe"))
+                for edu in education:
+                    degree = edu.get("degree") or "Degree"
+                    major = edu.get("field_of_study") or ""
+                    school = edu.get("school") or "School/University"
+                    end = edu.get("end_date") or ""
+                    degree_str = f"<b>{degree}</b>: {major}" if major else f"<b>{degree}</b>"
+                    
+                    edu_data = [
+                        [Paragraph(f"{degree_str} — {school}", body_style), Paragraph(end, job_header_right)]
+                    ]
+                    edu_table = Table(edu_data, colWidths=[doc.width * 0.78, doc.width * 0.22])
+                    edu_table.setStyle(TableStyle([
+                        ('PADDING', (0,0), (-1,-1), 0),
+                        ('VALIGN', (0,0), (-1,-1), 'MIDDLE')
+                    ]))
+                    story.append(edu_table)
+                    story.append(Spacer(1, 4))
+
+            elif sec == "projects" and projects:
+                story.append(Paragraph("PROJECTS", corp_sec_title))
+                add_divider(story, doc.width, colors.HexColor("#bfdbfe"))
+                for proj in projects:
+                    title = proj.get("title") or "Project Title"
+                    desc = proj.get("description") or ""
+                    story.append(Paragraph(f"<b>{title}</b>", job_header_left))
+                    story.append(Spacer(1, 2))
+                    render_bullets(desc, story)
+                    story.append(Spacer(1, 4))
+
+            elif sec == "languages" and languages:
+                story.append(Paragraph("LANGUAGES", corp_sec_title))
+                add_divider(story, doc.width, colors.HexColor("#bfdbfe"))
+                lang_items = []
+                for lang in languages:
+                    l_name = lang.get("language") if isinstance(lang, dict) else getattr(lang, 'language', '')
+                    prof = lang.get("proficiency") if isinstance(lang, dict) else getattr(lang, 'proficiency', '')
+                    lang_items.append(f"{l_name} ({prof})" if prof else l_name)
+                story.append(Paragraph(", ".join(lang_items), body_style))
+                story.append(Spacer(1, 6))
+
+        doc.build(story)
+        buffer.seek(0)
+        return buffer
+
+    # Fallback default template if name doesn't match
+    story = []
+    story.append(Paragraph(name, name_style))
+    story.append(Paragraph(email + " | " + phone, contact_style))
+    story.append(Spacer(1, 10))
+    if summary_text:
+        story.append(Paragraph(summary_text, body_style))
     doc.build(story)
     buffer.seek(0)
     return buffer

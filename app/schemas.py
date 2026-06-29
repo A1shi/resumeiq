@@ -82,6 +82,7 @@ class InterviewQuestion2Schema(BaseModel):
     completed: bool = False
     favorite: bool = False
     needs_practice: bool = False
+    sample_answer_structure: Optional[str] = None
 
 class InterviewPrepSchema(BaseModel):
     technical_readiness: int = 0

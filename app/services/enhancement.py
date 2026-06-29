@@ -65,7 +65,7 @@ def generate_resume_enhancements_with_gemini(resume: models.Resume, jd_text: Opt
         "}"
     )
 
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    model = genai.GenerativeModel("gemini-2.5-flash")
     response = model.generate_content(
         prompt,
         generation_config={"response_mime_type": "application/json"}

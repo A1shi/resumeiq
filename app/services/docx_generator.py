@@ -123,6 +123,33 @@ def generate_resume_template_docx(resume_data: Dict[str, Any], template_name: st
     
     if customization is None:
         customization = resume_data.get("customization") or {}
+
+    # Map old template names to new ones to ensure backwards compatibility
+    template_map = {
+        "ATS Professional": "Corporate Blue",
+        "Modern Professional": "Classic Slate",
+        "Software Engineer": "Corporate Blue",
+        "Data Analyst": "Corporate Blue",
+        "Executive": "Navy Premium",
+        "Executive Resume": "Navy Premium",
+        "Creative": "Modern Teal",
+        "Creative Designer": "Modern Teal",
+        "Creative Resume": "Modern Teal",
+        "Minimal Elegant": "Red Accent",
+        "Student/Fresher": "Corporate Blue",
+        "Student / Fresher": "Corporate Blue",
+        "ATS Clean": "Corporate Blue",
+        "ATS Clean Resume": "Corporate Blue",
+        "Blue Sidebar": "Classic Slate",
+        "Blue Sidebar Resume": "Classic Slate",
+        "Elegant": "Corporate Blue",
+        "Elegant Resume": "Corporate Blue",
+        "Compact One Page": "Red Accent",
+        "Compact": "Red Accent"
+    }
+    
+    if template_name in template_map:
+        template_name = template_map[template_name]
         
     # Page setup - margins customization (default 0.5 inch)
     margin_val = 0.5

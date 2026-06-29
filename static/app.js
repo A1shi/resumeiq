@@ -323,6 +323,7 @@ const templatesList = [
 function App() {
   const [resumes, setResumes] = useState([]);
   const [selectedResume, setSelectedResume] = useState(null);
+  const [contentHeight, setContentHeight] = useState(0);
   const [loading, setLoading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [apiStatus, setApiStatus] = useState({ healthy: false, hasKey: false, db: "" });
@@ -438,6 +439,15 @@ function App() {
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+
+  const canvasRef = (el) => {
+    if (el) {
+      const h = el.clientHeight;
+      if (Math.abs(contentHeight - h) > 10) {
+        setTimeout(() => setContentHeight(h), 50);
+      }
+    }
+  };
   
   // Undo/Redo Engine
   const pushToHistory = (state) => {
@@ -2198,6 +2208,13 @@ function App() {
     const fontSize = customization.fontSize || 9.5;
     const primaryColor = customization.primaryColor || "#0f172a";
     const accentColor = customization.accentColor || "#2563eb";
+    const textColor = customization.textColor || "#1e293b";
+    const highlightColor = customization.highlightColor || "#2563eb";
+    const fontWeight = customization.fontWeight || "normal";
+    const alignment = customization.alignment || "left";
+    const paragraphSpacing = customization.paragraphSpacing !== undefined ? customization.paragraphSpacing : 4;
+    const dividerStyle = customization.dividerStyle || "solid";
+    const sidebarWidth = customization.sidebarWidth !== undefined ? customization.sidebarWidth : 32;
     const marginSize = customization.marginSize !== undefined ? customization.marginSize : 54;
     const lineSpacing = customization.lineSpacing || 1.15;
     const sectionSpacing = customization.sectionSpacing !== undefined ? customization.sectionSpacing : 10;
@@ -2329,7 +2346,7 @@ function App() {
       if (headerLayout === "center") {
         return (
           <div 
-            style={{ textAlign: "center", borderBottom: `2px solid ${aColor}`, paddingBottom: "0.75rem", marginBottom: `${sectionSpacing * 1.5}px` }} 
+            style={{ textAlign: "center", borderBottom: dividerStyle === 'none' ? 'none' : `2px ${dividerStyle} ${aColor}`, paddingBottom: "0.75rem", marginBottom: `${sectionSpacing * 1.5}px` }} 
             className="preview-header-center"
           >
             <h1 
@@ -2360,7 +2377,7 @@ function App() {
       if (headerLayout === "split") {
         return (
           <div 
-            style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", borderBottom: `2px solid ${aColor}`, paddingBottom: "0.75rem", marginBottom: `${sectionSpacing * 1.5}px` }}
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", borderBottom: dividerStyle === 'none' ? 'none' : `2px ${dividerStyle} ${aColor}`, paddingBottom: "0.75rem", marginBottom: `${sectionSpacing * 1.5}px` }}
             className="preview-header-split"
           >
             <div>
@@ -2392,7 +2409,7 @@ function App() {
       // Default left header
       return (
         <div 
-          style={{ borderBottom: `2px solid ${aColor}`, paddingBottom: "0.75rem", marginBottom: `${sectionSpacing * 1.5}px` }}
+          style={{ borderBottom: dividerStyle === 'none' ? 'none' : `2px ${dividerStyle} ${aColor}`, paddingBottom: "0.75rem", marginBottom: `${sectionSpacing * 1.5}px` }}
           className="preview-header-left"
         >
           <h1 
@@ -2422,6 +2439,7 @@ function App() {
 
     const renderPreviewSection = (secName) => {
       const spacingStyle = { marginBottom: `${sectionSpacing}px`, marginTop: `${sectionSpacing}px` };
+      const borderBottomStyle = dividerStyle === "none" ? "none" : `1px ${dividerStyle} ${aColor}`;
 
       switch (secName) {
         case "summary":
@@ -2436,7 +2454,7 @@ function App() {
                     return { ...prev, customization: { ...(prev.customization || {}), sectionTitles: titles } };
                   });
                 })}
-                style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "4px", outline: "none" }}
+                style={{ color: pColor, borderBottom: borderBottomStyle, fontWeight: "700", paddingBottom: "2px", marginBottom: "4px", outline: "none" }}
               >
                 {sectionTitles.summary}
               </div>
@@ -2460,7 +2478,7 @@ function App() {
                     return { ...prev, customization: { ...(prev.customization || {}), sectionTitles: titles } };
                   });
                 })}
-                style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px", outline: "none" }}
+                style={{ color: pColor, borderBottom: borderBottomStyle, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px", outline: "none" }}
               >
                 {sectionTitles.skills}
               </div>
@@ -2490,7 +2508,7 @@ function App() {
                     return { ...prev, customization: { ...(prev.customization || {}), sectionTitles: titles } };
                   });
                 })}
-                style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px", outline: "none" }}
+                style={{ color: pColor, borderBottom: borderBottomStyle, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px", outline: "none" }}
               >
                 {sectionTitles.experience}
               </div>
@@ -2561,7 +2579,7 @@ function App() {
                     return { ...prev, customization: { ...(prev.customization || {}), sectionTitles: titles } };
                   });
                 })}
-                style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px", outline: "none" }}
+                style={{ color: pColor, borderBottom: borderBottomStyle, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px", outline: "none" }}
               >
                 {sectionTitles.projects}
               </div>
@@ -2606,7 +2624,7 @@ function App() {
                     return { ...prev, customization: { ...(prev.customization || {}), sectionTitles: titles } };
                   });
                 })}
-                style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px", outline: "none" }}
+                style={{ color: pColor, borderBottom: borderBottomStyle, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px", outline: "none" }}
               >
                 {sectionTitles.education}
               </div>
@@ -2656,7 +2674,7 @@ function App() {
                     return { ...prev, customization: { ...(prev.customization || {}), sectionTitles: titles } };
                   });
                 })}
-                style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px", outline: "none" }}
+                style={{ color: pColor, borderBottom: borderBottomStyle, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px", outline: "none" }}
               >
                 {sectionTitles.certifications}
               </div>
@@ -2693,7 +2711,7 @@ function App() {
                     return { ...prev, customization: { ...(prev.customization || {}), sectionTitles: titles } };
                   });
                 })}
-                style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px", outline: "none" }}
+                style={{ color: pColor, borderBottom: borderBottomStyle, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px", outline: "none" }}
               >
                 {sectionTitles.languages}
               </div>
@@ -2728,7 +2746,7 @@ function App() {
                     return { ...prev, customization: { ...(prev.customization || {}), sectionTitles: titles } };
                   });
                 })}
-                style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px", outline: "none" }}
+                style={{ color: pColor, borderBottom: borderBottomStyle, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px", outline: "none" }}
               >
                 {sectionTitles.achievements}
               </div>
@@ -2757,7 +2775,7 @@ function App() {
                     return { ...prev, customization: { ...(prev.customization || {}), sectionTitles: titles } };
                   });
                 })}
-                style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px", outline: "none" }}
+                style={{ color: pColor, borderBottom: borderBottomStyle, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px", outline: "none" }}
               >
                 {sectionTitles.leadership}
               </div>
@@ -2786,7 +2804,7 @@ function App() {
                     return { ...prev, customization: { ...(prev.customization || {}), sectionTitles: titles } };
                   });
                 })}
-                style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px", outline: "none" }}
+                style={{ color: pColor, borderBottom: borderBottomStyle, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px", outline: "none" }}
               >
                 {sectionTitles.interests}
               </div>
@@ -2816,7 +2834,7 @@ function App() {
                     return { ...prev, customization: { ...(prev.customization || {}), sectionTitles: titles } };
                   });
                 })}
-                style={{ color: pColor, borderBottom: `1px solid ${aColor}`, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px", outline: "none" }}
+                style={{ color: pColor, borderBottom: borderBottomStyle, fontWeight: "700", paddingBottom: "2px", marginBottom: "6px", outline: "none" }}
               >
                 {sectionTitles.referees}
               </div>
@@ -2887,11 +2905,22 @@ function App() {
             setMarginSize={(val) => updateCustomizationField("marginSize", val)} 
             scale={scale} 
           />
-          <div style={containerStyle} className={tClass}>
+          <div style={containerStyle} className={tClass} ref={canvasRef}>
+            {/* Page Break Guide Overlay */}
+            {!isMobile && (
+              <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, pointerEvents: "none", zIndex: 10 }}>
+                <div style={{ position: "absolute", top: "1123px", left: 0, right: 0, borderTop: "2px dashed rgba(239, 68, 68, 0.4)", display: "flex", justifyContent: "flex-end" }}>
+                  <span style={{ background: "rgba(239, 68, 68, 0.85)", color: "white", fontSize: "0.62rem", padding: "2px 6px", fontWeight: "bold" }}>Page 1 Break (A4 Height)</span>
+                </div>
+                <div style={{ position: "absolute", top: "2246px", left: 0, right: 0, borderTop: "2px dashed rgba(239, 68, 68, 0.4)", display: "flex", justifyContent: "flex-end" }}>
+                  <span style={{ background: "rgba(239, 68, 68, 0.85)", color: "white", fontSize: "0.62rem", padding: "2px 6px", fontWeight: "bold" }}>Page 2 Break (A4 Height)</span>
+                </div>
+              </div>
+            )}
             <div style={{ display: "flex", flexDirection: sidebarLayout === "right" ? "row-reverse" : "row", gap: "1.5rem" }}>
               {/* Sidebar Column */}
               <div style={isBlueSidebar ? {
-                width: "32%",
+                width: `${sidebarWidth}%`,
                 background: "#1e3a8a",
                 color: "#ffffff",
                 padding: "1.25rem",
@@ -2900,9 +2929,9 @@ function App() {
                 flexDirection: "column",
                 gap: "1.25rem"
               } : {
-                width: "32%",
-                borderRight: sidebarLayout === "left" ? "1px solid #cbd5e1" : "none",
-                borderLeft: sidebarLayout === "right" ? "1px solid #cbd5e1" : "none",
+                width: `${sidebarWidth}%`,
+                borderRight: sidebarLayout === "left" && dividerStyle !== "none" ? `1px ${dividerStyle} #cbd5e1` : "none",
+                borderLeft: sidebarLayout === "right" && dividerStyle !== "none" ? `1px ${dividerStyle} #cbd5e1` : "none",
                 paddingRight: sidebarLayout === "left" ? "1rem" : "0",
                 paddingLeft: sidebarLayout === "right" ? "1rem" : "0"
               }}>
@@ -3039,7 +3068,7 @@ function App() {
               </div>
 
               {/* Main Content Column */}
-              <div style={{ width: "68%" }}>
+              <div style={{ width: `${100 - sidebarWidth}%` }}>
                 <div style={{ marginBottom: "1rem" }}>
                   <h1 
                     {...getEditableProps("name")}
@@ -3086,7 +3115,18 @@ function App() {
           setMarginSize={(val) => updateCustomizationField("marginSize", val)} 
           scale={scale} 
         />
-        <div style={containerStyle} className={templateClass}>
+        <div style={containerStyle} className={templateClass} ref={canvasRef}>
+          {/* Page Break Guide Overlay */}
+          {!isMobile && (
+            <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, pointerEvents: "none", zIndex: 10 }}>
+              <div style={{ position: "absolute", top: "1123px", left: 0, right: 0, borderTop: "2px dashed rgba(239, 68, 68, 0.4)", display: "flex", justifyContent: "flex-end" }}>
+                <span style={{ background: "rgba(239, 68, 68, 0.85)", color: "white", fontSize: "0.62rem", padding: "2px 6px", fontWeight: "bold" }}>Page 1 Break (A4 Height)</span>
+              </div>
+              <div style={{ position: "absolute", top: "2246px", left: 0, right: 0, borderTop: "2px dashed rgba(239, 68, 68, 0.4)", display: "flex", justifyContent: "flex-end" }}>
+                <span style={{ background: "rgba(239, 68, 68, 0.85)", color: "white", fontSize: "0.62rem", padding: "2px 6px", fontWeight: "bold" }}>Page 2 Break (A4 Height)</span>
+              </div>
+            </div>
+          )}
           {renderHeaderBlock()}
           {section_order.map((secName, idx) => renderPreviewSectionWithDrag(secName, idx))}
         </div>
@@ -4579,6 +4619,26 @@ function App() {
                         />
                       </div>
                     </div>
+                    <div style={{ marginTop: "0.5rem", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
+                      <div className="auth-field">
+                        <label className="auth-label">Body Text Color</label>
+                        <input 
+                          type="color" 
+                          value={editedResume.customization?.textColor || "#1e293b"} 
+                          onChange={e => updateCustomizationField("textColor", e.target.value)} 
+                          style={{ width: "100%", height: "30px", border: "1px solid var(--card-border)", borderRadius: "4px", cursor: "pointer" }}
+                        />
+                      </div>
+                      <div className="auth-field">
+                        <label className="auth-label">Highlight Bg</label>
+                        <input 
+                          type="color" 
+                          value={editedResume.customization?.highlightColor || "#2563eb"} 
+                          onChange={e => updateCustomizationField("highlightColor", e.target.value)} 
+                          style={{ width: "100%", height: "30px", border: "1px solid var(--card-border)", borderRadius: "4px", cursor: "pointer" }}
+                        />
+                      </div>
+                    </div>
                   </div>
 
                   <div className="v2-settings-group">
@@ -4620,6 +4680,46 @@ function App() {
                         />
                       </div>
                     </div>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", marginTop: "0.5rem" }}>
+                      <div className="auth-field">
+                        <label className="auth-label">Font Weight</label>
+                        <select 
+                          className="auth-input" 
+                          value={editedResume.customization?.fontWeight || "normal"} 
+                          onChange={e => updateCustomizationField("fontWeight", e.target.value)}
+                        >
+                          <option value="normal">Normal</option>
+                          <option value="medium">Medium</option>
+                          <option value="bold">Bold</option>
+                        </select>
+                      </div>
+                      <div className="auth-field">
+                        <label className="auth-label">Text Alignment</label>
+                        <select 
+                          className="auth-input" 
+                          value={editedResume.customization?.alignment || "left"} 
+                          onChange={e => updateCustomizationField("alignment", e.target.value)}
+                        >
+                          <option value="left">Left Aligned</option>
+                          <option value="center">Centered Name</option>
+                          <option value="right">Right Aligned</option>
+                          <option value="justify">Justified</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="auth-field" style={{ marginTop: "0.5rem" }}>
+                      <label className="auth-label">Paragraph Spacing ({editedResume.customization?.paragraphSpacing || 4}px)</label>
+                      <input 
+                        type="range" 
+                        min="2" 
+                        max="20" 
+                        step="1" 
+                        value={editedResume.customization?.paragraphSpacing || 4} 
+                        onChange={e => updateCustomizationField("paragraphSpacing", parseInt(e.target.value))} 
+                      />
+                    </div>
                   </div>
 
                   <div className="v2-settings-group">
@@ -4645,6 +4745,35 @@ function App() {
                         value={editedResume.customization?.marginSize !== undefined ? editedResume.customization.marginSize : 54} 
                         onChange={e => updateCustomizationField("marginSize", parseInt(e.target.value))} 
                       />
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", marginTop: "0.5rem" }}>
+                      <div className="auth-field">
+                        <label className="auth-label">Divider Style</label>
+                        <select 
+                          className="auth-input" 
+                          value={editedResume.customization?.dividerStyle || "solid"} 
+                          onChange={e => updateCustomizationField("dividerStyle", e.target.value)}
+                        >
+                          <option value="solid">Solid Line</option>
+                          <option value="dashed">Dashed Line</option>
+                          <option value="dotted">Dotted Line</option>
+                          <option value="none">No Divider</option>
+                        </select>
+                      </div>
+                      
+                      {["Modern Professional", "Creative", "Blue Sidebar"].includes(selectedTemplate) && (
+                        <div className="auth-field">
+                          <label className="auth-label">Sidebar Width ({editedResume.customization?.sidebarWidth || 32}%)</label>
+                          <input 
+                            type="range" 
+                            min="20" 
+                            max="45" 
+                            step="1" 
+                            value={editedResume.customization?.sidebarWidth || 32} 
+                            onChange={e => updateCustomizationField("sidebarWidth", parseInt(e.target.value))} 
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -4771,6 +4900,11 @@ function App() {
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseUp}
             >
+              {contentHeight > 1130 && (
+                <div style={{ position: "absolute", top: "15px", left: "50%", transform: "translateX(-50%)", background: "rgba(239, 68, 68, 0.95)", color: "white", padding: "0.5rem 1.25rem", borderRadius: "30px", display: "flex", alignItems: "center", gap: "0.5rem", boxShadow: "0 10px 15px -3px rgba(239, 68, 68, 0.2)", zIndex: 100, fontSize: "0.75rem", fontWeight: "bold" }}>
+                  <span>⚠️ Page Overflow: {Math.ceil(contentHeight / 1123)} A4 pages. Adjust spacing, margins, or fonts to fit on fewer pages.</span>
+                </div>
+              )}
               <div 
                 className="v2-canvas-wrapper"
                 style={{

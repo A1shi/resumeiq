@@ -137,68 +137,11 @@ def compare_resume_to_jd(resume_text: str, jd_title: str, jd_keywords: List[str]
 
 def match_resume_with_jd_gemini(resume_text: str, jd_text: str) -> Dict[str, Any]:
     """
-    Calls the Gemini 1.5 Flash API with a structured prompt requesting a JSON payload
-    representing all matching metrics, experience/certification alignment, recommendations,
-    and mock interview questions.
+    Calls the SemanticMatcher service to compute semantic matching.
     """
-    prompt = (
-        f"You are a professional recruiting coordinator and ATS expert.\n"
-        f"Compare the candidate's resume text against the target job description to evaluate alignment.\n\n"
-        f"Candidate Resume Text:\n{resume_text}\n\n"
-        f"Target Job Description:\n{jd_text}\n\n"
-        f"Analyze the alignment and return a JSON object with the following structure:\n"
-        f"{{\n"
-        f"  \"job_title\": \"(string) Extracted job title or role category from the JD\",\n"
-        f"  \"match_score\": (int) \"Overall compatibility score between 0 and 100 representing how well the resume matches the JD. Be realistic and objective based on required vs detected skills.\",\n"
-        f"  \"matching_keywords\": [\"list of skills/technologies from the JD that the candidate has in their resume\"],\n"
-        f"  \"missing_keywords\": [\"list of skills/technologies from the JD that are not explicitly found in the resume\"],\n"
-        f"  \"most_important_missing_keywords\": [\"list of the top 3 to 5 most critical missing keywords or skills from the JD that are absent in the resume\"],\n"
-        f"  \"skill_gaps\": [\"list of high-level functional or technical skill gaps\"],\n"
-        f"  \"experience_match\": {{\n"
-        f"    \"required_experience\": \"(string) What experience (years, roles, domains) does the JD ask for?\",\n"
-        f"    \"detected_experience\": \"(string) What experience is shown in the resume?\",\n"
-        f"    \"gap_analysis\": \"(string) Contrast required vs detected experience. Note any years-of-experience deficits or role deviations.\"\n"
-        f"  }},\n"
-        f"  \"certification_match\": {{\n"
-        f"    \"required_certifications\": [\"list of certifications/trainings requested/preferred in the JD\"],\n"
-        f"    \"detected_certifications\": [\"list of certifications/trainings found in the resume\"],\n"
-        f"    \"missing_certifications\": [\"list of required/preferred certifications/trainings that are missing from the resume\"]\n"
-        f"  }},\n"
-        f"  \"recommendations\": [\"list of exactly 5 specific, actionable steps to improve the resume match score (e.g. 'Add Docker projects', 'Acquire AWS certified Cloud Practitioner certification')\"],\n"
-        f"  \"interview_questions\": [\n"
-        f"    {{\n"
-        f"      \"question\": \"(string) A custom, non-generic interview question tailored specifically to this resume and this JD to test critical qualifications or address gaps.\",\n"
-        f"      \"difficulty\": \"(string) Easy, Medium, or Hard\",\n"
-        f"      \"key_points\": [\"list of key details/criteria candidate should include in a strong answer\"],\n"
-        f"      \"sample_answer_structure\": \"(string) Brief structured guide on how candidate should frame their answer\"\n"
-        f"    }}\n"
-        f"  ]\n"
-        f"}}\n\n"
-        f"CRITICAL RULES:\n"
-        f"- Return ONLY a valid JSON object. Do not wrap the JSON object in markdown blocks (like ```json ... ```) or prefix with any text. The output must be directly parseable by json.loads().\n"
-        f"- Do not invent certifications or fabricate credentials for either party.\n"
-        f"- Provide 3 to 5 highly relevant interview questions."
-    )
+    from app.services.ai_engine import SemanticMatcher
+    return SemanticMatcher.match(resume_text, jd_text)
 
-    genai.configure(api_key=settings.GEMINI_API_KEY)
-    model = genai.GenerativeModel("gemini-1.5-flash")
-    response = model.generate_content(
-        prompt,
-        generation_config={"response_mime_type": "application/json"}
-    )
-    
-    result = json.loads(response.text)
-    
-    # Validation/Sanitization of match_score
-    if "match_score" in result:
-        try:
-            result["match_score"] = int(result["match_score"])
-        except ValueError:
-            result["match_score"] = 50
-    else:
-        result["match_score"] = 50
-        
-    return result
 
 def match_resume_with_jd_local(resume_text: str, jd_text: str) -> Dict[str, Any]:
     """

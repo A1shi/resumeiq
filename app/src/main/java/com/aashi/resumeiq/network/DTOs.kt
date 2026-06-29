@@ -124,7 +124,8 @@ data class InterviewQuestion2Schema(
     val difficulty: String,
     val completed: Boolean = false,
     val favorite: Boolean = false,
-    @SerializedName("needs_practice") val needsPractice: Boolean = false
+    @SerializedName("needs_practice") val needsPractice: Boolean = false,
+    @SerializedName("sample_answer_structure") val sampleAnswerStructure: String? = null
 )
 
 data class InterviewPrepSchema(
@@ -245,7 +246,24 @@ data class ResumeResponse(
     @SerializedName("ats_score") val atsScore: Int?,
     @SerializedName("ats_analysis") val atsAnalysis: ATSAnalysisSchema?,
     @SerializedName("created_at") val createdAt: String,
-    @SerializedName("updated_at") val updatedAt: String
+    @SerializedName("updated_at") val updatedAt: String,
+    val summary: String? = null,
+    val leadership: List<String> = emptyList(),
+    val interests: List<String> = emptyList(),
+    val referees: List<String> = emptyList(),
+    val customization: Map<String, Any>? = emptyMap(),
+    val achievements: List<String> = emptyList(),
+    @SerializedName("section_order") val sectionOrder: List<String>? = emptyList(),
+    val profession: String? = null,
+    val industry: String? = null,
+    val seniority: String? = null,
+    @SerializedName("experience_level") val experienceLevel: String? = null,
+    @SerializedName("career_objective") val careerObjective: String? = null,
+    @SerializedName("profession_confidence") val professionConfidence: Double? = null,
+    @SerializedName("validation_passed") val validationPassed: Boolean? = null,
+    @SerializedName("validation_reason") val validationReason: String? = null,
+    @SerializedName("parent_id") val parentId: Int? = null,
+    @SerializedName("version_name") val versionName: String? = null
 )
 
 data class ResumeListResponse(

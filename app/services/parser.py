@@ -928,95 +928,26 @@ def cleanup_parsed_data(parsed_data: ResumeParsedSchema) -> ResumeParsedSchema:
 def detect_profession_with_gemini(raw_text: str) -> dict:
     """
     Classifies the candidate's profession, industry, seniority, experience level,
-    skills, and career objective using Gemini API.
-    Runs self-validation to reject unsupported assumptions.
+    skills, and career objective using dynamic ProfessionClassifier.
     """
-    prompt = (
-        "You are an expert career classification agent. Analyze the following candidate resume text and extract the candidate's professional profile.\n\n"
-        "Resume Text:\n"
-        f"{raw_text}\n\n"
-        "Your task is to detect the following details:\n"
-        "1. Profession: Must be EXACTLY one of the following supported professions:\n"
-        "   - Customer Service\n"
-        "   - HR\n"
-        "   - Marketing\n"
-        "   - Teacher\n"
-        "   - Nurse\n"
-        "   - Accountant\n"
-        "   - Software Engineer\n"
-        "   - Android Developer\n"
-        "   - Data Analyst\n"
-        "   - Business Analyst\n"
-        "   - Graphic Designer\n"
-        "   - Sales\n"
-        "   - Hospitality\n"
-        "   - Banking\n"
-        "   - Student/Fresher\n"
-        "   - General Professional\n\n"
-        "2. Industry: The industry classification (e.g. Technology, Healthcare, Finance, Education, Retail, Customer Support, Design & Creative, Hospitality, Academic, etc.)\n"
-        "3. Seniority: The seniority level (e.g. Intern, Junior, Mid, Senior, Lead, Manager, Director, Executive)\n"
-        "4. Experience Level: The experience duration/level (e.g. Fresher, 1-3 Years, 3-5 Years, 5+ Years)\n"
-        "5. Skills: List of key professional/technical skills explicitly mentioned or directly supported by the resume. Do NOT fabricate skills.\n"
-        "6. Career Objective: A summary of the candidate's career objective (either directly extracted or logically inferred).\n\n"
-        "CRITICAL ASSUMPTION VALIDATION LAYER:\n"
-        "You must run a validation check on your classification. Reject any unsupported assumptions.\n"
-        "- Do NOT assume a candidate is a Software Engineer or Android Developer unless the resume contains direct evidence of software development skills (e.g., programming languages like Python, Java, Kotlin, React) and/or experience.\n"
-        "- Do NOT default to 'Software Engineer'.\n"
-        "- Look for direct, clear, objective evidence in the text.\n"
-        "- If the evidence is weak, ambiguous, or if your confidence in the selected profession is below 70%, you MUST set the Profession to 'General Professional' and confidence to less than 70%.\n\n"
-        "Return your output as a single, valid JSON object containing the following keys (no markdown formatting, no code block wrapper):\n"
-        "{\n"
-        '  "profession": "string, one of the supported professions",\n'
-        '  "industry": "string",\n'
-        '  "seniority": "string",\n'
-        '  "experience_level": "string",\n'
-        '  "skills": ["list of strings"],\n'
-        '  "career_objective": "string",\n'
-        '  "confidence": 0-100,\n'
-        '  "validation_passed": true/false,\n'
-        '  "validation_reason": "detailed explanation of why the validation passed or failed, explaining the evidence or lack thereof"\n'
-        "}\n"
-    )
-
-    genai.configure(api_key=settings.GEMINI_API_KEY)
-    model = genai.GenerativeModel("gemini-1.5-flash")
-    
-    # Generate content with JSON constraint
-    response = model.generate_content(
-        prompt,
-        generation_config={"response_mime_type": "application/json"}
-    )
-    
-    result = json.loads(response.text)
-    
-    # Apply strict requirements check
-    confidence = result.get("confidence", 100)
-    validation_passed = result.get("validation_passed", True)
-    
-    if confidence < 70 or not validation_passed:
-        result["profession"] = "General Professional"
-        result["validation_passed"] = False
-        
-    # Standardize selected profession to the allowed list (case-insensitive check)
-    allowed_professions = [
-        "Customer Service", "HR", "Marketing", "Teacher", "Nurse", "Accountant",
-        "Software Engineer", "Android Developer", "Data Analyst", "Business Analyst",
-        "Graphic Designer", "Sales", "Hospitality", "Banking", "Student/Fresher", "General Professional"
-    ]
-    
-    detected = result.get("profession", "General Professional").strip()
-    matched = None
-    for p in allowed_professions:
-        if p.lower() == detected.lower():
-            matched = p
-            break
-            
-    if not matched:
-        result["profession"] = "General Professional"
-    else:
-        result["profession"] = matched
-        
-    return result
+    from app.services.ai_engine import ProfessionClassifier
+    try:
+        result = ProfessionClassifier.classify(raw_text)
+        return result
+    except Exception as e:
+        logger.warning(f"ProfessionClassifier failed: {str(e)}")
+        # Fall back to a default structure
+        return {
+            "profession": "General Professional",
+            "industry": "General Business",
+            "seniority": "Mid",
+            "experience_level": "1-3 Years",
+            "skills": [],
+            "career_objective": "",
+            "confidence": 50.0,
+            "validation_passed": False,
+            "validation_reason": str(e)
+        }
 
 def detect_profession_local(raw_text: str, parsed_skills: list) -> dict:
     """

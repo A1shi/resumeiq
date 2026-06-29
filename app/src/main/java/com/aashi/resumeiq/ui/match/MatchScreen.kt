@@ -712,12 +712,12 @@ fun MatchResultView(match: JDMatchResponse) {
                             lineHeight = 20.sp
                         )
 
-                        if (item.sampleAnswerStructure.isNotBlank()) {
+                        if (!item.sampleAnswerStructure.isNullOrBlank()) {
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(text = "Answer Guideline", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = item.sampleAnswerStructure,
+                                text = item.sampleAnswerStructure ?: "",
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                                 fontSize = 12.sp,
                                 lineHeight = 18.sp

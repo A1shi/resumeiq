@@ -89,12 +89,11 @@ fun BuilderScreen(
                                 modifier = Modifier.background(MaterialTheme.colorScheme.surface)
                             ) {
                                 val templates = listOf(
-                                    "ATS Professional",
-                                    "Modern Professional",
-                                    "Creative Designer",
-                                    "Executive Resume",
-                                    "Minimal Elegant",
-                                    "Student/Fresher"
+                                    "Classic Slate",
+                                    "Modern Teal",
+                                    "Navy Premium",
+                                    "Red Accent",
+                                    "Corporate Blue"
                                 )
                                 Text(
                                     text = "Export as PDF",

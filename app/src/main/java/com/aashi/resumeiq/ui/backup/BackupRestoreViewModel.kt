@@ -104,7 +104,7 @@ class BackupRestoreViewModel @Inject constructor(
                         referees = detail.referees,
                         customization = detail.customization,
                         achievements = detail.achievements ?: emptyList(),
-                        sectionOrder = detail.section_order ?: emptyList(),
+                        sectionOrder = detail.sectionOrder ?: emptyList(),
                         atsScore = detail.atsScore,
                         atsAnalysis = detail.atsAnalysis,
                         profession = detail.profession,
