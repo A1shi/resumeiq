@@ -453,7 +453,11 @@ fun MatchResultView(match: JDMatchResponse) {
                                     )
                                     Text(
                                         text = if (item.matched) "✓ Matched" else "✗ Missing",
-                                        color = if (item.matched) Color(0xFF81C784) else Color(0xFFE57373),
+                                        color = if (item.matched) {
+                                            if (androidx.compose.foundation.isSystemInDarkTheme()) Color(0xFF81C784) else Color(0xFF2E7D32)
+                                        } else {
+                                            if (androidx.compose.foundation.isSystemInDarkTheme()) Color(0xFFE57373) else Color(0xFFC62828)
+                                        },
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold,
                                         modifier = Modifier.weight(1f)
@@ -640,12 +644,12 @@ fun MatchResultView(match: JDMatchResponse) {
                         }
                         HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
                         Column {
-                            Text(text = "Missing Certifications", color = Color(0xFFE57373), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            Spacer(modifier = Modifier.height(2.dp))
-                            if (match.certificationMatch.missingCertifications.isNotEmpty()) {
-                                match.certificationMatch.missingCertifications.forEach { c ->
-                                    Text(text = "• $c", color = Color(0xFFFFCDD2), fontSize = 13.sp)
-                                }
+                             Text(text = "Missing Certifications", color = if (androidx.compose.foundation.isSystemInDarkTheme()) Color(0xFFE57373) else Color(0xFFC62828), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                             Spacer(modifier = Modifier.height(2.dp))
+                             if (match.certificationMatch.missingCertifications.isNotEmpty()) {
+                                 match.certificationMatch.missingCertifications.forEach { c ->
+                                     Text(text = "• $c", color = if (androidx.compose.foundation.isSystemInDarkTheme()) Color(0xFFFFCDD2) else Color(0xFFC62828), fontSize = 13.sp)
+                                 }
                             } else {
                                 Text(text = "None missing", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontSize = 13.sp)
                             }

@@ -197,6 +197,7 @@ class AuthViewModel @Inject constructor(
     }
 
     val darkModeEnabled = authRepository.darkModeEnabled
+    val disclaimerAccepted = authRepository.disclaimerAccepted
 
     fun setDarkMode(enabled: Boolean) {
         viewModelScope.launch {
@@ -207,6 +208,77 @@ class AuthViewModel @Inject constructor(
     fun clearDarkMode() {
         viewModelScope.launch {
             authRepository.clearDarkMode()
+        }
+    }
+
+    fun setDisclaimerAccepted(accepted: Boolean) {
+        viewModelScope.launch {
+            authRepository.setDisclaimerAccepted(accepted)
+        }
+    }
+
+    val pickerExplanationShown = authRepository.pickerExplanationShown
+    val onboardingCompleted = authRepository.onboardingCompleted
+    val dashboardTourCompleted = authRepository.dashboardTourCompleted
+    val builderTourCompleted = authRepository.builderTourCompleted
+    val detailTourCompleted = authRepository.detailTourCompleted
+    val interviewTourCompleted = authRepository.interviewTourCompleted
+
+    fun setPickerExplanationShown(shown: Boolean) {
+        viewModelScope.launch {
+            authRepository.setPickerExplanationShown(shown)
+        }
+    }
+
+    fun setOnboardingCompleted(completed: Boolean) {
+        viewModelScope.launch {
+            authRepository.setOnboardingCompleted(completed)
+        }
+    }
+
+    fun setDashboardTourCompleted(completed: Boolean) {
+        viewModelScope.launch {
+            authRepository.setDashboardTourCompleted(completed)
+        }
+    }
+
+    fun setBuilderTourCompleted(completed: Boolean) {
+        viewModelScope.launch {
+            authRepository.setBuilderTourCompleted(completed)
+        }
+    }
+
+    fun setDetailTourCompleted(completed: Boolean) {
+        viewModelScope.launch {
+            authRepository.setDetailTourCompleted(completed)
+        }
+    }
+
+    fun setInterviewTourCompleted(completed: Boolean) {
+        viewModelScope.launch {
+            authRepository.setInterviewTourCompleted(completed)
+        }
+    }
+
+    fun resetAllTours() {
+        viewModelScope.launch {
+            authRepository.resetAllTours()
+        }
+    }
+
+    fun deleteAccount(onSuccess: () -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            _actionState.value = UiState.Loading
+            authRepository.deleteAccount()
+                .onSuccess {
+                    _actionState.value = UiState.Success(it.message)
+                    onSuccess()
+                }
+                .onFailure {
+                    val uiError = it.toUiError()
+                    _actionState.value = uiError
+                    onError(uiError.message)
+                }
         }
     }
 }

@@ -48,4 +48,15 @@ sealed class Screen(val route: String) {
     }
     
     object Profile : Screen("profile")
+    object BackupRestore : Screen("backup_restore")
+    
+    object PrivacyPolicy : Screen("privacy_policy")
+    object TermsConditions : Screen("terms_conditions")
+    object AiDisclaimer : Screen("ai_disclaimer")
+    object About : Screen("about")
+    object ContactSupport : Screen("contact_support")
+    object Onboarding : Screen("onboarding")
+    object Feedback : Screen("feedback/{category}") {
+        fun createRoute(category: String) = "feedback/$category"
+    }
 }

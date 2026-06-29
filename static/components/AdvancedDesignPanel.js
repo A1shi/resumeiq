@@ -8,8 +8,9 @@ window.AdvancedDesignPanel = ({
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
+    <div className="builder-accordion" style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
       <div 
+        className="builder-accordion-header"
         onClick={() => setIsOpen(!isOpen)}
         style={{ 
           background: "#F8FAFC", 
@@ -22,12 +23,15 @@ window.AdvancedDesignPanel = ({
           fontSize: "0.82rem" 
         }}
       >
-        <span>⚙️ Advanced Design & Layout Parameters</span>
-        <span>{isOpen ? "▲ Collapse" : "▼ Expand"}</span>
+        <span className="builder-accordion-title-container">
+          <span className="builder-accordion-icon">⚙️</span>
+          <span className="builder-accordion-title">Advanced Design & Layout Parameters</span>
+        </span>
+        <span className={`builder-accordion-arrow ${isOpen ? "expanded" : ""}`}>▼</span>
       </div>
 
       {isOpen && (
-        <div style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "1rem", borderTop: "1px solid var(--card-border)" }}>
+        <div className="builder-accordion-content" style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "1rem", borderTop: "1px solid var(--card-border)" }}>
           
           <div className="auth-field">
             <div style={{ display: "flex", justifyContent: "space-between" }}>

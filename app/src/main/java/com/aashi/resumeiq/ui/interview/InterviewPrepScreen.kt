@@ -33,6 +33,8 @@ import com.aashi.resumeiq.network.ATSAnalysisSchema
 import com.aashi.resumeiq.network.InterviewQuestion2Schema
 import com.aashi.resumeiq.ui.auth.UiState
 import com.aashi.resumeiq.ui.detail.DetailViewModel
+import com.aashi.resumeiq.ui.auth.AuthViewModel
+import com.aashi.resumeiq.ui.tour.*
 import com.aashi.resumeiq.ui.detail.DownloadState
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -40,11 +42,13 @@ import com.aashi.resumeiq.ui.detail.DownloadState
 fun InterviewPrepScreen(
     resumeId: Int,
     viewModel: DetailViewModel,
+    authViewModel: AuthViewModel,
     onNavigateBack: () -> Unit
 ) {
     val context = LocalContext.current
     val atsState by viewModel.atsState.collectAsState()
     val downloadState by viewModel.prepDownloadState.collectAsState()
+    val interviewTourCompleted by authViewModel.interviewTourCompleted.collectAsState(initial = true)
 
     var jdText by rememberSaveable { mutableStateOf("") }
     var jobRole by rememberSaveable { mutableStateOf("") }
@@ -506,6 +510,16 @@ fun InterviewPrepScreen(
                 }
             }
         }
+    }
+
+    if (!interviewTourCompleted) {
+        FeatureTourOverlay(
+            steps = listOf(
+                TourStep("Mock Interview Questions", "Generate practice mock questions matching your target job role, experience details, and job description.", "Custom Questions"),
+                TourStep("Recruiter Simulation", "Enter practice mode to view questions, record mock answers, and evaluate responses.", "Recruiter Simulation")
+            ),
+            onTourFinish = { authViewModel.setInterviewTourCompleted(true) }
+        )
     }
 }
 

@@ -488,4 +488,31 @@ class DashboardStatsResponse(BaseModel):
     recent_analyses: List[RecentAnalysisItem]
 
 
+class ResumeRestoreSchema(BaseModel):
+    filename: str
+    name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    summary: Optional[str] = None
+    skills: List[str] = Field(default_factory=list)
+    education: List[EducationSchema] = Field(default_factory=list)
+    experience: List[ExperienceSchema] = Field(default_factory=list)
+    projects: List[ProjectSchema] = Field(default_factory=list)
+    certifications: List[CertificationSchema] = Field(default_factory=list)
+    languages: List[LanguageSchema] = Field(default_factory=list)
+    leadership: List[str] = Field(default_factory=list)
+    interests: List[str] = Field(default_factory=list)
+    referees: List[str] = Field(default_factory=list)
+    customization: Optional[dict] = {}
+    achievements: Optional[List[str]] = []
+    section_order: Optional[List[str]] = []
+    ats_score: Optional[int] = None
+    ats_analysis: Optional[ATSAnalysisSchema] = None
+    profession: Optional[str] = None
+    industry: Optional[str] = None
+    seniority: Optional[str] = None
+    experience_level: Optional[str] = None
+    career_objective: Optional[str] = None
+
+
 

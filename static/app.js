@@ -434,6 +434,10 @@ function App() {
   const [pastStates, setPastStates] = useState([]);
   const [futureStates, setFutureStates] = useState([]);
   const [mobileTab, setMobileTab] = useState("builder"); // "builder", "templates", "preview", "export"
+  const [selectedSection, setSelectedSection] = useState(null);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   
   // Undo/Redo Engine
   const pushToHistory = (state) => {
@@ -457,6 +461,36 @@ function App() {
     setPastStates(prev => [...prev, JSON.parse(JSON.stringify(editedResume))]);
     setEditedResume(next);
     addToast("Redo successful", "info");
+  };
+
+  const handleWheel = (e) => {
+    if (e.ctrlKey) {
+      e.preventDefault();
+      const zoomFactor = 0.05;
+      let newScale = zoomScale + (e.deltaY < 0 ? zoomFactor : -zoomFactor);
+      newScale = Math.max(0.5, Math.min(2.0, newScale));
+      setZoomScale(newScale);
+    }
+  };
+
+  const handleMouseDown = (e) => {
+    if (e.target.classList.contains("v2-canvas-workspace") || e.button === 1) {
+      e.preventDefault();
+      setIsPanning(true);
+      setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+    }
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isPanning) return;
+    setPan({
+      x: e.clientX - panStart.x,
+      y: e.clientY - panStart.y
+    });
+  };
+
+  const handleMouseUp = () => {
+    setIsPanning(false);
   };
 
   // Keyboard Shortcuts listener (Ctrl+B, Ctrl+I, Ctrl+Z, Ctrl+Y)
@@ -2809,6 +2843,8 @@ function App() {
       const innerSec = renderPreviewSection(secName);
       if (!innerSec) return null;
 
+      const isSelected = selectedSection === secName;
+
       return (
         <div
           key={secName}
@@ -2816,10 +2852,14 @@ function App() {
           onDragStart={(e) => handleDragStart(e, idx)}
           onDragOver={handleDragOver}
           onDrop={(e) => handleCanvasDrop(e, idx)}
+          onClick={(e) => {
+            e.stopPropagation();
+            setSelectedSection(secName);
+          }}
           style={{
             position: "relative"
           }}
-          className="preview-section-container"
+          className={`preview-section-container ${isSelected ? "active-canvas-section" : ""}`}
         >
           {/* Spacing drag line on hover */}
           <div 
@@ -4006,870 +4046,769 @@ function App() {
     );
   };
 
+  const handleSwapSections = (index, direction) => {
+    const targetIndex = index + direction;
+    const defaultOrder = ["summary", "skills", "experience", "projects", "education", "certifications", "languages", "achievements", "interests", "referees"];
+    const currentOrder = editedResume.section_order || defaultOrder;
+    if (targetIndex < 0 || targetIndex >= currentOrder.length) return;
+    pushToHistory(editedResume);
+    const newOrder = [...currentOrder];
+    const temp = newOrder[index];
+    newOrder[index] = newOrder[targetIndex];
+    newOrder[targetIndex] = temp;
+    setEditedResume(prev => ({
+      ...prev,
+      section_order: newOrder,
+      customization: {
+        ...(prev.customization || {}),
+        section_order: newOrder
+      }
+    }));
+    addToast("Section layout order updated", "success");
+  };
+
+  const handleMoveSection = (secName, direction) => {
+    const defaultOrder = ["summary", "skills", "experience", "projects", "education", "certifications", "languages", "achievements", "interests", "referees"];
+    const currentOrder = editedResume.section_order || defaultOrder;
+    const idx = currentOrder.indexOf(secName);
+    if (idx === -1) return;
+    handleSwapSections(idx, direction);
+  };
+
+  const handleAddSection = (secName) => {
+    pushToHistory(editedResume);
+    const defaultOrder = ["summary", "skills", "experience", "projects", "education", "certifications", "languages", "achievements", "interests", "referees"];
+    const currentOrder = editedResume.section_order || defaultOrder;
+    if (currentOrder.includes(secName)) return;
+    const newOrder = [...currentOrder, secName];
+    setEditedResume(prev => ({
+      ...prev,
+      section_order: newOrder,
+      customization: {
+        ...(prev.customization || {}),
+        section_order: newOrder
+      }
+    }));
+    addToast(`Added section: ${secName}`, "success");
+  };
+
+  const handleHideSection = (secName) => {
+    pushToHistory(editedResume);
+    const defaultOrder = ["summary", "skills", "experience", "projects", "education", "certifications", "languages", "achievements", "interests", "referees"];
+    const currentOrder = editedResume.section_order || defaultOrder;
+    const newOrder = currentOrder.filter(s => s !== secName);
+    setEditedResume(prev => ({
+      ...prev,
+      section_order: newOrder,
+      customization: {
+        ...(prev.customization || {}),
+        section_order: newOrder
+      }
+    }));
+    setSelectedSection(null);
+    addToast(`Hidden section: ${secName}`, "info");
+  };
+
   const renderResumeTemplatesTab = () => {
-    if (!editedResume) {
-      return (
-        <div style={{ textAlign: "center", padding: "3rem 1rem", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "450px" }} className="glass-panel">
-          <span style={{ fontSize: "3rem", marginBottom: "1rem" }}>💡</span>
-          <h3 style={{ fontWeight: "700", fontSize: "1.1rem", color: "var(--color-text-main)" }}>No Resume Selected</h3>
-          <p style={{ fontSize: "0.85rem", color: "var(--color-text-muted)", maxWidth: "400px", margin: "0.25rem 0 1.5rem 0", lineHeight: "1.4" }}>
-            Please select an existing resume from your history dashboard, upload a PDF/Word file, or create a brand new profile from scratch to use the builder.
-          </p>
-          <button className="btn-primary" onClick={() => setCurrentNav("history")}>
-            Go to Dashboard
-          </button>
-        </div>
-      );
-    }
-
-    const updateCustomizationField = (field, val) => {
-      pushToHistory(editedResume);
-      setEditedResume(prev => ({
-        ...prev,
-        customization: {
-          ...(prev.customization || {}),
-          [field]: val
-        }
-      }));
-    };
-
-    const handleSwapItems = (field, index, dir) => {
-      pushToHistory(editedResume);
-      setEditedResume(prev => {
-        const items = [...(prev[field] || [])];
-        const target = index + dir;
-        if (target < 0 || target >= items.length) return prev;
-        const temp = items[index];
-        items[index] = items[target];
-        items[target] = temp;
-        return { ...prev, [field]: items };
-      });
-      addToast("Item re-ordered", "info");
-    };
-
-    const handleSwapSections = (index, dir) => {
-      pushToHistory(editedResume);
-      setEditedResume(prev => {
-        const order = [...(prev.section_order || ["summary", "skills", "experience", "projects", "education", "certifications", "languages", "achievements", "interests", "referees"])];
-        const target = index + dir;
-        if (target < 0 || target >= order.length) return prev;
-        const temp = order[index];
-        order[index] = order[target];
-        order[target] = temp;
-        return {
-          ...prev,
-          section_order: order,
-          customization: {
-            ...(prev.customization || {}),
-            section_order: order
-          }
-        };
-      });
-      addToast("Section layout order updated", "success");
-    };
-
-    const handleAcceptSummary = (rewritten) => {
-      pushToHistory(editedResume);
-      setEditedResume(prev => ({
-        ...prev,
-        summary: rewritten,
-        professional_summary: rewritten
-      }));
-      setAiImproveResults(prev => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          improvements: {
-            ...prev.improvements,
-            improved_summary: null
-          }
-        };
-      });
-      addToast("AI improved summary applied!", "success");
-    };
-
-    const handleAcceptExperience = (idx, rewritten) => {
-      pushToHistory(editedResume);
-      setEditedResume(prev => {
-        const updated = [...prev.experience];
-        updated[idx] = { ...updated[idx], description: rewritten };
-        return { ...prev, experience: updated };
-      });
-      setAiImproveResults(prev => {
-        if (!prev) return null;
-        const remaining = prev.improvements.improved_experience.filter((_, i) => i !== idx);
-        return {
-          ...prev,
-          improvements: {
-            ...prev.improvements,
-            improved_experience: remaining
-          }
-        };
-      });
-      addToast("AI bullet points applied to experience!", "success");
-    };
-
-    const handleAcceptProject = (idx, rewritten) => {
-      pushToHistory(editedResume);
-      setEditedResume(prev => {
-        const updated = [...prev.projects];
-        updated[idx] = { ...updated[idx], description: rewritten };
-        return { ...prev, projects: updated };
-      });
-      setAiImproveResults(prev => {
-        if (!prev) return null;
-        const remaining = prev.improvements.improved_projects.filter((_, i) => i !== idx);
-        return {
-          ...prev,
-          improvements: {
-            ...prev.improvements,
-            improved_projects: remaining
-          }
-        };
-      });
-      addToast("AI description applied to project!", "success");
-    };
-
-    const handleAddSuggestedSkill = (skill) => {
-      pushToHistory(editedResume);
-      if (!editedResume.skills.includes(skill)) {
-        setEditedResume(prev => ({
-          ...prev,
-          skills: [...prev.skills, skill]
-        }));
-        addToast(`Added: ${skill}`, "success");
-      }
-    };
-
-    const handleAddSuggestedCert = (certName) => {
-      pushToHistory(editedResume);
-      const alreadyHas = editedResume.certifications.some(c => c.name.toLowerCase() === certName.toLowerCase());
-      if (!alreadyHas) {
-        setEditedResume(prev => ({
-          ...prev,
-          certifications: [...prev.certifications, { name: certName, authority: "Recommended", date: "2026" }]
-        }));
-        addToast(`Added certification suggestion: ${certName}`, "success");
-      } else {
-        addToast("Certification already present in resume.", "info");
-      }
-    };
-
     // Responsive Mobile check
     const isMobile = window.innerWidth < 768;
 
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-        
-        {/* Visual Header Workspace Toolbar (Part 9 Clean Toolbar) */}
-        <div className="sticky-workspace-toolbar" style={{ padding: "0.85rem 1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
-          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-            <button 
-              className={`btn-secondary ${editMode ? "active-indigo" : ""}`} 
-              onClick={() => {
-                setEditMode(!editMode);
-                addToast(editMode ? "Switched to Preview Mode" : "Switched to Interactive Edit Mode", "info");
-              }}
-              style={{ padding: "0.4rem 0.75rem", fontSize: "0.75rem", display: "flex", alignItems: "center", gap: "0.3rem", fontWeight: "700" }}
-            >
-              {editMode ? "👁️ Preview Mode" : "✏️ Edit Mode"}
-            </button>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
-              <span style={{ fontSize: "0.72rem", fontWeight: "bold" }}>Zoom:</span>
-              <select 
-                value={zoomScale} 
-                onChange={(e) => setZoomScale(parseFloat(e.target.value))} 
-                className="builder-input" 
-                style={{ padding: "0.25rem 0.5rem", fontSize: "0.7rem", width: "auto", minHeight: "auto" }}
-              >
-                <option value="0.8">80%</option>
-                <option value="1.0">100%</option>
-                <option value="1.2">120%</option>
-              </select>
-            </div>
-            {!isMobile && (
-              <button 
-                className={`btn-secondary ${showAtsChecklist ? "active-indigo" : ""}`} 
-                onClick={() => {
-                  setShowAtsChecklist(!showAtsChecklist);
-                }}
-                style={{ padding: "0.4rem 0.75rem", fontSize: "0.75rem", display: "flex", alignItems: "center", gap: "0.35rem", fontWeight: "700" }}
-                title="Toggle real-time ATS compliance checklist"
-              >
-                <span>🎯 ATS Checklist</span>
-                {editedResume?.ats_analysis?.ats_score !== undefined && (
-                  <span style={{ background: "var(--color-primary)", color: "white", padding: "0.05rem 0.35rem", borderRadius: "4px", fontSize: "0.68rem" }}>
-                    {editedResume.ats_analysis.ats_score}%
-                  </span>
-                )}
-              </button>
-            )}
+      <div className="v2-editor-container">
+        {/* Top Header/Toolbar (FlowCV/Canva Inspired) */}
+        <div className="v2-top-toolbar">
+          <div className="v2-toolbar-left">
+            <span className="v2-logo">⚡ ResumeIQ Builder</span>
+            <span className="v2-active-style-badge">
+              Active Style: {selectedTemplate}
+            </span>
           </div>
 
-          {/* Center: Undo/Redo */}
-          <div style={{ display: "flex", gap: "0.25rem" }}>
-            <button 
-              className="btn-secondary" 
-              onClick={handleUndo} 
-              disabled={pastStates.length === 0} 
-              style={{ padding: "0.4rem", fontSize: "0.75rem", minHeight: "auto", minWidth: "36px" }}
-              title="Undo change (Ctrl+Z)"
+          <div className="v2-toolbar-middle">
+            <span style={{ fontSize: "0.8rem", color: "#94a3b8" }}>Layout:</span>
+            <select 
+              value={selectedTemplate} 
+              onChange={(e) => {
+                setSelectedTemplate(e.target.value);
+                addToast(`Layout updated: ${e.target.value}`, "success");
+              }} 
+              className="v2-toolbar-select"
             >
-              ↩️
-            </button>
-            <button 
-              className="btn-secondary" 
-              onClick={handleRedo} 
-              disabled={futureStates.length === 0} 
-              style={{ padding: "0.4rem", fontSize: "0.75rem", minHeight: "auto", minWidth: "36px" }}
-              title="Redo change (Ctrl+Y)"
-            >
-              ↪️
+              {templatesList.map(tmpl => (
+                <option key={tmpl.name} value={tmpl.name}>{tmpl.name}</option>
+              ))}
+            </select>
+
+            <div style={{ width: "1px", height: "18px", background: "#334155", margin: "0 0.5rem" }} />
+
+            <button className="v2-zoom-btn" onClick={() => setZoomScale(Math.max(0.5, zoomScale - 0.1))} title="Zoom Out">−</button>
+            <span className="v2-zoom-percentage">{Math.round(zoomScale * 100)}%</span>
+            <button className="v2-zoom-btn" onClick={() => setZoomScale(Math.min(2.0, zoomScale + 0.1))} title="Zoom In">+</button>
+            <button className="v2-zoom-btn" style={{ fontSize: "0.68rem", padding: "0.25rem 0.5rem" }} onClick={() => setZoomScale(1.0)}>Reset</button>
+
+            <div style={{ width: "1px", height: "18px", background: "#334155", margin: "0 0.5rem" }} />
+
+            <button className="v2-reset-btn" onClick={() => {
+              if (confirm("Reset all customization overrides to template defaults?")) {
+                updateCustomizationField("primaryColor", "#0f172a");
+                updateCustomizationField("accentColor", "#2563eb");
+                updateCustomizationField("fontSize", 9.5);
+                updateCustomizationField("marginSize", 54);
+                updateCustomizationField("lineSpacing", 1.15);
+                updateCustomizationField("sectionSpacing", 10);
+                updateCustomizationField("fontFamily", "DejaVuSans");
+                updateCustomizationField("headerLayout", "left");
+                addToast("Layout overrides reset", "info");
+              }
+            }}>
+              🔄 Reset to Default
             </button>
           </div>
 
-          {/* Right: Export & Save */}
-          <div style={{ display: "flex", gap: "0.35rem" }}>
-            <button className="btn-primary" onClick={handleSaveResume} disabled={loading} style={{ padding: "0.4rem 0.75rem", fontSize: "0.75rem", minHeight: "auto" }}>
-              {loading ? "Saving..." : "Save Snapshot"}
+          <div className="v2-toolbar-right">
+            <button className="v2-toolbar-btn btn-pdf" onClick={() => handleExportTemplate("pdf")}>
+              📄 Export PDF
             </button>
-            <button className="btn-secondary" onClick={() => handleExportTemplate("pdf")} style={{ padding: "0.4rem 0.75rem", fontSize: "0.75rem", minHeight: "auto" }} title="Export PDF">
-              PDF Export
+            <button className="v2-toolbar-btn btn-word" onClick={() => handleExportTemplate("docx")}>
+              📝 Export Word
             </button>
-            <button className="btn-secondary" onClick={() => handleExportTemplate("docx")} style={{ padding: "0.4rem 0.75rem", fontSize: "0.75rem", minHeight: "auto" }} title="Export Word">
-              Word Export
+            <button className="v2-toolbar-btn btn-apply" onClick={handleSaveResume} disabled={loading}>
+              💾 {loading ? "Applying..." : "Apply & Use"}
             </button>
-          </div>
-
-          {/* Design formatting bar (Canva/FlowCV style direct customizer) */}
-          <div style={{ width: "100%", display: "flex", alignItems: "center", gap: "1rem", borderTop: "1px dashed var(--glass-border)", paddingTop: "0.6rem", marginTop: "0.4rem", flexWrap: "wrap", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
-              {/* Font Selector */}
-              <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
-                <span style={{ fontSize: "0.72rem", fontWeight: "bold" }}>Font:</span>
-                <select 
-                  value={editedResume.customization?.fontFamily || "DejaVuSans"} 
-                  onChange={e => updateCustomizationField("fontFamily", e.target.value)} 
-                  className="builder-input" 
-                  style={{ padding: "0.25rem 0.5rem", fontSize: "0.72rem", width: "auto", minHeight: "auto", height: "28px" }}
-                >
-                  <option value="DejaVuSans">Sans-Serif (Inter)</option>
-                  <option value="DejaVuSerif">Serif (Outfit)</option>
-                  <option value="Courier">Monospace (Courier)</option>
-                </select>
-              </div>
-
-              {/* Font Size slider */}
-              <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
-                <span style={{ fontSize: "0.72rem", fontWeight: "bold" }}>Size:</span>
-                <input 
-                  type="range" 
-                  min="8" 
-                  max="14" 
-                  step="0.5" 
-                  value={editedResume.customization?.fontSize || 9.5} 
-                  onChange={e => updateCustomizationField("fontSize", parseFloat(e.target.value))} 
-                  style={{ width: "70px", cursor: "pointer", height: "4px", padding: 0 }}
-                />
-                <span style={{ fontSize: "0.72rem", fontWeight: "bold" }}>{editedResume.customization?.fontSize || 9.5}pt</span>
-              </div>
-
-              {/* Spacing alignment */}
-              <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
-                <span style={{ fontSize: "0.72rem", fontWeight: "bold" }}>Align:</span>
-                <select 
-                  value={editedResume.customization?.headerLayout || "left"} 
-                  onChange={e => updateCustomizationField("headerLayout", e.target.value)} 
-                  className="builder-input" 
-                  style={{ padding: "0.25rem 0.5rem", fontSize: "0.72rem", width: "auto", minHeight: "auto", height: "28px" }}
-                >
-                  <option value="left">Left</option>
-                  <option value="center">Center</option>
-                  <option value="split">Split</option>
-                </select>
-              </div>
-
-              {/* Line height slider */}
-              <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
-                <span style={{ fontSize: "0.72rem", fontWeight: "bold" }}>Spacing:</span>
-                <input 
-                  type="range" 
-                  min="1.0" 
-                  max="2.0" 
-                  step="0.05" 
-                  value={editedResume.customization?.lineSpacing || 1.15} 
-                  onChange={e => updateCustomizationField("lineSpacing", parseFloat(e.target.value))} 
-                  style={{ width: "70px", cursor: "pointer", height: "4px", padding: 0 }}
-                />
-                <span style={{ fontSize: "0.72rem", fontWeight: "bold" }}>{editedResume.customization?.lineSpacing || 1.15}</span>
-              </div>
-            </div>
-
-            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-              {/* Color pickers */}
-              <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
-                <span style={{ fontSize: "0.72rem", fontWeight: "bold" }}>Primary Color:</span>
-                <input 
-                  type="color" 
-                  value={editedResume.customization?.primaryColor || "#0f172a"} 
-                  onChange={e => updateCustomizationField("primaryColor", e.target.value)} 
-                  style={{ width: "24px", height: "24px", padding: 0, border: "1px solid var(--card-border)", borderRadius: "4px", cursor: "pointer" }}
-                />
-              </div>
-
-              <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
-                <span style={{ fontSize: "0.72rem", fontWeight: "bold" }}>Accent:</span>
-                <input 
-                  type="color" 
-                  value={editedResume.customization?.accentColor || "#2563eb"} 
-                  onChange={e => updateCustomizationField("accentColor", e.target.value)} 
-                  style={{ width: "24px", height: "24px", padding: 0, border: "1px solid var(--card-border)", borderRadius: "4px", cursor: "pointer" }}
-                />
-              </div>
-            </div>
+            <button className="v2-toolbar-btn btn-close" onClick={() => { setSelectedResume(null); setSelectedSection(null); }}>
+              ✕ Close
+            </button>
           </div>
         </div>
 
-        {/* Visual Mobile Bottom Action Dock (Part 14) */}
-        {isMobile && (
-          <div className="mobile-action-dock" style={{
-            position: "fixed",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            background: "#ffffff",
-            borderTop: "1px solid #cbd5e1",
-            boxShadow: "0 -4px 15px rgba(0,0,0,0.06)",
-            zIndex: 99999,
-            display: "flex",
-            justifyContent: "space-around",
-            padding: "0.5rem 0"
-          }}>
-            <button onClick={() => setMobileTab("builder")} style={{ background: "transparent", border: "none", fontSize: "0.72rem", display: "flex", flexDirection: "column", alignItems: "center", color: mobileTab === "builder" ? "var(--color-primary)" : "#64748b" }}>
-              <span>✍️</span><span>Builder</span>
-            </button>
-            <button onClick={() => setMobileTab("templates")} style={{ background: "transparent", border: "none", fontSize: "0.72rem", display: "flex", flexDirection: "column", alignItems: "center", color: mobileTab === "templates" ? "var(--color-primary)" : "#64748b" }}>
-              <span>📄</span><span>Templates</span>
-            </button>
-            <button onClick={() => setMobileTab("preview")} style={{ background: "transparent", border: "none", fontSize: "0.72rem", display: "flex", flexDirection: "column", alignItems: "center", color: mobileTab === "preview" ? "var(--color-primary)" : "#64748b" }}>
-              <span>👁️</span><span>Preview</span>
-            </button>
-          </div>
-        )}
-
-        {/* Main Workspace Layout */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+        {/* Main Editor Body */}
+        <div className="v2-workspace-body">
           
-          {/* Template switcher rendering */}
-          {(!isMobile || mobileTab === "templates") && (
-            <VisualTemplateGallery 
-              selectedTemplate={selectedTemplate}
-              setSelectedTemplate={setSelectedTemplate}
-              templatesList={templatesList}
-              renderThumbnailMockup={renderThumbnailMockup}
-              setIsPreviewModalOpen={setIsPreviewModalOpen}
-              setIsDummyPreview={setIsDummyPreview}
-              setPreviewModalTemplate={setPreviewModalTemplate}
-              setZoomScale={setZoomScale}
-              addToast={addToast}
-            />
-          )}
+          {/* Split Left Sidebar */}
+          {(!isMobile || mobileTab === "builder") && (
+            <div className="v2-split-sidebar">
+            {/* Narrow Icon strip */}
+            <div className="v2-sidebar-nav">
+              {[
+                { id: "templates", label: "Templates", icon: "📁" },
+                { id: "content", label: "Content", icon: "✍️" },
+                { id: "design", label: "Design", icon: "🎨" },
+                { id: "sections", label: "Sections", icon: "📋" },
+                { id: "ai", label: "AI Copilot", icon: "🤖" },
+                { id: "settings", label: "Settings", icon: "⚙️" }
+              ].map(item => (
+                <button 
+                  key={item.id}
+                  className={`v2-nav-item ${builderTab === item.id ? "active" : ""}`}
+                  onClick={() => setBuilderTab(item.id)}
+                  title={item.label}
+                >
+                  <span style={{ fontSize: "1.25rem" }}>{item.icon}</span>
+                  <span style={{ fontSize: "0.62rem", marginTop: "0.2rem", fontWeight: "600" }}>{item.label}</span>
+                </button>
+              ))}
+            </div>
 
-          {/* Desktop Dual/Triple Column Workspace Grid */}
-          <div 
-            style={{ 
-              display: "grid", 
-              gridTemplateColumns: isMobile ? "1fr" : (showAtsChecklist ? "420px 1fr 310px" : "420px 1fr"), 
-              gap: "1.5rem" 
-            }} 
-            className="ats-dashboard-grid"
-          >
-            
-            {/* Left Column: Form Editor Controls */}
-            {(!isMobile || mobileTab === "builder") && (
-              <div className="glass-panel" style={{ display: "flex", flexDirection: "column", gap: "1rem", height: "fit-content" }}>
-                <div style={{ display: "flex", gap: "0.35rem", background: "rgba(15, 23, 42, 0.03)", padding: "0.25rem", borderRadius: "8px" }}>
-                  <button className={`tab-btn-mini ${builderTab === "content" ? "active" : ""}`} onClick={() => setBuilderTab("content")} style={{ flex: 1 }}>✍️ Content</button>
-                  <button className={`tab-btn-mini ${builderTab === "design" ? "active" : ""}`} onClick={() => setBuilderTab("design")} style={{ flex: 1 }}>🎨 Design</button>
-                  <button className={`tab-btn-mini ${builderTab === "ai" ? "active" : ""}`} onClick={() => setBuilderTab("ai")} style={{ flex: 1 }}>🤖 AI Optimize</button>
-                  <button className={`tab-btn-mini ${builderTab === "versions" ? "active" : ""}`} onClick={() => setBuilderTab("versions")} style={{ flex: 1 }}>📁 Versions</button>
+            {/* Wider Details Panel */}
+            <div className="v2-sidebar-panel scroll-y-styled">
+              <h3 className="v2-panel-header">{builderTab === "ai" ? "AI Copywriter" : builderTab}</h3>
+
+              {builderTab === "templates" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+                  {templatesList.map(tmpl => (
+                    <div 
+                      key={tmpl.name} 
+                      className={`v2-template-card-mini ${selectedTemplate === tmpl.name ? "active" : ""}`}
+                      onClick={() => {
+                        setSelectedTemplate(tmpl.name);
+                        addToast(`Applied template: ${tmpl.name}`, "success");
+                      }}
+                    >
+                      <div style={{ fontWeight: "700", fontSize: "0.82rem", color: "var(--color-text-main)" }}>{tmpl.name}</div>
+                      <div style={{ fontSize: "0.68rem", color: "var(--color-text-muted)", marginTop: "0.2rem" }}>{tmpl.bestFor}</div>
+                      {selectedTemplate === tmpl.name && <span className="v2-active-indicator">Active</span>}
+                    </div>
+                  ))}
                 </div>
+              )}
 
-                {builderTab === "content" && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "0.65rem", maxHeight: "600px", overflowY: "auto" }} className="scroll-y-styled">
-                    {/* Identity Accordion */}
-                    <div style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
-                      <div onClick={() => toggleSection("contact")} style={{ background: "#F8FAFC", padding: "0.65rem 0.85rem", display: "flex", justifyContent: "space-between", cursor: "pointer", fontWeight: "700", fontSize: "0.82rem" }}>
-                        <span>👤 Personal Identity Details</span>
-                        <span>{expandedSections.contact ? "▲" : "▼"}</span>
-                      </div>
-                      {expandedSections.contact && (
-                        <div style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.75rem", borderTop: "1px solid var(--card-border)" }}>
-                          <div className="auth-field"><label className="auth-label">Full Name</label><input type="text" className="auth-input" value={editedResume.name} onChange={e => updateField("name", e.target.value)} /></div>
-                          <div className="auth-field"><label className="auth-label">Email</label><input type="email" className="auth-input" value={editedResume.email} onChange={e => updateField("email", e.target.value)} /></div>
-                          <div className="auth-field"><label className="auth-label">Phone</label><input type="text" className="auth-input" value={editedResume.phone} onChange={e => updateField("phone", e.target.value)} /></div>
-                        </div>
-                      )}
+              {builderTab === "content" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.65rem" }}>
+                  
+                  {/* Identity Accordion */}
+                  <div className="builder-accordion" style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
+                    <div className="builder-accordion-header" onClick={() => toggleSection("contact")} style={{ background: "#F8FAFC", padding: "0.65rem 0.85rem", display: "flex", justifyContent: "space-between", cursor: "pointer", fontWeight: "700", fontSize: "0.82rem" }}>
+                      <span className="builder-accordion-title-container">
+                        <span className="builder-accordion-icon">👤</span>
+                        <span className="builder-accordion-title">Personal Identity Details</span>
+                      </span>
+                      <span className={`builder-accordion-arrow ${expandedSections.contact ? "expanded" : ""}`}>▼</span>
                     </div>
-
-                    {/* Summary Accordion */}
-                    <div style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
-                      <div onClick={() => toggleSection("summary")} style={{ background: "#F8FAFC", padding: "0.65rem 0.85rem", display: "flex", justifyContent: "space-between", cursor: "pointer", fontWeight: "700", fontSize: "0.82rem" }}>
-                        <span>📝 Summary</span>
-                        <span>{expandedSections.summary ? "▲" : "▼"}</span>
-                      </div>
-                      {expandedSections.summary && (
-                        <div style={{ padding: "0.85rem", borderTop: "1px solid var(--card-border)" }}>
-                          <textarea className="auth-input" style={{ height: "90px" }} value={editedResume.summary || editedResume.professional_summary || ""} onChange={e => { updateField("summary", e.target.value); updateField("professional_summary", e.target.value); }} />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Skills Accordion */}
-                    <div style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
-                      <div onClick={() => toggleSection("skills")} style={{ background: "#F8FAFC", padding: "0.65rem 0.85rem", display: "flex", justifyContent: "space-between", cursor: "pointer", fontWeight: "700", fontSize: "0.82rem" }}>
-                        <span>🛠️ Skills Toolkit ({editedResume.skills.length})</span>
-                        <span>{expandedSections.skills ? "▲" : "▼"}</span>
-                      </div>
-                      {expandedSections.skills && (
-                        <div style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.75rem", borderTop: "1px solid var(--card-border)" }}>
-                          <div style={{ display: "flex", gap: "0.5rem" }}>
-                            <input type="text" className="auth-input" placeholder="Add Skill..." value={newSkillInput} onChange={e => setNewSkillInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter") addSkillTag(); }} />
-                            <button className="btn-primary" onClick={addSkillTag}>Add</button>
-                          </div>
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.3rem" }}>
-                            {editedResume.skills.map((s, idx) => (
-                              <span key={idx} className="keyword-chip" style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>{s}
-                                <button onClick={() => removeSkillTag(idx)} style={{ background: "transparent", border: "none", color: "var(--color-danger)", cursor: "pointer" }}>&times;</button>
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Experience Accordion */}
-                    <div style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
-                      <div onClick={() => toggleSection("experience")} style={{ background: "#F8FAFC", padding: "0.65rem 0.85rem", display: "flex", justifyContent: "space-between", cursor: "pointer", fontWeight: "700", fontSize: "0.82rem" }}>
-                        <span>💼 Experience History ({editedResume.experience.length})</span>
-                        <span>{expandedSections.experience ? "▲" : "▼"}</span>
-                      </div>
-                      {expandedSections.experience && (
-                        <div style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.85rem", borderTop: "1px solid var(--card-border)" }}>
-                          {editedResume.experience.map((exp, idx) => (
-                            <div key={idx} style={{ padding: "0.65rem", border: "1px solid var(--card-border)", borderRadius: "6px", background: "#FAFBFD" }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.25rem" }}>
-                                <div style={{ display: "flex", gap: "0.25rem" }}>
-                                  <button className="btn-secondary" style={{ padding: "0.15rem 0.35rem", fontSize: "0.7rem", minHeight: "auto" }} disabled={idx === 0} onClick={() => handleSwapItems("experience", idx, -1)}>↑</button>
-                                  <button className="btn-secondary" style={{ padding: "0.15rem 0.35rem", fontSize: "0.7rem", minHeight: "auto" }} disabled={idx === editedResume.experience.length - 1} onClick={() => handleSwapItems("experience", idx, 1)}>↓</button>
-                                </div>
-                                <button onClick={() => removeListItem("experience", idx)} style={{ background: "transparent", border: "none", color: "var(--color-danger)", cursor: "pointer", fontSize: "0.75rem" }}>Delete</button>
-                              </div>
-                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.35rem" }}>
-                                <input type="text" className="auth-input" placeholder="Role" value={exp.role || ""} onChange={e => updateListField("experience", idx, "role", e.target.value)} />
-                                <input type="text" className="auth-input" placeholder="Company" value={exp.company || ""} onChange={e => updateListField("experience", idx, "company", e.target.value)} />
-                                <input type="text" className="auth-input" placeholder="Start" value={exp.start_date || ""} onChange={e => updateListField("experience", idx, "start_date", e.target.value)} />
-                                <input type="text" className="auth-input" placeholder="End" value={exp.end_date || ""} onChange={e => updateListField("experience", idx, "end_date", e.target.value)} />
-                                <textarea className="auth-input" placeholder="Bullet points" style={{ gridColumn: "span 2", height: "60px" }} value={exp.description || ""} onChange={e => updateListField("experience", idx, "description", e.target.value)} />
-                              </div>
-                            </div>
-                          ))}
-                          <button className="btn-secondary" onClick={() => addListItem("experience", { role: "New Role", company: "Company", start_date: "2024", end_date: "Present", description: "• Focus achievement details" })}>+ Add Position</button>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Education Accordion */}
-                    <div style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
-                      <div onClick={() => toggleSection("education")} style={{ background: "#F8FAFC", padding: "0.65rem 0.85rem", display: "flex", justifyContent: "space-between", cursor: "pointer", fontWeight: "700", fontSize: "0.82rem" }}>
-                        <span>🎓 Education ({editedResume.education.length})</span>
-                        <span>{expandedSections.education ? "▲" : "▼"}</span>
-                      </div>
-                      {expandedSections.education && (
-                        <div style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.5rem", borderTop: "1px solid var(--card-border)" }}>
-                          {editedResume.education.map((edu, idx) => (
-                            <div key={idx} style={{ padding: "0.5rem", border: "1px solid var(--card-border)", borderRadius: "6px" }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.25rem" }}>
-                                <span style={{ fontSize: "0.75rem", fontWeight: "bold" }}>Degree #{idx+1}</span>
-                                <button onClick={() => removeListItem("education", idx)} style={{ background: "transparent", border: "none", color: "var(--color-danger)", cursor: "pointer", fontSize: "0.72rem" }}>Delete</button>
-                              </div>
-                              <input type="text" className="auth-input" placeholder="Degree" value={edu.degree || ""} onChange={e => updateListField("education", idx, "degree", e.target.value)} style={{ marginBottom: "0.25rem" }} />
-                              <input type="text" className="auth-input" placeholder="School" value={edu.school || ""} onChange={e => updateListField("education", idx, "school", e.target.value)} />
-                            </div>
-                          ))}
-                          <button className="btn-secondary" onClick={() => addListItem("education", { degree: "Bachelor of Science", school: "University", field_of_study: "Major", end_date: "2026" })}>+ Add Education</button>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Projects Accordion */}
-                    <div style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
-                      <div onClick={() => toggleSection("projects")} style={{ background: "#F8FAFC", padding: "0.65rem 0.85rem", display: "flex", justifyContent: "space-between", cursor: "pointer", fontWeight: "700", fontSize: "0.82rem" }}>
-                        <span>📂 Projects ({editedResume.projects?.length || 0})</span>
-                        <span>{expandedSections.projects ? "▲" : "▼"}</span>
-                      </div>
-                      {expandedSections.projects && (
-                        <div style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.5rem", borderTop: "1px solid var(--card-border)" }}>
-                          {(editedResume.projects || []).map((proj, idx) => (
-                            <div key={idx} style={{ padding: "0.5rem", border: "1px solid var(--card-border)", borderRadius: "6px" }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.25rem" }}>
-                                <span style={{ fontSize: "0.75rem", fontWeight: "bold" }}>Project #{idx+1}</span>
-                                <button onClick={() => removeListItem("projects", idx)} style={{ background: "transparent", border: "none", color: "var(--color-danger)", cursor: "pointer", fontSize: "0.72rem" }}>Delete</button>
-                              </div>
-                              <input type="text" className="auth-input" placeholder="Project Title" value={proj.title || ""} onChange={e => updateListField("projects", idx, "title", e.target.value)} style={{ marginBottom: "0.25rem" }} />
-                              <input type="text" className="auth-input" placeholder="Technologies (comma separated)" value={Array.isArray(proj.technologies) ? proj.technologies.join(", ") : (proj.technologies || "")} onChange={e => updateProjectTech(idx, e.target.value)} style={{ marginBottom: "0.25rem" }} />
-                              <textarea className="auth-input" placeholder="Description" value={proj.description || ""} onChange={e => updateListField("projects", idx, "description", e.target.value)} style={{ height: "60px" }} />
-                            </div>
-                          ))}
-                          <button className="btn-secondary" onClick={() => addListItem("projects", { title: "New Project", description: "Project description", technologies: ["React"] })}>+ Add Project</button>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Certifications Accordion */}
-                    <div style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
-                      <div onClick={() => toggleSection("certifications")} style={{ background: "#F8FAFC", padding: "0.65rem 0.85rem", display: "flex", justifyContent: "space-between", cursor: "pointer", fontWeight: "700", fontSize: "0.82rem" }}>
-                        <span>🏆 Certifications ({editedResume.certifications?.length || 0})</span>
-                        <span>{expandedSections.certifications ? "▲" : "▼"}</span>
-                      </div>
-                      {expandedSections.certifications && (
-                        <div style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.5rem", borderTop: "1px solid var(--card-border)" }}>
-                          {(editedResume.certifications || []).map((cert, idx) => (
-                            <div key={idx} style={{ padding: "0.5rem", border: "1px solid var(--card-border)", borderRadius: "6px" }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.25rem" }}>
-                                <span style={{ fontSize: "0.75rem", fontWeight: "bold" }}>Cert #{idx+1}</span>
-                                <button onClick={() => removeListItem("certifications", idx)} style={{ background: "transparent", border: "none", color: "var(--color-danger)", cursor: "pointer", fontSize: "0.72rem" }}>Delete</button>
-                              </div>
-                              <input type="text" className="auth-input" placeholder="Certification Name" value={cert.name || ""} onChange={e => updateListField("certifications", idx, "name", e.target.value)} style={{ marginBottom: "0.25rem" }} />
-                              <input type="text" className="auth-input" placeholder="Issuer" value={cert.issuer || ""} onChange={e => updateListField("certifications", idx, "issuer", e.target.value)} style={{ marginBottom: "0.25rem" }} />
-                              <input type="text" className="auth-input" placeholder="Date" value={cert.date || ""} onChange={e => updateListField("certifications", idx, "date", e.target.value)} />
-                            </div>
-                          ))}
-                          <button className="btn-secondary" onClick={() => addListItem("certifications", { name: "New Certification", issuer: "Authority", date: "2026" })}>+ Add Certification</button>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Languages Accordion */}
-                    <div style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
-                      <div onClick={() => toggleSection("languages")} style={{ background: "#F8FAFC", padding: "0.65rem 0.85rem", display: "flex", justifyContent: "space-between", cursor: "pointer", fontWeight: "700", fontSize: "0.82rem" }}>
-                        <span>🌐 Languages ({editedResume.languages?.length || 0})</span>
-                        <span>{expandedSections.languages ? "▲" : "▼"}</span>
-                      </div>
-                      {expandedSections.languages && (
-                        <div style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.5rem", borderTop: "1px solid var(--card-border)" }}>
-                          {(editedResume.languages || []).map((lang, idx) => (
-                            <div key={idx} style={{ padding: "0.5rem", border: "1px solid var(--card-border)", borderRadius: "6px" }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.25rem" }}>
-                                <span style={{ fontSize: "0.75rem", fontWeight: "bold" }}>Language #{idx+1}</span>
-                                <button onClick={() => removeListItem("languages", idx)} style={{ background: "transparent", border: "none", color: "var(--color-danger)", cursor: "pointer", fontSize: "0.72rem" }}>Delete</button>
-                              </div>
-                              <input type="text" className="auth-input" placeholder="Language" value={lang.language || ""} onChange={e => updateListField("languages", idx, "language", e.target.value)} style={{ marginBottom: "0.25rem" }} />
-                              <input type="text" className="auth-input" placeholder="Proficiency (e.g. Fluent)" value={lang.proficiency || ""} onChange={e => updateListField("languages", idx, "proficiency", e.target.value)} />
-                            </div>
-                          ))}
-                          <button className="btn-secondary" onClick={() => addListItem("languages", { language: "New Language", proficiency: "Fluent" })}>+ Add Language</button>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Achievements Accordion */}
-                    <div style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
-                      <div onClick={() => toggleSection("achievements")} style={{ background: "#F8FAFC", padding: "0.65rem 0.85rem", display: "flex", justifyContent: "space-between", cursor: "pointer", fontWeight: "700", fontSize: "0.82rem" }}>
-                        <span>🏆 Achievements ({editedResume.achievements?.length || 0})</span>
-                        <span>{expandedSections.achievements ? "▲" : "▼"}</span>
-                      </div>
-                      {expandedSections.achievements && (
-                        <div style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.5rem", borderTop: "1px solid var(--card-border)" }}>
-                          {(editedResume.achievements || []).map((ach, idx) => (
-                            <div key={idx} style={{ display: "flex", gap: "0.35rem", alignItems: "center" }}>
-                              <input type="text" className="auth-input" value={ach || ""} onChange={e => updateStringListItem("achievements", idx, e.target.value)} />
-                              <button onClick={() => removeListItem("achievements", idx)} style={{ background: "transparent", border: "none", color: "var(--color-danger)", cursor: "pointer", fontSize: "1.2rem" }}>&times;</button>
-                            </div>
-                          ))}
-                          <button className="btn-secondary" onClick={() => addListItem("achievements", "New achievement detail")}>+ Add Achievement</button>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Leadership Accordion */}
-                    <div style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
-                      <div onClick={() => toggleSection("leadership")} style={{ background: "#F8FAFC", padding: "0.65rem 0.85rem", display: "flex", justifyContent: "space-between", cursor: "pointer", fontWeight: "700", fontSize: "0.82rem" }}>
-                        <span>👥 Leadership ({editedResume.leadership?.length || 0})</span>
-                        <span>{expandedSections.leadership ? "▲" : "▼"}</span>
-                      </div>
-                      {expandedSections.leadership && (
-                        <div style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.5rem", borderTop: "1px solid var(--card-border)" }}>
-                          {(editedResume.leadership || []).map((lead, idx) => (
-                            <div key={idx} style={{ display: "flex", gap: "0.35rem", alignItems: "center" }}>
-                              <input type="text" className="auth-input" value={lead || ""} onChange={e => updateStringListItem("leadership", idx, e.target.value)} />
-                              <button onClick={() => removeListItem("leadership", idx)} style={{ background: "transparent", border: "none", color: "var(--color-danger)", cursor: "pointer", fontSize: "1.2rem" }}>&times;</button>
-                            </div>
-                          ))}
-                          <button className="btn-secondary" onClick={() => addListItem("leadership", "New leadership experience")}>+ Add Leadership</button>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Interests Accordion */}
-                    <div style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
-                      <div onClick={() => toggleSection("interests")} style={{ background: "#F8FAFC", padding: "0.65rem 0.85rem", display: "flex", justifyContent: "space-between", cursor: "pointer", fontWeight: "700", fontSize: "0.82rem" }}>
-                        <span>🎨 Interests ({editedResume.interests?.length || 0})</span>
-                        <span>{expandedSections.interests ? "▲" : "▼"}</span>
-                      </div>
-                      {expandedSections.interests && (
-                        <div style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.5rem", borderTop: "1px solid var(--card-border)" }}>
-                          {(editedResume.interests || []).map((interest, idx) => (
-                            <div key={idx} style={{ display: "flex", gap: "0.35rem", alignItems: "center" }}>
-                              <input type="text" className="auth-input" value={interest || ""} onChange={e => updateStringListItem("interests", idx, e.target.value)} />
-                              <button onClick={() => removeListItem("interests", idx)} style={{ background: "transparent", border: "none", color: "var(--color-danger)", cursor: "pointer", fontSize: "1.2rem" }}>&times;</button>
-                            </div>
-                          ))}
-                          <button className="btn-secondary" onClick={() => addListItem("interests", "New Interest")}>+ Add Interest</button>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Referees Accordion */}
-                    <div style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
-                      <div onClick={() => toggleSection("referees")} style={{ background: "#F8FAFC", padding: "0.65rem 0.85rem", display: "flex", justifyContent: "space-between", cursor: "pointer", fontWeight: "700", fontSize: "0.82rem" }}>
-                        <span>📋 References ({editedResume.referees?.length || 0})</span>
-                        <span>{expandedSections.referees ? "▲" : "▼"}</span>
-                      </div>
-                      {expandedSections.referees && (
-                        <div style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.5rem", borderTop: "1px solid var(--card-border)" }}>
-                          {(editedResume.referees || []).map((ref, idx) => (
-                            <div key={idx} style={{ padding: "0.5rem", border: "1px solid var(--card-border)", borderRadius: "6px" }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.25rem" }}>
-                                <span style={{ fontSize: "0.75rem", fontWeight: "bold" }}>Reference #{idx+1}</span>
-                                <button onClick={() => removeListItem("referees", idx)} style={{ background: "transparent", border: "none", color: "var(--color-danger)", cursor: "pointer", fontSize: "0.72rem" }}>Delete</button>
-                              </div>
-                              <textarea className="auth-input" placeholder="Reference Details" value={ref || ""} onChange={e => updateStringListItem("referees", idx, e.target.value)} style={{ height: "60px" }} />
-                            </div>
-                          ))}
-                          <button className="btn-secondary" onClick={() => addListItem("referees", "John Doe, Manager at TechCorp (john@example.com)")}>+ Add Reference</button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {builderTab === "design" && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                    <div className="auth-field">
-                      <label className="auth-label">🔤 Base Font style</label>
-                      <select className="auth-input" value={editedResume.customization.fontFamily || "DejaVuSans"} onChange={e => updateCustomizationField("fontFamily", e.target.value)}>
-                        <option value="DejaVuSans">Sans-Serif (DejaVu Sans / Inter)</option>
-                        <option value="DejaVuSerif">Serif (DejaVu Serif / Outfit)</option>
-                        <option value="Courier">Monospace (Courier New)</option>
-                      </select>
-                    </div>
-                    {/* Expandable Advanced Design Settings (Part 5 Panel) */}
-                    <AdvancedDesignPanel 
-                      customization={editedResume.customization || {}}
-                      updateCustomizationField={updateCustomizationField}
-                      selectedTemplate={selectedTemplate}
-                    />
-                  </div>
-                )}
-
-                {builderTab === "ai" && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "1rem", maxHeight: "600px", overflowY: "auto" }} className="scroll-y-styled">
-                    <div style={{ border: "1px solid var(--card-border)", borderRadius: "8px", padding: "0.75rem", background: "rgba(79, 70, 229, 0.02)" }}>
-                      <h4 style={{ margin: "0 0 0.5rem 0", fontSize: "0.85rem", fontWeight: "700" }}>🤖 AI Copilot suggestions</h4>
-                      <textarea className="auth-input" placeholder="Paste target Job Description details..." value={aiImproveJd} onChange={e => setAiImproveJd(e.target.value)} style={{ height: "80px", marginBottom: "0.5rem" }} />
-                      <button className="btn-primary" onClick={handleImproveResumeAI} disabled={aiImproveLoading} style={{ width: "100%" }}>
-                        {aiImproveLoading ? "Rewriting with AI..." : "Polish Resume text"}
-                      </button>
-                    </div>
-
-                    {/* AI Suggestions check lists (Part 11 flow) */}
-                    {aiImproveResults && (
-                      <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                        <div style={{ padding: "0.5rem", borderRadius: "8px", background: "#f0fdf4", border: "1px solid #bbf7d0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <span style={{ fontSize: "0.72rem", color: "#166534", fontWeight: "700" }}>Estimated post-AI score: {aiImproveResults.estimated_score}% (was {aiImproveResults.current_score}%)</span>
-                          <button onClick={() => setAiImproveResults(null)} style={{ background: "transparent", border: "none", color: "#166534", cursor: "pointer", fontWeight: "700" }}>✕ Dismiss</button>
-                        </div>
-
-                        {/* Summary Comparison */}
-                        {aiImproveResults.improvements?.improved_summary && (
-                          <div className="ai-compare-card">
-                            <div className="ai-compare-title">
-                              <span>📝 Professional Summary Draft</span>
-                            </div>
-                            <div className="ai-compare-split">
-                              <div className="ai-compare-original">
-                                <strong>Original:</strong><br/>
-                                {editedResume.summary || "N/A"}
-                              </div>
-                              <div className="ai-compare-improved">
-                                <strong>Polished Suggestion:</strong><br/>
-                                {aiImproveResults.improvements.improved_summary}
-                              </div>
-                            </div>
-                            <div style={{ display: "flex", gap: "0.35rem", justifyContent: "flex-end", marginTop: "0.5rem" }}>
-                              <button className="btn-secondary" style={{ padding: "0.25rem 0.5rem", fontSize: "0.68rem", minHeight: "auto" }} onClick={() => {
-                                setAiImproveResults(prev => ({
-                                  ...prev,
-                                  improvements: { ...prev.improvements, improved_summary: null }
-                                }));
-                              }}>Reject</button>
-                              <button className="btn-primary" style={{ padding: "0.25rem 0.5rem", fontSize: "0.68rem", minHeight: "auto" }} onClick={() => handleAcceptSummary(aiImproveResults.improvements.improved_summary)}>Accept Summary ✓</button>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Experience Comparison */}
-                        {aiImproveResults.improvements?.improved_experience && aiImproveResults.improvements.improved_experience.length > 0 && (
-                          <div className="ai-compare-card">
-                            <div className="ai-compare-title">
-                              <span>💼 Experience Bullet Points</span>
-                            </div>
-                            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                              {aiImproveResults.improvements.improved_experience.map((impExp, idx) => {
-                                // Find actual item index in original experience list
-                                const originalIdx = editedResume.experience.findIndex(e => e.role === impExp.role && e.company === impExp.company);
-                                if (originalIdx === -1) return null;
-                                return (
-                                  <div key={idx} style={{ borderBottom: "1px dashed var(--card-border)", paddingBottom: "0.5rem" }}>
-                                    <div style={{ fontSize: "0.72rem", fontWeight: "700", marginBottom: "0.25rem", color: "var(--color-primary)" }}>{impExp.role} at {impExp.company}</div>
-                                    <div className="ai-compare-split">
-                                      <div className="ai-compare-original">
-                                        {impExp.original || editedResume.experience[originalIdx].description}
-                                      </div>
-                                      <div className="ai-compare-improved">
-                                        {impExp.improved}
-                                      </div>
-                                    </div>
-                                    <div style={{ display: "flex", gap: "0.35rem", justifyContent: "flex-end", marginTop: "0.35rem" }}>
-                                      <button className="btn-secondary" style={{ padding: "0.15rem 0.35rem", fontSize: "0.65rem", minHeight: "auto" }} onClick={() => {
-                                        const remaining = aiImproveResults.improvements.improved_experience.filter((_, i) => i !== idx);
-                                        setAiImproveResults(prev => ({
-                                          ...prev,
-                                          improvements: { ...prev.improvements, improved_experience: remaining }
-                                        }));
-                                      }}>Reject</button>
-                                      <button className="btn-primary" style={{ padding: "0.15rem 0.35rem", fontSize: "0.65rem", minHeight: "auto" }} onClick={() => handleAcceptExperience(originalIdx, impExp.improved)}>Apply Bullets ✓</button>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Projects Comparison */}
-                        {aiImproveResults.improvements?.improved_projects && aiImproveResults.improvements.improved_projects.length > 0 && (
-                          <div className="ai-compare-card">
-                            <div className="ai-compare-title">
-                              <span>📂 Project Descriptions</span>
-                            </div>
-                            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                              {aiImproveResults.improvements.improved_projects.map((impProj, idx) => {
-                                const originalIdx = editedResume.projects.findIndex(p => p.title === impProj.title);
-                                if (originalIdx === -1) return null;
-                                return (
-                                  <div key={idx} style={{ borderBottom: "1px dashed var(--card-border)", paddingBottom: "0.5rem" }}>
-                                    <div style={{ fontSize: "0.72rem", fontWeight: "700", marginBottom: "0.25rem", color: "var(--color-primary)" }}>{impProj.title}</div>
-                                    <div className="ai-compare-split">
-                                      <div className="ai-compare-original">
-                                        {impProj.original || editedResume.projects[originalIdx].description}
-                                      </div>
-                                      <div className="ai-compare-improved">
-                                        {impProj.improved}
-                                      </div>
-                                    </div>
-                                    <div style={{ display: "flex", gap: "0.35rem", justifyContent: "flex-end", marginTop: "0.35rem" }}>
-                                      <button className="btn-secondary" style={{ padding: "0.15rem 0.35rem", fontSize: "0.65rem", minHeight: "auto" }} onClick={() => {
-                                        const remaining = aiImproveResults.improvements.improved_projects.filter((_, i) => i !== idx);
-                                        setAiImproveResults(prev => ({
-                                          ...prev,
-                                          improvements: { ...prev.improvements, improved_projects: remaining }
-                                        }));
-                                      }}>Reject</button>
-                                      <button className="btn-primary" style={{ padding: "0.15rem 0.35rem", fontSize: "0.65rem", minHeight: "auto" }} onClick={() => handleAcceptProject(originalIdx, impProj.improved)}>Apply Draft ✓</button>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Suggested Keywords / Skills */}
-                        {aiImproveResults.improvements?.keyword_suggestions && aiImproveResults.improvements.keyword_suggestions.length > 0 && (
-                          <div className="ai-compare-card">
-                            <div className="ai-compare-title" style={{ marginBottom: "0.35rem" }}>
-                              <span>💡 Recommended Keywords ({aiImproveResults.improvements.keyword_suggestions.length})</span>
-                            </div>
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.25rem" }}>
-                              {aiImproveResults.improvements.keyword_suggestions.map((kw, i) => (
-                                <span 
-                                  key={i} 
-                                  onClick={() => {
-                                    handleAddSuggestedSkill(kw);
-                                    const remaining = aiImproveResults.improvements.keyword_suggestions.filter((_, idx) => idx !== i);
-                                    setAiImproveResults(prev => ({
-                                      ...prev,
-                                      improvements: { ...prev.improvements, keyword_suggestions: remaining }
-                                    }));
-                                  }}
-                                  className="keyword-chip" 
-                                  style={{ cursor: "pointer", fontSize: "0.68rem", padding: "0.15rem 0.35rem", background: "rgba(79, 70, 229, 0.04)", border: "1px dashed rgba(79, 70, 229, 0.3)", color: "var(--color-primary)", borderRadius: "4px" }}
-                                  title="Click to add skill instantly"
-                                >
-                                  + {kw}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
+                    {expandedSections.contact && (
+                      <div className="builder-accordion-content" style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.75rem", borderTop: "1px solid var(--card-border)" }}>
+                        <div className="auth-field"><label className="auth-label">Full Name</label><input type="text" className="auth-input" value={editedResume.name} onChange={e => updateField("name", e.target.value)} /></div>
+                        <div className="auth-field"><label className="auth-label">Email</label><input type="email" className="auth-input" value={editedResume.email} onChange={e => updateField("email", e.target.value)} /></div>
+                        <div className="auth-field"><label className="auth-label">Phone</label><input type="text" className="auth-input" value={editedResume.phone} onChange={e => updateField("phone", e.target.value)} /></div>
                       </div>
                     )}
                   </div>
-                )}
 
-                {builderTab === "versions" && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                    <div style={{ border: "1px solid var(--card-border)", borderRadius: "8px", padding: "0.75rem", background: "#f8fafc" }}>
-                      <h4 style={{ margin: "0 0 0.5rem 0", fontSize: "0.82rem" }}>📁 Save Snapshot</h4>
-                      <div style={{ display: "flex", gap: "0.35rem" }}>
-                        <input type="text" className="auth-input" placeholder="Snapshot label..." value={newVersionName} onChange={e => setNewVersionName(e.target.value)} style={{ fontSize: "0.8rem", height: "34px", minHeight: "auto" }} />
-                        <button className="btn-primary" onClick={handleSaveVersion} disabled={versionsLoading} style={{ padding: "0.45rem 0.85rem", fontSize: "0.75rem", whiteSpace: "nowrap", minHeight: "auto" }}>Save</button>
+                  {/* Summary Accordion */}
+                  <div className="builder-accordion" style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
+                    <div className="builder-accordion-header" onClick={() => toggleSection("summary")} style={{ background: "#F8FAFC", padding: "0.65rem 0.85rem", display: "flex", justifyContent: "space-between", cursor: "pointer", fontWeight: "700", fontSize: "0.82rem" }}>
+                      <span className="builder-accordion-title-container">
+                        <span className="builder-accordion-icon">📝</span>
+                        <span className="builder-accordion-title">Summary</span>
+                      </span>
+                      <span className={`builder-accordion-arrow ${expandedSections.summary ? "expanded" : ""}`}>▼</span>
+                    </div>
+                    {expandedSections.summary && (
+                      <div className="builder-accordion-content" style={{ padding: "0.85rem", borderTop: "1px solid var(--card-border)" }}>
+                        <textarea className="auth-input" style={{ height: "90px" }} value={editedResume.summary || editedResume.professional_summary || ""} onChange={e => { updateField("summary", e.target.value); updateField("professional_summary", e.target.value); }} />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Skills Accordion */}
+                  <div className="builder-accordion" style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
+                    <div className="builder-accordion-header" onClick={() => toggleSection("skills")} style={{ background: "#F8FAFC", padding: "0.65rem 0.85rem", display: "flex", justifyContent: "space-between", cursor: "pointer", fontWeight: "700", fontSize: "0.82rem" }}>
+                      <span className="builder-accordion-title-container">
+                        <span className="builder-accordion-icon">🛠️</span>
+                        <span className="builder-accordion-title">Skills Toolkit ({editedResume.skills.length})</span>
+                      </span>
+                      <span className={`builder-accordion-arrow ${expandedSections.skills ? "expanded" : ""}`}>▼</span>
+                    </div>
+                    {expandedSections.skills && (
+                      <div className="builder-accordion-content" style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.75rem", borderTop: "1px solid var(--card-border)" }}>
+                        <div style={{ display: "flex", gap: "0.5rem" }}>
+                          <input type="text" className="auth-input" placeholder="Add Skill..." value={newSkillInput} onChange={e => setNewSkillInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter") addSkillTag(); }} />
+                          <button className="btn-primary" onClick={addSkillTag}>Add</button>
+                        </div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.3rem" }}>
+                          {editedResume.skills.map((s, idx) => (
+                            <span key={idx} className="keyword-chip" style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>{s}
+                              <button onClick={() => removeSkillTag(idx)} style={{ background: "transparent", border: "none", color: "var(--color-danger)", cursor: "pointer" }}>&times;</button>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Experience Accordion */}
+                  <div className="builder-accordion" style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
+                    <div className="builder-accordion-header" onClick={() => toggleSection("experience")} style={{ background: "#F8FAFC", padding: "0.65rem 0.85rem", display: "flex", justifyContent: "space-between", cursor: "pointer", fontWeight: "700", fontSize: "0.82rem" }}>
+                      <span className="builder-accordion-title-container">
+                        <span className="builder-accordion-icon">💼</span>
+                        <span className="builder-accordion-title">Experience History ({editedResume.experience.length})</span>
+                      </span>
+                      <span className={`builder-accordion-arrow ${expandedSections.experience ? "expanded" : ""}`}>▼</span>
+                    </div>
+                    {expandedSections.experience && (
+                      <div className="builder-accordion-content" style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.85rem", borderTop: "1px solid var(--card-border)" }}>
+                        {editedResume.experience.map((exp, idx) => (
+                          <div key={idx} style={{ padding: "0.65rem", border: "1px solid var(--card-border)", borderRadius: "6px", background: "#FAFBFD" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.25rem" }}>
+                              <div style={{ display: "flex", gap: "0.25rem" }}>
+                                <button className="btn-secondary" style={{ padding: "0.15rem 0.35rem", fontSize: "0.7rem", minHeight: "auto" }} disabled={idx === 0} onClick={() => handleSwapItems("experience", idx, -1)}>↑</button>
+                                <button className="btn-secondary" style={{ padding: "0.15rem 0.35rem", fontSize: "0.7rem", minHeight: "auto" }} disabled={idx === editedResume.experience.length - 1} onClick={() => handleSwapItems("experience", idx, 1)}>↓</button>
+                              </div>
+                              <button onClick={() => removeListItem("experience", idx)} style={{ background: "transparent", border: "none", color: "var(--color-danger)", cursor: "pointer", fontSize: "0.75rem" }}>Delete</button>
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.35rem" }}>
+                              <input type="text" className="auth-input" placeholder="Role" value={exp.role || ""} onChange={e => updateListField("experience", idx, "role", e.target.value)} />
+                              <input type="text" className="auth-input" placeholder="Company" value={exp.company || ""} onChange={e => updateListField("experience", idx, "company", e.target.value)} />
+                              <input type="text" className="auth-input" placeholder="Start" value={exp.start_date || ""} onChange={e => updateListField("experience", idx, "start_date", e.target.value)} />
+                              <input type="text" className="auth-input" placeholder="End" value={exp.end_date || ""} onChange={e => updateListField("experience", idx, "end_date", e.target.value)} />
+                              <textarea className="auth-input" placeholder="Bullet points" style={{ gridColumn: "span 2", height: "60px" }} value={exp.description || ""} onChange={e => updateListField("experience", idx, "description", e.target.value)} />
+                            </div>
+                          </div>
+                        ))}
+                        <button className="btn-secondary" onClick={() => addListItem("experience", { role: "New Role", company: "Company", start_date: "2024", end_date: "Present", description: "• Focus achievement details" })}>+ Add Position</button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Education Accordion */}
+                  <div className="builder-accordion" style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
+                    <div className="builder-accordion-header" onClick={() => toggleSection("education")} style={{ background: "#F8FAFC", padding: "0.65rem 0.85rem", display: "flex", justifyContent: "space-between", cursor: "pointer", fontWeight: "700", fontSize: "0.82rem" }}>
+                      <span className="builder-accordion-title-container">
+                        <span className="builder-accordion-icon">🎓</span>
+                        <span className="builder-accordion-title">Education ({editedResume.education.length})</span>
+                      </span>
+                      <span className={`builder-accordion-arrow ${expandedSections.education ? "expanded" : ""}`}>▼</span>
+                    </div>
+                    {expandedSections.education && (
+                      <div className="builder-accordion-content" style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.5rem", borderTop: "1px solid var(--card-border)" }}>
+                        {editedResume.education.map((edu, idx) => (
+                          <div key={idx} style={{ padding: "0.5rem", border: "1px solid var(--card-border)", borderRadius: "6px" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.25rem" }}>
+                              <span style={{ fontSize: "0.75rem", fontWeight: "bold" }}>Degree #{idx+1}</span>
+                              <button onClick={() => removeListItem("education", idx)} style={{ background: "transparent", border: "none", color: "var(--color-danger)", cursor: "pointer", fontSize: "0.72rem" }}>Delete</button>
+                            </div>
+                            <input type="text" className="auth-input" placeholder="Degree" value={edu.degree || ""} onChange={e => updateListField("education", idx, "degree", e.target.value)} style={{ marginBottom: "0.25rem" }} />
+                            <input type="text" className="auth-input" placeholder="School" value={edu.school || ""} onChange={e => updateListField("education", idx, "school", e.target.value)} />
+                          </div>
+                        ))}
+                        <button className="btn-secondary" onClick={() => addListItem("education", { degree: "Bachelor of Science", school: "University", field_of_study: "Major", end_date: "2026" })}>+ Add Education</button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Projects Accordion */}
+                  <div className="builder-accordion" style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
+                    <div className="builder-accordion-header" onClick={() => toggleSection("projects")} style={{ background: "#F8FAFC", padding: "0.65rem 0.85rem", display: "flex", justifyContent: "space-between", cursor: "pointer", fontWeight: "700", fontSize: "0.82rem" }}>
+                      <span className="builder-accordion-title-container">
+                        <span className="builder-accordion-icon">📂</span>
+                        <span className="builder-accordion-title">Projects ({editedResume.projects?.length || 0})</span>
+                      </span>
+                      <span className={`builder-accordion-arrow ${expandedSections.projects ? "expanded" : ""}`}>▼</span>
+                    </div>
+                    {expandedSections.projects && (
+                      <div className="builder-accordion-content" style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.5rem", borderTop: "1px solid var(--card-border)" }}>
+                        {(editedResume.projects || []).map((proj, idx) => (
+                          <div key={idx} style={{ padding: "0.5rem", border: "1px solid var(--card-border)", borderRadius: "6px" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.25rem" }}>
+                              <span style={{ fontSize: "0.75rem", fontWeight: "bold" }}>Project #{idx+1}</span>
+                              <button onClick={() => removeListItem("projects", idx)} style={{ background: "transparent", border: "none", color: "var(--color-danger)", cursor: "pointer", fontSize: "0.72rem" }}>Delete</button>
+                            </div>
+                            <input type="text" className="auth-input" placeholder="Project Title" value={proj.title || ""} onChange={e => updateListField("projects", idx, "title", e.target.value)} style={{ marginBottom: "0.25rem" }} />
+                            <input type="text" className="auth-input" placeholder="Technologies (comma separated)" value={Array.isArray(proj.technologies) ? proj.technologies.join(", ") : (proj.technologies || "")} onChange={e => updateProjectTech(idx, e.target.value)} style={{ marginBottom: "0.25rem" }} />
+                            <textarea className="auth-input" placeholder="Description" value={proj.description || ""} onChange={e => updateListField("projects", idx, "description", e.target.value)} style={{ height: "60px" }} />
+                          </div>
+                        ))}
+                        <button className="btn-secondary" onClick={() => addListItem("projects", { title: "New Project", description: "Project description", technologies: ["React"] })}>+ Add Project</button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Certifications Accordion */}
+                  <div className="builder-accordion" style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
+                    <div className="builder-accordion-header" onClick={() => toggleSection("certifications")} style={{ background: "#F8FAFC", padding: "0.65rem 0.85rem", display: "flex", justifyContent: "space-between", cursor: "pointer", fontWeight: "700", fontSize: "0.82rem" }}>
+                      <span className="builder-accordion-title-container">
+                        <span className="builder-accordion-icon">📜</span>
+                        <span className="builder-accordion-title">Certifications ({editedResume.certifications?.length || 0})</span>
+                      </span>
+                      <span className={`builder-accordion-arrow ${expandedSections.certifications ? "expanded" : ""}`}>▼</span>
+                    </div>
+                    {expandedSections.certifications && (
+                      <div className="builder-accordion-content" style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.5rem", borderTop: "1px solid var(--card-border)" }}>
+                        {(editedResume.certifications || []).map((cert, idx) => (
+                          <div key={idx} style={{ padding: "0.5rem", border: "1px solid var(--card-border)", borderRadius: "6px" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.25rem" }}>
+                              <span style={{ fontSize: "0.75rem", fontWeight: "bold" }}>Certification #{idx+1}</span>
+                              <button onClick={() => removeListItem("certifications", idx)} style={{ background: "transparent", border: "none", color: "var(--color-danger)", cursor: "pointer", fontSize: "0.72rem" }}>Delete</button>
+                            </div>
+                            <input type="text" className="auth-input" placeholder="Certification Name" value={cert.name || ""} onChange={e => updateListField("certifications", idx, "name", e.target.value)} style={{ marginBottom: "0.25rem" }} />
+                            <input type="text" className="auth-input" placeholder="Authority" value={cert.authority || ""} onChange={e => updateListField("certifications", idx, "authority", e.target.value)} />
+                          </div>
+                        ))}
+                        <button className="btn-secondary" onClick={() => addListItem("certifications", { name: "New Certification", authority: "Google", date: "2026" })}>+ Add Certification</button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Languages Accordion */}
+                  <div className="builder-accordion" style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
+                    <div className="builder-accordion-header" onClick={() => toggleSection("languages")} style={{ background: "#F8FAFC", padding: "0.65rem 0.85rem", display: "flex", justifyContent: "space-between", cursor: "pointer", fontWeight: "700", fontSize: "0.82rem" }}>
+                      <span className="builder-accordion-title-container">
+                        <span className="builder-accordion-icon">🌐</span>
+                        <span className="builder-accordion-title">Languages ({editedResume.languages?.length || 0})</span>
+                      </span>
+                      <span className={`builder-accordion-arrow ${expandedSections.languages ? "expanded" : ""}`}>▼</span>
+                    </div>
+                    {expandedSections.languages && (
+                      <div className="builder-accordion-content" style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.5rem", borderTop: "1px solid var(--card-border)" }}>
+                        {(editedResume.languages || []).map((lang, idx) => (
+                          <div key={idx} style={{ padding: "0.5rem", border: "1px solid var(--card-border)", borderRadius: "6px" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.25rem" }}>
+                              <span style={{ fontSize: "0.75rem", fontWeight: "bold" }}>Language #{idx+1}</span>
+                              <button onClick={() => removeListItem("languages", idx)} style={{ background: "transparent", border: "none", color: "var(--color-danger)", cursor: "pointer", fontSize: "0.72rem" }}>Delete</button>
+                            </div>
+                            <input type="text" className="auth-input" placeholder="Language" value={lang.language || ""} onChange={e => {
+                              const prof = lang.proficiency || "Professional";
+                              updateListField("languages", idx, "language", e.target.value);
+                            }} style={{ marginBottom: "0.25rem" }} />
+                            <input type="text" className="auth-input" placeholder="Proficiency" value={lang.proficiency || ""} onChange={e => {
+                              const language = lang.language || "";
+                              updateListField("languages", idx, "proficiency", e.target.value);
+                            }} />
+                          </div>
+                        ))}
+                        <button className="btn-secondary" onClick={() => addListItem("languages", { language: "English", proficiency: "Native" })}>+ Add Language</button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Leadership Accordion */}
+                  <div className="builder-accordion" style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
+                    <div className="builder-accordion-header" onClick={() => toggleSection("leadership")} style={{ background: "#F8FAFC", padding: "0.65rem 0.85rem", display: "flex", justifyContent: "space-between", cursor: "pointer", fontWeight: "700", fontSize: "0.82rem" }}>
+                      <span className="builder-accordion-title-container">
+                        <span className="builder-accordion-icon">🤝</span>
+                        <span className="builder-accordion-title">Leadership & Activities ({editedResume.leadership?.length || 0})</span>
+                      </span>
+                      <span className={`builder-accordion-arrow ${expandedSections.leadership ? "expanded" : ""}`}>▼</span>
+                    </div>
+                    {expandedSections.leadership && (
+                      <div className="builder-accordion-content" style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.5rem", borderTop: "1px solid var(--card-border)" }}>
+                        {(editedResume.leadership || []).map((lead, idx) => (
+                          <div key={idx} style={{ display: "flex", gap: "0.35rem", alignItems: "center" }}>
+                            <input type="text" className="auth-input" value={lead || ""} onChange={e => updateStringListItem("leadership", idx, e.target.value)} />
+                            <button onClick={() => removeListItem("leadership", idx)} style={{ background: "transparent", border: "none", color: "var(--color-danger)", cursor: "pointer", fontSize: "1.2rem" }}>&times;</button>
+                          </div>
+                        ))}
+                        <button className="btn-secondary" onClick={() => addListItem("leadership", "Team Lead, Tech Club (Organised Hackathon)")}>+ Add Leadership Action</button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Achievements Accordion */}
+                  <div className="builder-accordion" style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
+                    <div className="builder-accordion-header" onClick={() => toggleSection("achievements")} style={{ background: "#F8FAFC", padding: "0.65rem 0.85rem", display: "flex", justifyContent: "space-between", cursor: "pointer", fontWeight: "700", fontSize: "0.82rem" }}>
+                      <span className="builder-accordion-title-container">
+                        <span className="builder-accordion-icon">🏆</span>
+                        <span className="builder-accordion-title">Achievements ({editedResume.achievements?.length || 0})</span>
+                      </span>
+                      <span className={`builder-accordion-arrow ${expandedSections.achievements ? "expanded" : ""}`}>▼</span>
+                    </div>
+                    {expandedSections.achievements && (
+                      <div className="builder-accordion-content" style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.5rem", borderTop: "1px solid var(--card-border)" }}>
+                        {(editedResume.achievements || []).map((ach, idx) => (
+                          <div key={idx} style={{ display: "flex", gap: "0.35rem", alignItems: "center" }}>
+                            <input type="text" className="auth-input" value={ach || ""} onChange={e => updateStringListItem("achievements", idx, e.target.value)} />
+                            <button onClick={() => removeListItem("achievements", idx)} style={{ background: "transparent", border: "none", color: "var(--color-danger)", cursor: "pointer", fontSize: "1.2rem" }}>&times;</button>
+                          </div>
+                        ))}
+                        <button className="btn-secondary" onClick={() => addListItem("achievements", "First place in National Coding Competition 2025")}>+ Add Achievement</button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Interests Accordion */}
+                  <div className="builder-accordion" style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
+                    <div className="builder-accordion-header" onClick={() => toggleSection("interests")} style={{ background: "#F8FAFC", padding: "0.65rem 0.85rem", display: "flex", justifyContent: "space-between", cursor: "pointer", fontWeight: "700", fontSize: "0.82rem" }}>
+                      <span className="builder-accordion-title-container">
+                        <span className="builder-accordion-icon">⚽</span>
+                        <span className="builder-accordion-title">Interests ({editedResume.interests?.length || 0})</span>
+                      </span>
+                      <span className={`builder-accordion-arrow ${expandedSections.interests ? "expanded" : ""}`}>▼</span>
+                    </div>
+                    {expandedSections.interests && (
+                      <div className="builder-accordion-content" style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.5rem", borderTop: "1px solid var(--card-border)" }}>
+                        {(editedResume.interests || []).map((interest, idx) => (
+                          <div key={idx} style={{ display: "flex", gap: "0.35rem", alignItems: "center" }}>
+                            <input type="text" className="auth-input" value={interest || ""} onChange={e => updateStringListItem("interests", idx, e.target.value)} />
+                            <button onClick={() => removeListItem("interests", idx)} style={{ background: "transparent", border: "none", color: "var(--color-danger)", cursor: "pointer", fontSize: "1.2rem" }}>&times;</button>
+                          </div>
+                        ))}
+                        <button className="btn-secondary" onClick={() => addListItem("interests", "New Interest")}>+ Add Interest</button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Referees Accordion */}
+                  <div className="builder-accordion" style={{ border: "1px solid var(--card-border)", borderRadius: "8px", overflow: "hidden" }}>
+                    <div className="builder-accordion-header" onClick={() => toggleSection("referees")} style={{ background: "#F8FAFC", padding: "0.65rem 0.85rem", display: "flex", justifyContent: "space-between", cursor: "pointer", fontWeight: "700", fontSize: "0.82rem" }}>
+                      <span className="builder-accordion-title-container">
+                        <span className="builder-accordion-icon">📋</span>
+                        <span className="builder-accordion-title">References ({editedResume.referees?.length || 0})</span>
+                      </span>
+                      <span className={`builder-accordion-arrow ${expandedSections.referees ? "expanded" : ""}`}>▼</span>
+                    </div>
+                    {expandedSections.referees && (
+                      <div className="builder-accordion-content" style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.5rem", borderTop: "1px solid var(--card-border)" }}>
+                        {(editedResume.referees || []).map((ref, idx) => (
+                          <div key={idx} style={{ padding: "0.5rem", border: "1px solid var(--card-border)", borderRadius: "6px" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.25rem" }}>
+                              <span style={{ fontSize: "0.75rem", fontWeight: "bold" }}>Reference #{idx+1}</span>
+                              <button onClick={() => removeListItem("referees", idx)} style={{ background: "transparent", border: "none", color: "var(--color-danger)", cursor: "pointer", fontSize: "0.72rem" }}>Delete</button>
+                            </div>
+                            <textarea className="auth-input" placeholder="Reference Details" value={ref || ""} onChange={e => updateStringListItem("referees", idx, e.target.value)} style={{ height: "60px" }} />
+                          </div>
+                        ))}
+                        <button className="btn-secondary" onClick={() => addListItem("referees", "John Doe, Manager at TechCorp (john@example.com)")}>+ Add Reference</button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {builderTab === "design" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+                  <div className="v2-settings-group">
+                    <h4 className="v2-group-title">Theme presets & Colors</h4>
+                    <div className="v2-color-presets">
+                      {[
+                        { name: "Slate", primary: "#0f172a", accent: "#2563eb" },
+                        { name: "Emerald", primary: "#064e3b", accent: "#10b981" },
+                        { name: "Indigo", primary: "#1e1b4b", accent: "#4f46e5" },
+                        { name: "Orange", primary: "#451a03", accent: "#f97316" },
+                        { name: "Burgundy", primary: "#4c0519", accent: "#db2777" }
+                      ].map(theme => (
+                        <button 
+                          key={theme.name}
+                          className="v2-preset-swatch"
+                          style={{ background: theme.primary, border: `2px solid ${theme.accent}` }}
+                          onClick={() => {
+                            updateCustomizationField("primaryColor", theme.primary);
+                            updateCustomizationField("accentColor", theme.accent);
+                            addToast(`Applied Theme: ${theme.name}`, "success");
+                          }}
+                          title={theme.name}
+                        />
+                      ))}
+                    </div>
+
+                    <div style={{ marginTop: "0.5rem", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
+                      <div className="auth-field">
+                        <label className="auth-label">Primary Color</label>
+                        <input 
+                          type="color" 
+                          value={editedResume.customization?.primaryColor || "#0f172a"} 
+                          onChange={e => updateCustomizationField("primaryColor", e.target.value)} 
+                          style={{ width: "100%", height: "30px", border: "1px solid var(--card-border)", borderRadius: "4px", cursor: "pointer" }}
+                        />
+                      </div>
+                      <div className="auth-field">
+                        <label className="auth-label">Accent Color</label>
+                        <input 
+                          type="color" 
+                          value={editedResume.customization?.accentColor || "#2563eb"} 
+                          onChange={e => updateCustomizationField("accentColor", e.target.value)} 
+                          style={{ width: "100%", height: "30px", border: "1px solid var(--card-border)", borderRadius: "4px", cursor: "pointer" }}
+                        />
                       </div>
                     </div>
                   </div>
-                )}
-              </div>
-            )}
 
-            {/* Center Column: Live preview document canvas */}
-            {(!isMobile || mobileTab === "preview") && (
-              <div className="live-canvas-preview-wrapper">
-                <div style={{ transform: `scale(${zoomScale})`, transformOrigin: "top left", width: `${100 / zoomScale}%` }}>
-                  {renderLivePreview(selectedTemplate)}
+                  <div className="v2-settings-group">
+                    <h4 className="v2-group-title">Typography</h4>
+                    <div className="auth-field">
+                      <label className="auth-label">Font Family</label>
+                      <select 
+                        className="auth-input" 
+                        value={editedResume.customization?.fontFamily || "DejaVuSans"} 
+                        onChange={e => updateCustomizationField("fontFamily", e.target.value)}
+                      >
+                        <option value="DejaVuSans">Sans-Serif (Inter)</option>
+                        <option value="DejaVuSerif">Serif (Outfit)</option>
+                        <option value="Courier">Monospace (Courier)</option>
+                      </select>
+                    </div>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", marginTop: "0.5rem" }}>
+                      <div className="auth-field">
+                        <label className="auth-label">Font Size ({editedResume.customization?.fontSize || 9.5}pt)</label>
+                        <input 
+                          type="range" 
+                          min="8" 
+                          max="14" 
+                          step="0.5" 
+                          value={editedResume.customization?.fontSize || 9.5} 
+                          onChange={e => updateCustomizationField("fontSize", parseFloat(e.target.value))} 
+                        />
+                      </div>
+                      <div className="auth-field">
+                        <label className="auth-label">Line Spacing ({editedResume.customization?.lineSpacing || 1.15})</label>
+                        <input 
+                          type="range" 
+                          min="1.0" 
+                          max="2.0" 
+                          step="0.05" 
+                          value={editedResume.customization?.lineSpacing || 1.15} 
+                          onChange={e => updateCustomizationField("lineSpacing", parseFloat(e.target.value))} 
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="v2-settings-group">
+                    <h4 className="v2-group-title">Spacing & Margin</h4>
+                    <div className="auth-field">
+                      <label className="auth-label">Section Gap ({editedResume.customization?.sectionSpacing !== undefined ? editedResume.customization.sectionSpacing : 10}px)</label>
+                      <input 
+                        type="range" 
+                        min="5" 
+                        max="30" 
+                        step="1" 
+                        value={editedResume.customization?.sectionSpacing !== undefined ? editedResume.customization.sectionSpacing : 10} 
+                        onChange={e => updateCustomizationField("sectionSpacing", parseInt(e.target.value))} 
+                      />
+                    </div>
+                    <div className="auth-field" style={{ marginTop: "0.5rem" }}>
+                      <label className="auth-label">Page Margins ({editedResume.customization?.marginSize !== undefined ? editedResume.customization.marginSize : 54}px)</label>
+                      <input 
+                        type="range" 
+                        min="20" 
+                        max="100" 
+                        step="5" 
+                        value={editedResume.customization?.marginSize !== undefined ? editedResume.customization.marginSize : 54} 
+                        onChange={e => updateCustomizationField("marginSize", parseInt(e.target.value))} 
+                      />
+                    </div>
+                  </div>
+
+                  <div className="v2-settings-group">
+                    <h4 className="v2-group-title">Header & Layout Alignment</h4>
+                    <div className="auth-field">
+                      <label className="auth-label">Name Alignment</label>
+                      <select 
+                        className="auth-input" 
+                        value={editedResume.customization?.headerLayout || "left"} 
+                        onChange={e => updateCustomizationField("headerLayout", e.target.value)}
+                      >
+                        <option value="left">Left Aligned</option>
+                        <option value="center">Centered Name</option>
+                        <option value="split">Split Columns</option>
+                      </select>
+                    </div>
+                    <div className="auth-field" style={{ marginTop: "0.5rem" }}>
+                      <label className="auth-label">Sidebar Layout</label>
+                      <select 
+                        className="auth-input" 
+                        value={editedResume.customization?.sidebarLayout || "left"} 
+                        onChange={e => updateCustomizationField("sidebarLayout", e.target.value)}
+                        disabled={selectedTemplate !== "Modern Professional" && selectedTemplate !== "Creative" && selectedTemplate !== "Blue Sidebar"}
+                      >
+                        <option value="left">Left Sidebar</option>
+                        <option value="right">Right Sidebar</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
+              )}
+
+              {builderTab === "sections" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                  <p style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>Drag and drop to rearrange order of sections or use arrows.</p>
+                  {(editedResume.section_order || ["summary", "skills", "experience", "projects", "education", "certifications", "languages", "achievements", "interests", "referees"]).map((sec, idx) => (
+                    <div 
+                      key={sec} 
+                      className="v2-section-item"
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "0.6rem 0.8rem",
+                        background: "#1e293b",
+                        border: "1px solid #334155",
+                        borderRadius: "8px"
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <span style={{ cursor: "grab", color: "#64748b" }}>☰</span>
+                        <span style={{ fontSize: "0.8rem", fontWeight: "600", textTransform: "capitalize" }}>
+                          {sec === "referees" ? "References" : sec}
+                        </span>
+                      </div>
+
+                      <div style={{ display: "flex", gap: "0.25rem" }}>
+                        <button onClick={() => handleSwapSections(idx, -1)} disabled={idx === 0} className="v2-icon-btn" style={{ background: "transparent", border: "none", color: "#ffffff", cursor: "pointer" }}>▲</button>
+                        <button onClick={() => handleSwapSections(idx, 1)} disabled={idx === (editedResume.section_order || []).length - 1} className="v2-icon-btn" style={{ background: "transparent", border: "none", color: "#ffffff", cursor: "pointer" }}>▼</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {builderTab === "ai" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                  <div style={{ border: "1px solid var(--card-border)", borderRadius: "8px", padding: "0.75rem", background: "rgba(79, 70, 229, 0.02)" }}>
+                    <h4 style={{ margin: "0 0 0.5rem 0", fontSize: "0.85rem", fontWeight: "700" }}>🤖 AI Copilot suggestions</h4>
+                    <textarea className="auth-input" placeholder="Paste target Job Description details..." value={aiImproveJd} onChange={e => setAiImproveJd(e.target.value)} style={{ height: "80px", marginBottom: "0.5rem" }} />
+                    <button className="btn-primary" onClick={handleImproveResumeAI} disabled={aiImproveLoading} style={{ width: "100%" }}>
+                      {aiImproveLoading ? "Rewriting with AI..." : "Polish Resume text"}
+                    </button>
+                  </div>
+
+                  {aiImproveResults && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                      <div style={{ padding: "0.5rem", borderRadius: "8px", background: "#f0fdf4", border: "1px solid #bbf7d0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: "0.72rem", color: "#166534", fontWeight: "700" }}>Estimated post-AI score: {aiImproveResults.estimated_score}%</span>
+                        <button onClick={() => setAiImproveResults(null)} style={{ background: "transparent", border: "none", color: "#166534", cursor: "pointer", fontWeight: "700" }}>✕</button>
+                      </div>
+
+                      {aiImproveResults.improvements?.improved_summary && (
+                        <div className="ai-compare-card">
+                          <div className="ai-compare-title"><span>📝 Summary Draft</span></div>
+                          <div className="ai-compare-split">
+                            <div className="ai-compare-original">{editedResume.summary || "N/A"}</div>
+                            <div className="ai-compare-improved">{aiImproveResults.improvements.improved_summary}</div>
+                          </div>
+                          <div style={{ display: "flex", gap: "0.35rem", justifyContent: "flex-end", marginTop: "0.5rem" }}>
+                            <button className="btn-primary" style={{ padding: "0.25rem 0.5rem", fontSize: "0.68rem", minHeight: "auto" }} onClick={() => handleAcceptSummary(aiImproveResults.improvements.improved_summary)}>Apply ✓</button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {builderTab === "settings" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                  <div style={{ border: "1px solid var(--card-border)", borderRadius: "8px", padding: "0.75rem", background: "#1e293b" }}>
+                    <h4 style={{ margin: "0 0 0.5rem 0", fontSize: "0.82rem" }}>📁 Save Snapshot</h4>
+                    <div style={{ display: "flex", gap: "0.35rem" }}>
+                      <input type="text" className="auth-input" placeholder="Snapshot label..." value={newVersionName} onChange={e => setNewVersionName(e.target.value)} style={{ fontSize: "0.8rem", height: "34px", minHeight: "auto" }} />
+                      <button className="btn-primary" onClick={handleSaveVersion} disabled={versionsLoading} style={{ padding: "0.45rem 0.85rem", fontSize: "0.75rem", whiteSpace: "nowrap", minHeight: "auto" }}>Save</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+            </div>
+          )}
+
+          {/* Centered Live Preview Canvas with Zoom and Pan */}
+          {(!isMobile || mobileTab === "preview") && (
+            <div 
+              className="v2-canvas-workspace"
+              onWheel={handleWheel}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
+            >
+              <div 
+                className="v2-canvas-wrapper"
+                style={{
+                  transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoomScale})`,
+                  cursor: isPanning ? "grabbing" : "grab"
+                }}
+              >
+                {renderLivePreview(selectedTemplate)}
               </div>
-            )}
 
-            {/* Right Column: ATS suggestions sidebar panel */}
-            {showAtsChecklist && !isMobile && (
-              <AtsSuggestionsPanel 
-                atsAnalysis={editedResume?.ats_analysis || (selectedResume ? selectedResume.ats_analysis : null)}
-                editedResume={editedResume}
-                setEditedResume={setEditedResume}
-                addToast={addToast}
-                aiImproveResults={aiImproveResults}
-                setAiImproveResults={setAiImproveResults}
-                onAiImprove={handleImproveResumeAI}
-                aiImproveLoading={aiImproveLoading}
-                updateCustomizationField={updateCustomizationField}
-                selectedTemplate={selectedTemplate}
-                setSelectedTemplate={setSelectedTemplate}
-              />
-            )}
+              {/* Floating Actions Dock */}
+              {selectedSection && (
+                <div className="v2-bottom-dock">
+                  <span className="v2-dock-title">Section: {selectedSection}</span>
+                  <button className="v2-dock-btn" onClick={() => handleMoveSection(selectedSection, -1)} title="Move Up">↑ Move Up</button>
+                  <button className="v2-dock-btn" onClick={() => handleMoveSection(selectedSection, 1)} title="Move Down">↓ Move Down</button>
+                  <button className="v2-dock-btn text-danger" onClick={() => handleHideSection(selectedSection)} title="Hide / Inactivate">🗑️ Hide</button>
+                  <button className="v2-dock-btn btn-close-dock" onClick={() => setSelectedSection(null)} title="Clear Selection">✕</button>
+                </div>
+              )}
+            </div>
+          )}
 
-          </div>
+          {/* Right Column: ATS suggestions sidebar panel */}
+          {showAtsChecklist && !isMobile && (
+            <AtsSuggestionsPanel 
+              atsAnalysis={editedResume?.ats_analysis || (selectedResume ? selectedResume.ats_analysis : null)}
+              editedResume={editedResume}
+              setEditedResume={setEditedResume}
+              addToast={addToast}
+              aiImproveResults={aiImproveResults}
+              setAiImproveResults={setAiImproveResults}
+              onAiImprove={handleImproveResumeAI}
+              aiImproveLoading={aiImproveLoading}
+              updateCustomizationField={updateCustomizationField}
+              selectedTemplate={selectedTemplate}
+              setSelectedTemplate={setSelectedTemplate}
+            />
+          )}
 
         </div>
       </div>
@@ -7337,8 +7276,8 @@ function App() {
                 <button className={`tab-btn ${activeTab === "cover_letter" ? "active" : ""}`} onClick={() => setActiveTab("cover_letter")}>
                   ✉ Cover Letter
                 </button>
-                <button className={`tab-btn ${activeTab === "templates" ? "active" : ""}`} onClick={() => setActiveTab("templates")}>
-                  📄 Resume Templates
+                <button className={`tab-btn ${activeTab === "templates" ? "active" : ""}`} onClick={() => { setActiveTab("templates"); setBuilderTab("content"); }}>
+                  ✍️ Resume Editor V2
                 </button>
                 <button className={`tab-btn ${activeTab === "job_match" ? "active" : ""}`} onClick={() => setActiveTab("job_match")}>
                   🎯 Job Match

@@ -3,7 +3,9 @@ package com.aashi.resumeiq.ui.auth
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,7 +27,7 @@ fun WelcomeScreen(
         visible = true
     }
 
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .background(
@@ -36,12 +38,16 @@ fun WelcomeScreen(
                     )
                 )
             )
-            .padding(24.dp)
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.SpaceBetween
     ) {
+        Spacer(modifier = Modifier.height(24.dp))
+
         AnimatedVisibility(
             visible = visible,
-            enter = fadeIn() + slideInVertically { it / 3 },
-            modifier = Modifier.align(Alignment.Center)
+            enter = fadeIn() + slideInVertically { it / 3 }
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -133,12 +139,13 @@ fun WelcomeScreen(
             }
         }
 
+        Spacer(modifier = Modifier.height(24.dp))
+
         Text(
             text = "v1.0.0 Production Ready",
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
             fontSize = 12.sp,
             modifier = Modifier
-                .align(Alignment.BottomCenter)
                 .padding(bottom = 12.dp)
         )
     }

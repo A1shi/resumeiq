@@ -38,6 +38,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.aashi.resumeiq.network.*
 import com.aashi.resumeiq.ui.auth.UiState
+import com.aashi.resumeiq.ui.auth.AuthViewModel
+import com.aashi.resumeiq.ui.tour.*
 import com.aashi.resumeiq.ui.theme.getOutlinedTextFieldColors
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -45,6 +47,7 @@ import com.aashi.resumeiq.ui.theme.getOutlinedTextFieldColors
 fun DetailScreen(
     resumeId: Int,
     viewModel: DetailViewModel,
+    authViewModel: AuthViewModel,
     onNavigateBack: () -> Unit,
     onNavigateToMatch: (Int) -> Unit,
     onNavigateToSim: (Int) -> Unit,
@@ -55,6 +58,7 @@ fun DetailScreen(
 ) {
     val detailState by viewModel.detailState.collectAsState()
     val atsState by viewModel.atsState.collectAsState()
+    val detailTourCompleted by authViewModel.detailTourCompleted.collectAsState(initial = true)
     var selectedTab by rememberSaveable { mutableStateOf(0) }
     var showEditDialog by rememberSaveable { mutableStateOf(false) }
 
@@ -206,6 +210,17 @@ fun DetailScreen(
                 else -> {}
             }
         }
+    }
+
+    if (!detailTourCompleted) {
+        FeatureTourOverlay(
+            steps = listOf(
+                TourStep("ATS Score", "View your resume's overall keyword score compared against modern recruitment industry baselines.", "ATS Score"),
+                TourStep("Suggestions", "Read personalized, detailed breakdowns and suggestions to raise your ATS score.", "Suggestions"),
+                TourStep("Missing Keywords", "Identify critical industry skills and keyword concepts absent from your draft.", "Missing Keywords")
+            ),
+            onTourFinish = { authViewModel.setDetailTourCompleted(true) }
+        )
     }
 }
 
@@ -508,7 +523,7 @@ fun AtsTab(
                 contentAlignment = Alignment.Center
             ) {
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF332020)),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.padding(16.dp)
                 ) {
@@ -519,20 +534,20 @@ fun AtsTab(
                         Icon(
                             imageVector = Icons.Default.Warning,
                             contentDescription = "Error",
-                            tint = Color(0xFFE57373),
+                            tint = MaterialTheme.colorScheme.error,
                             modifier = Modifier.size(48.dp)
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
                             text = atsState.message,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
                             fontSize = 14.sp,
                             textAlign = TextAlign.Center
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Button(
                             onClick = onAnalyzeClick,
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE57373), contentColor = Color.White)
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error, contentColor = MaterialTheme.colorScheme.onError)
                         ) {
                             Text("Retry Audit", fontWeight = FontWeight.Bold)
                         }
@@ -701,17 +716,17 @@ fun AtsReportContent(
         if (ats.deductions.isNotEmpty() || ats.missingSections.isNotEmpty()) {
             item {
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF2E1B1B)),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFE57373), modifier = Modifier.size(20.dp))
+                            Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "Deductions & Missing Sections",
-                                color = Color(0xFFE57373),
+                                color = MaterialTheme.colorScheme.onErrorContainer,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 15.sp
                             )
@@ -769,7 +784,7 @@ fun AtsReportContent(
                         val likes = (ats.recruitersLike + ats.strengths).distinct()
                         Text(
                             text = "Recruiter Strengths / Positives:",
-                            color = Color(0xFF81C784),
+                            color = if (androidx.compose.foundation.isSystemInDarkTheme()) Color(0xFF81C784) else Color(0xFF2E7D32),
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 12.sp
                         )
@@ -784,7 +799,7 @@ fun AtsReportContent(
                         val rejects = (ats.recruitersReject + ats.weaknesses + ats.topRisks).distinct()
                         Text(
                             text = "Recruiter Concerns & Risks:",
-                            color = Color(0xFFFFB74D),
+                            color = if (androidx.compose.foundation.isSystemInDarkTheme()) Color(0xFFFFB74D) else Color(0xFFE65100),
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 12.sp
                         )

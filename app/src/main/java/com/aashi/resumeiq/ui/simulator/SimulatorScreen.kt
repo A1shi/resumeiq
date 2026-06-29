@@ -231,7 +231,7 @@ fun SimulationResultView(sim: RecruiterSimulationResponse) {
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text(text = "Key Strengths Identified", color = Color(0xFF81C784), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text(text = "Key Strengths Identified", color = if (androidx.compose.foundation.isSystemInDarkTheme()) Color(0xFF81C784) else Color(0xFF2E7D32), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                         Spacer(modifier = Modifier.height(8.dp))
                         sim.strengths.forEach { item ->
                             Text(text = "✓ $item", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f), fontSize = 12.sp, modifier = Modifier.padding(vertical = 4.dp))
@@ -250,7 +250,7 @@ fun SimulationResultView(sim: RecruiterSimulationResponse) {
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text(text = "Key Gaps / Risks", color = Color(0xFFE57373), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text(text = "Key Gaps / Risks", color = if (androidx.compose.foundation.isSystemInDarkTheme()) Color(0xFFE57373) else Color(0xFFC62828), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                         Spacer(modifier = Modifier.height(8.dp))
                         sim.concerns.forEach { item ->
                             Text(text = "✗ $item", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f), fontSize = 12.sp, modifier = Modifier.padding(vertical = 4.dp))

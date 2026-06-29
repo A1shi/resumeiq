@@ -1294,6 +1294,62 @@ def suggest_skills(
         )
 
 
+@router.post("/restore")
+def restore_resumes(
+    resumes_data: List[schemas.ResumeRestoreSchema],
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_verified_user)
+):
+    """
+    Restore a list of resumes from backup, deleting all current user resumes.
+    """
+    try:
+        # First, delete all resumes for the current user
+        db.query(models.Resume).filter(models.Resume.user_id == current_user.id).delete()
+        
+        for item in resumes_data:
+            db_resume = models.Resume(
+                user_id=current_user.id,
+                filename=item.filename,
+                file_path="",
+                raw_text="",
+                name=item.name,
+                email=item.email,
+                phone=item.phone,
+                summary=item.summary,
+                skills=item.skills,
+                education=[edu.model_dump() for edu in item.education],
+                experience=[exp.model_dump() for exp in item.experience],
+                projects=[proj.model_dump() for proj in item.projects],
+                certifications=[cert.model_dump() for cert in item.certifications],
+                languages=[lang.model_dump() for lang in item.languages],
+                leadership=item.leadership or [],
+                interests=item.interests or [],
+                referees=item.referees or [],
+                customization=item.customization or {},
+                achievements=item.achievements or [],
+                section_order=item.section_order or [],
+                ats_score=item.ats_score,
+                ats_analysis=item.ats_analysis.model_dump() if item.ats_analysis else None,
+                profession=item.profession,
+                industry=item.industry,
+                seniority=item.seniority,
+                experience_level=item.experience_level,
+                career_objective=item.career_objective
+            )
+            db.add(db_resume)
+            
+        db.commit()
+        return {"message": "Resumes restored successfully"}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to restore resumes: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to restore resumes: {str(e)}"
+        )
+
+
 
 
 

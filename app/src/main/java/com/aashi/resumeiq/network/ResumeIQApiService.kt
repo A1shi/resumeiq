@@ -53,6 +53,9 @@ interface ResumeIQApiService {
         @Body request: PasswordChange
     ): MessageResponse
 
+    @DELETE("users/me")
+    suspend fun deleteAccount(): MessageResponse
+
     @GET("users/dashboard/stats")
     suspend fun getDashboardStats(): DashboardStatsResponse
 
@@ -180,4 +183,9 @@ interface ResumeIQApiService {
     suspend fun exportResumeReportPdf(
         @Path("id") id: Int
     ): okhttp3.ResponseBody
+
+    @POST("resumes/restore")
+    suspend fun restoreResumes(
+        @Body request: List<ResumeRestoreSchema>
+    ): MessageResponse
 }

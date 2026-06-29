@@ -117,7 +117,7 @@ fun TemplatesScreen(
                         LazyRow(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(Color(0xFF132221))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
                                 .padding(vertical = 12.dp, horizontal = 16.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
@@ -209,7 +209,7 @@ fun TemplatesScreen(
                                         Icon(
                                             Icons.Default.Warning,
                                             contentDescription = "Error",
-                                            tint = Color(0xFFE57373),
+                                            tint = MaterialTheme.colorScheme.error,
                                             modifier = Modifier.size(48.dp)
                                         )
                                         Spacer(modifier = Modifier.height(16.dp))
@@ -258,7 +258,7 @@ fun TemplatesScreen(
                         Icon(
                             Icons.Default.Warning,
                             contentDescription = "Error",
-                            tint = Color(0xFFE57373),
+                            tint = MaterialTheme.colorScheme.error,
                             modifier = Modifier.size(48.dp)
                         )
                         Spacer(modifier = Modifier.height(16.dp))

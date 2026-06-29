@@ -193,7 +193,7 @@ class BuilderViewModel @Inject constructor(
             }
     }
 
-    fun downloadPdf(context: Context, templateName: String) {
+    fun downloadResume(context: Context, templateName: String, format: String) {
         val currentId = resumeId.value
         if (currentId == -1) return
 
@@ -210,12 +210,18 @@ class BuilderViewModel @Inject constructor(
                 certifications = certifications.value,
                 languages = languages.value
             )
-            resumeRepository.exportResumeTemplate(currentId, templateName, "pdf", resumeData)
+            resumeRepository.exportResumeTemplate(currentId, templateName, format, resumeData)
                 .onSuccess { bytes ->
                     try {
                         val cleanName = (name.value.ifBlank { "Candidate" }).replace("\\s+".toRegex(), "_")
-                        val filename = "Resume_${cleanName}_${templateName.replace("\\s+".toRegex(), "_")}.pdf"
-                        saveFileToDownloads(context, filename, bytes)
+                        val ext = if (format.lowercase() == "docx") "docx" else "pdf"
+                        val mimeType = if (format.lowercase() == "docx") {
+                            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                        } else {
+                            "application/pdf"
+                        }
+                        val filename = "Resume_${cleanName}_${templateName.replace("\\s+".toRegex(), "_")}.$ext"
+                        saveFileToDownloads(context, filename, mimeType, bytes)
                         _downloadStatus.value = DownloadStatus.Success
                     } catch (e: Exception) {
                         _downloadStatus.value = DownloadStatus.Error(e.message ?: "Failed to save file")
@@ -231,12 +237,12 @@ class BuilderViewModel @Inject constructor(
         _downloadStatus.value = DownloadStatus.Idle
     }
 
-    private fun saveFileToDownloads(context: Context, filename: String, bytes: ByteArray) {
+    private fun saveFileToDownloads(context: Context, filename: String, mimeType: String, bytes: ByteArray) {
         val resolver = context.contentResolver
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
             val contentValues = android.content.ContentValues().apply {
                 put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, filename)
-                put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "application/pdf")
+                put(android.provider.MediaStore.MediaColumns.MIME_TYPE, mimeType)
                 put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS)
             }
             val uri = resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)

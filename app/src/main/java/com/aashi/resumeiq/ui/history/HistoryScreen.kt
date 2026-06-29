@@ -132,7 +132,7 @@ fun HistoryScreen(
                         ) {
                             Text(
                                 text = criterion,
-                                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else Color.White,
+                                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold
                             )

@@ -252,4 +252,13 @@ class ResumeRepository(
             Result.failure(e)
         }
     }
+
+    suspend fun restoreResumes(list: List<ResumeRestoreSchema>): Result<MessageResponse> {
+        return try {
+            val response = apiService.restoreResumes(list)
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

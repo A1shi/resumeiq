@@ -23,6 +23,8 @@ import com.aashi.resumeiq.ui.templates.TemplatesScreen
 import com.aashi.resumeiq.ui.templates.TemplatesViewModel
 import com.aashi.resumeiq.ui.interview.InterviewPrepScreen
 import com.aashi.resumeiq.ui.history.HistoryScreen
+import com.aashi.resumeiq.ui.legal.*
+import com.aashi.resumeiq.ui.backup.BackupRestoreScreen
 
 @Composable
 fun NavGraph(
@@ -51,7 +53,37 @@ fun NavGraph(
                     navController.navigate(Screen.Welcome.route) {
                         popUpTo(Screen.Splash.route) { inclusive = true }
                     }
+                },
+                onNavigateToOnboarding = {
+                    navController.navigate(Screen.Onboarding.route) {
+                        popUpTo(Screen.Splash.route) { inclusive = true }
+                    }
                 }
+            )
+        }
+
+        composable(Screen.Onboarding.route) {
+            OnboardingScreen(
+                viewModel = authViewModel,
+                onFinishOnboarding = {
+                    navController.navigate(Screen.Welcome.route) {
+                        popUpTo(Screen.Onboarding.route) { inclusive = true }
+                    }
+                },
+                onNavigateToPrivacy = { navController.navigate(Screen.PrivacyPolicy.route) },
+                onNavigateToTerms = { navController.navigate(Screen.TermsConditions.route) }
+            )
+        }
+
+        composable(
+            route = Screen.Feedback.route,
+            arguments = listOf(navArgument("category") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val category = backStackEntry.arguments?.getString("category") ?: "General Feedback"
+            FeedbackScreen(
+                viewModel = authViewModel,
+                initialCategory = category,
+                onNavigateBack = { navController.navigateUp() }
             )
         }
 
@@ -159,6 +191,7 @@ fun NavGraph(
             DetailScreen(
                 resumeId = resumeId,
                 viewModel = detailViewModel,
+                authViewModel = authViewModel,
                 onNavigateBack = { navController.navigateUp() },
                 onNavigateToMatch = { id -> navController.navigate(Screen.Match.createRoute(id)) },
                 onNavigateToSim = { id -> navController.navigate(Screen.Simulation.createRoute(id)) },
@@ -209,10 +242,59 @@ fun NavGraph(
             ProfileScreen(
                 viewModel = authViewModel,
                 onNavigateBack = { navController.navigateUp() },
+                onNavigateToBackupRestore = { navController.navigate(Screen.BackupRestore.route) },
                 onLogout = {
                     navController.navigate(Screen.Welcome.route) {
                         popUpTo(Screen.Dashboard.route) { inclusive = true }
                     }
+                },
+                onNavigateToPrivacy = { navController.navigate(Screen.PrivacyPolicy.route) },
+                onNavigateToTerms = { navController.navigate(Screen.TermsConditions.route) },
+                onNavigateToAiDisclaimer = { navController.navigate(Screen.AiDisclaimer.route) },
+                onNavigateToAbout = { navController.navigate(Screen.About.route) },
+                onNavigateToSupport = { navController.navigate(Screen.ContactSupport.route) }
+            )
+        }
+
+        composable(Screen.BackupRestore.route) {
+            BackupRestoreScreen(
+                onNavigateBack = { navController.navigateUp() }
+            )
+        }
+
+
+        composable(Screen.PrivacyPolicy.route) {
+            PrivacyPolicyScreen(
+                onNavigateBack = { navController.navigateUp() }
+            )
+        }
+
+        composable(Screen.TermsConditions.route) {
+            TermsConditionsScreen(
+                onNavigateBack = { navController.navigateUp() }
+            )
+        }
+
+        composable(Screen.AiDisclaimer.route) {
+            AiDisclaimerScreen(
+                onNavigateBack = { navController.navigateUp() }
+            )
+        }
+
+        composable(Screen.About.route) {
+            AboutScreen(
+                onNavigateBack = { navController.navigateUp() },
+                onNavigateToPrivacy = { navController.navigate(Screen.PrivacyPolicy.route) },
+                onNavigateToTerms = { navController.navigate(Screen.TermsConditions.route) },
+                onNavigateToSupport = { navController.navigate(Screen.ContactSupport.route) }
+            )
+        }
+
+        composable(Screen.ContactSupport.route) {
+            ContactSupportScreen(
+                onNavigateBack = { navController.navigateUp() },
+                onNavigateToFeedback = { category ->
+                    navController.navigate(Screen.Feedback.createRoute(category))
                 }
             )
         }
@@ -226,6 +308,7 @@ fun NavGraph(
             BuilderScreen(
                 resumeId = resumeId,
                 viewModel = builderViewModel,
+                authViewModel = authViewModel,
                 onNavigateBack = { navController.navigateUp() }
             )
         }
@@ -251,6 +334,7 @@ fun NavGraph(
             InterviewPrepScreen(
                 resumeId = resumeId,
                 viewModel = detailViewModel,
+                authViewModel = authViewModel,
                 onNavigateBack = { navController.navigateUp() }
             )
         }

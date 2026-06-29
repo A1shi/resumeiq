@@ -365,3 +365,30 @@ data class JDUploadResponse(
     @SerializedName("jd_text") val jdText: String
 )
 
+data class ResumeRestoreSchema(
+    val filename: String,
+    val name: String?,
+    val email: String?,
+    val phone: String?,
+    val summary: String?,
+    val skills: List<String> = emptyList(),
+    val education: List<EducationSchema> = emptyList(),
+    val experience: List<ExperienceSchema> = emptyList(),
+    val projects: List<ProjectSchema> = emptyList(),
+    val certifications: List<CertificationSchema> = emptyList(),
+    val languages: List<LanguageSchema> = emptyList(),
+    val leadership: List<String> = emptyList(),
+    val interests: List<String> = emptyList(),
+    val referees: List<String> = emptyList(),
+    val customization: Map<String, Any>? = emptyMap(),
+    val achievements: List<String> = emptyList(),
+    @SerializedName("section_order") val sectionOrder: List<String> = emptyList(),
+    @SerializedName("ats_score") val atsScore: Int?,
+    @SerializedName("ats_analysis") val atsAnalysis: ATSAnalysisSchema?,
+    val profession: String?,
+    val industry: String?,
+    val seniority: String?,
+    @SerializedName("experience_level") val experienceLevel: String?,
+    @SerializedName("career_objective") val careerObjective: String?
+)
+

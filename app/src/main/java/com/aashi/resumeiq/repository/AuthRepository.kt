@@ -148,6 +148,13 @@ class AuthRepository(
     }
 
     val darkModeEnabled: kotlinx.coroutines.flow.Flow<Boolean?> = preferencesManager.darkModeEnabled
+    val disclaimerAccepted: kotlinx.coroutines.flow.Flow<Boolean> = preferencesManager.disclaimerAccepted
+    val pickerExplanationShown: kotlinx.coroutines.flow.Flow<Boolean> = preferencesManager.pickerExplanationShown
+    val onboardingCompleted: kotlinx.coroutines.flow.Flow<Boolean> = preferencesManager.onboardingCompleted
+    val dashboardTourCompleted: kotlinx.coroutines.flow.Flow<Boolean> = preferencesManager.dashboardTourCompleted
+    val builderTourCompleted: kotlinx.coroutines.flow.Flow<Boolean> = preferencesManager.builderTourCompleted
+    val detailTourCompleted: kotlinx.coroutines.flow.Flow<Boolean> = preferencesManager.detailTourCompleted
+    val interviewTourCompleted: kotlinx.coroutines.flow.Flow<Boolean> = preferencesManager.interviewTourCompleted
 
     suspend fun setDarkMode(enabled: Boolean) {
         preferencesManager.setDarkMode(enabled)
@@ -155,5 +162,47 @@ class AuthRepository(
 
     suspend fun clearDarkMode() {
         preferencesManager.clearDarkMode()
+    }
+
+    suspend fun setDisclaimerAccepted(accepted: Boolean) {
+        preferencesManager.setDisclaimerAccepted(accepted)
+    }
+
+    suspend fun setPickerExplanationShown(shown: Boolean) {
+        preferencesManager.setPickerExplanationShown(shown)
+    }
+
+    suspend fun setOnboardingCompleted(completed: Boolean) {
+        preferencesManager.setOnboardingCompleted(completed)
+    }
+
+    suspend fun setDashboardTourCompleted(completed: Boolean) {
+        preferencesManager.setDashboardTourCompleted(completed)
+    }
+
+    suspend fun setBuilderTourCompleted(completed: Boolean) {
+        preferencesManager.setBuilderTourCompleted(completed)
+    }
+
+    suspend fun setDetailTourCompleted(completed: Boolean) {
+        preferencesManager.setDetailTourCompleted(completed)
+    }
+
+    suspend fun setInterviewTourCompleted(completed: Boolean) {
+        preferencesManager.setInterviewTourCompleted(completed)
+    }
+
+    suspend fun resetAllTours() {
+        preferencesManager.resetAllTours()
+    }
+
+    suspend fun deleteAccount(): Result<MessageResponse> {
+        return try {
+            val response = apiService.deleteAccount()
+            preferencesManager.clearSession()
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e.toAppError())
+        }
     }
 }

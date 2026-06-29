@@ -39,6 +39,7 @@ import com.aashi.resumeiq.ui.auth.AuthViewModel
 import com.aashi.resumeiq.ui.auth.UiState
 import com.aashi.resumeiq.ui.detail.DetailViewModel
 import com.aashi.resumeiq.utils.convertImageToPdf
+import com.aashi.resumeiq.ui.tour.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,6 +59,7 @@ fun DashboardScreen(
     val uploadState by detailViewModel.uploadState.collectAsState()
     val uploadProgress by detailViewModel.uploadProgress.collectAsState()
     val userName by authViewModel.userName.collectAsState(initial = "User")
+    val dashboardTourCompleted by authViewModel.dashboardTourCompleted.collectAsState(initial = true)
 
     // Modal / Popup States
     var showBuilderDialog by rememberSaveable { mutableStateOf(false) }
@@ -74,13 +76,19 @@ fun DashboardScreen(
     var isDuplicateImage by rememberSaveable { mutableStateOf(false) }
 
     var pendingRouteAction by rememberSaveable { mutableStateOf<String?>(null) }
+    var favorites by remember { mutableStateOf(setOf<Int>()) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var uploadingFileName by rememberSaveable { mutableStateOf("") }
+    var uploadingFileSize by rememberSaveable { mutableStateOf("") }
+    var showPickerExplanationDialog by remember { mutableStateOf(false) }
+    val explanationShown by authViewModel.pickerExplanationShown.collectAsState(initial = false)
+    val scope = rememberCoroutineScope()
 
-    // Document Picker launcher restricted to PDF, DOCX, PNG, and JPEG
+    // Document Picker launcher restricted to PDF, DOCX, and DOC
     val pickerMimeTypes = arrayOf(
         "application/pdf", 
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "image/png",
-        "image/jpeg"
+        "application/msword"
     )
 
     // On start, fetch fresh statistics and user profile info from API
@@ -92,6 +100,8 @@ fun DashboardScreen(
     LaunchedEffect(uploadState) {
         if (uploadState is UiState.Success) {
             val resume = (uploadState as UiState.Success).data
+            Toast.makeText(context, "Upload successful! Parsing resume...", Toast.LENGTH_SHORT).show()
+            kotlinx.coroutines.delay(600)
             detailViewModel.clearUploadState()
             onNavigateToDetail(resume.id)
         } else if (uploadState is UiState.Error) {
@@ -104,49 +114,76 @@ fun DashboardScreen(
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
-        uri?.let { selectedUri ->
+        if (uri == null) {
+            Toast.makeText(context, "Selection cancelled", Toast.LENGTH_SHORT).show()
+            return@rememberLauncherForActivityResult
+        }
+
+        try {
             var filename = "resume.pdf"
-            contentResolver.query(selectedUri, null, null, null, null)?.use { cursor ->
+            var fileSize: Long = 0
+
+            contentResolver.query(uri, null, null, null, null)?.use { cursor ->
                 val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
                 if (cursor.moveToFirst() && nameIndex != -1) {
                     filename = cursor.getString(nameIndex)
                 }
+                val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+                if (cursor.moveToFirst() && sizeIndex != -1) {
+                    fileSize = cursor.getLong(sizeIndex)
+                }
             }
 
-            val isImage = filename.endsWith(".png", true) || 
-                          filename.endsWith(".jpg", true) || 
-                          filename.endsWith(".jpeg", true)
-            
-            val targetFilename = if (isImage) {
-                filename.substringBeforeLast(".") + ".pdf"
+            val lowerName = filename.lowercase()
+            if (!lowerName.endsWith(".pdf") && !lowerName.endsWith(".docx") && !lowerName.endsWith(".doc")) {
+                Toast.makeText(context, "Unsupported file format! Please choose a PDF, DOC, or DOCX document.", Toast.LENGTH_LONG).show()
+                return@rememberLauncherForActivityResult
+            }
+
+            if (fileSize <= 0) {
+                Toast.makeText(context, "Cannot read file: The selected document is empty.", Toast.LENGTH_LONG).show()
+                return@rememberLauncherForActivityResult
+            }
+
+            if (fileSize > 10 * 1024 * 1024) { // 10MB limit
+                Toast.makeText(context, "File is too large! Maximum allowed size is 10MB.", Toast.LENGTH_LONG).show()
+                return@rememberLauncherForActivityResult
+            }
+
+            uploadingFileName = filename
+            uploadingFileSize = if (fileSize > 1024 * 1024) {
+                String.format("%.2f MB", fileSize / (1024.0 * 1024.0))
             } else {
-                filename
+                String.format("%.1f KB", fileSize / 1024.0)
             }
 
             // Check if filename already exists in dashboard history list
             val stats = (statsState as? UiState.Success)?.data
             val isDuplicate = stats?.recentAnalyses?.any { analysis ->
-                analysis.filename.equals(targetFilename, ignoreCase = true)
+                analysis.filename.equals(filename, ignoreCase = true)
             } ?: false
 
             if (isDuplicate) {
-                duplicateFilename = targetFilename
-                duplicateUriString = selectedUri.toString()
-                isDuplicateImage = isImage
+                duplicateFilename = filename
+                duplicateUriString = uri.toString()
+                isDuplicateImage = false
                 showDuplicateDialog = true
             } else {
-                try {
-                    contentResolver.openInputStream(selectedUri)?.use { stream ->
-                        var bytes = stream.readBytes()
-                        if (isImage) {
-                            bytes = convertImageToPdf(bytes)
-                        }
-                        detailViewModel.uploadResume(targetFilename, bytes)
-                    }
-                } catch (e: Exception) {
-                    Toast.makeText(context, "Failed to read file: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                contentResolver.openInputStream(uri)?.use { stream ->
+                    val bytes = stream.readBytes()
+                    detailViewModel.uploadResume(filename, bytes)
                 }
             }
+        } catch (e: Exception) {
+            Toast.makeText(context, "Failed to parse document: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    fun triggerFilePicker() {
+        if (!explanationShown) {
+            showPickerExplanationDialog = true
+        } else {
+            filePickerLauncher.launch(pickerMimeTypes)
         }
     }
 
@@ -211,7 +248,7 @@ fun DashboardScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { filePickerLauncher.launch(pickerMimeTypes) },
+                onClick = { triggerFilePicker() },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
@@ -268,6 +305,92 @@ fun DashboardScreen(
                                 )
                             }
                         }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Premium Upload Card
+                        OutlinedCard(
+                            onClick = { triggerFilePicker() },
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .background(
+                                            MaterialTheme.colorScheme.primaryContainer,
+                                            shape = RoundedCornerShape(12.dp)
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Description,
+                                        contentDescription = "Upload Document",
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                                
+                                Spacer(modifier = Modifier.width(16.dp))
+                                
+                                Column(
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text(
+                                        text = "Upload Resume",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 16.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "Supported: PDF • DOCX • DOC",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "Choose from: Downloads, Google Drive, Cloud Storage",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                    )
+                                }
+                                
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = "Choose File",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Search Bar
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            placeholder = { Text("Search resumes, cover letters, templates...", fontSize = 14.sp) },
+                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                            )
+                        )
 
                         Spacer(modifier = Modifier.height(16.dp))
 
@@ -379,6 +502,193 @@ fun DashboardScreen(
                         }
 
                         Spacer(modifier = Modifier.height(24.dp))
+
+                        // Recent Activity & Favorites Header
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Recent Activity",
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            TextButton(onClick = { onNavigateToHistory() }) {
+                                Text("View All", color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Filter Tabs
+                        var selectedTab by remember { mutableStateOf("All") }
+                        val tabs = listOf("All", "Favorites", "Cover Letters", "Templates")
+                        ScrollableTabRow(
+                            selectedTabIndex = tabs.indexOf(selectedTab),
+                            edgePadding = 0.dp,
+                            containerColor = Color.Transparent,
+                            divider = {},
+                            indicator = {}
+                        ) {
+                            tabs.forEach { tab ->
+                                val isSelected = tab == selectedTab
+                                Tab(
+                                    selected = isSelected,
+                                    onClick = { selectedTab = tab },
+                                    text = {
+                                        Text(
+                                            text = tab,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Filter recent items based on search query, tab, and favorites
+                        val filteredItems = remember(stats.recentAnalyses, searchQuery, selectedTab, favorites) {
+                            stats.recentAnalyses.filter { item ->
+                                val matchesSearch = item.filename.contains(searchQuery, ignoreCase = true)
+                                val matchesTab = when (selectedTab) {
+                                    "Favorites" -> favorites.contains(item.id)
+                                    else -> true
+                                }
+                                matchesSearch && matchesTab
+                            }
+                        }
+
+                        if (filteredItems.isEmpty()) {
+                            // Premium Empty State Screen
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)),
+                                shape = RoundedCornerShape(16.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(24.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Info,
+                                        contentDescription = "Empty State",
+                                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                                        modifier = Modifier.size(48.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Text(
+                                        text = if (selectedTab == "Favorites") "No Favorites Yet" else "No Recent Activity",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 15.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = if (selectedTab == "Favorites") 
+                                            "Star your top resumes to access them quickly here." 
+                                        else 
+                                            "Upload your resume or use the builder to get started.",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
+                        } else {
+                            // Render items list
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                filteredItems.forEach { item ->
+                                    val isFav = favorites.contains(item.id)
+                                    Card(
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                        shape = RoundedCornerShape(12.dp),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { onNavigateToDetail(item.id) }
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(14.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(40.dp)
+                                                    .background(
+                                                        MaterialTheme.colorScheme.primaryContainer,
+                                                        shape = RoundedCornerShape(8.dp)
+                                                    ),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Description,
+                                                    contentDescription = "Resume File",
+                                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+
+                                            Spacer(modifier = Modifier.width(12.dp))
+
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = item.filename,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    fontSize = 14.sp,
+                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                Spacer(modifier = Modifier.height(2.dp))
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Text(
+                                                        text = "Score: ${item.atsScore}%",
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = if (item.atsScore >= 70) Color(0xFF00E676) else Color(0xFFFF9100)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(8.dp))
+                                                    Text(
+                                                        text = "•  ${item.uploadedAt}",
+                                                        fontSize = 11.sp,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                                    )
+                                                }
+                                            }
+
+                                            // Favorite Toggle Button
+                                            IconButton(
+                                                onClick = {
+                                                    favorites = if (isFav) {
+                                                        favorites - item.id
+                                                    } else {
+                                                        favorites + item.id
+                                                    }
+                                                }
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Star,
+                                                    contentDescription = "Favorite",
+                                                    tint = if (isFav) Color(0xFFFFD600) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
                     }
                 }
                 is UiState.Error -> {
@@ -413,10 +723,32 @@ fun DashboardScreen(
                     }
                 }
                 else -> {
-                    CircularProgressIndicator(
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.align(Alignment.Center)
-                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(24.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        CircularProgressIndicator(
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Text(
+                            text = "Loading dashboard assets...",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        // Mock Skeleton cards
+                        repeat(3) {
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
+                                shape = RoundedCornerShape(16.dp),
+                                modifier = Modifier.fillMaxWidth().height(84.dp)
+                            ) {}
+                        }
+                    }
                 }
             }
 
@@ -432,33 +764,83 @@ fun DashboardScreen(
             if (uploadState is UiState.Loading) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = Color.Black.copy(alpha = 0.7f),
+                    color = Color.Black.copy(alpha = 0.75f),
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier.padding(24.dp)
                     ) {
-                        CircularProgressIndicator(
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.size(100.dp)
+                        ) {
+                            CircularProgressIndicator(
+                                progress = { uploadProgress },
+                                color = MaterialTheme.colorScheme.primary,
+                                strokeWidth = 6.dp,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                            Icon(
+                                imageVector = Icons.Default.Description,
+                                contentDescription = "Uploading",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(40.dp)
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(24.dp))
+                        
+                        Text(
+                            text = "Uploading Document",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 20.sp
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Text(
+                            text = uploadingFileName,
+                            color = Color.White.copy(alpha = 0.9f),
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp,
+                            textAlign = TextAlign.Center
+                        )
+                        
+                        Text(
+                            text = uploadingFileSize,
+                            color = Color.White.copy(alpha = 0.6f),
+                            fontSize = 12.sp
+                        )
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        LinearProgressIndicator(
                             progress = { uploadProgress },
                             color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(56.dp)
+                            trackColor = Color.White.copy(alpha = 0.2f),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(3.dp))
                         )
+                        
                         Spacer(modifier = Modifier.height(16.dp))
+                        
                         Text(
                             text = "Uploading: ${(uploadProgress * 100).toInt()}%",
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Analyzing & Parsing Resume...",
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
                             fontSize = 14.sp
                         )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
                         Text(
-                            text = "Using local structured intelligence",
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            text = "Analyzing & Parsing Resume...",
+                            color = Color.White.copy(alpha = 0.7f),
                             fontSize = 12.sp
                         )
                     }
@@ -490,7 +872,7 @@ fun DashboardScreen(
                     Button(
                         onClick = {
                             showBuilderDialog = false
-                            filePickerLauncher.launch(pickerMimeTypes)
+                            triggerFilePicker()
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF29B6F6)),
                         modifier = Modifier.fillMaxWidth()
@@ -593,7 +975,7 @@ fun DashboardScreen(
                         Button(
                             onClick = {
                                 showTemplatesDialog = false
-                                filePickerLauncher.launch(pickerMimeTypes)
+                                triggerFilePicker()
                             },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.primary,
@@ -703,7 +1085,7 @@ fun DashboardScreen(
                 Button(
                     onClick = {
                         showUploadPromptDialog = false
-                        filePickerLauncher.launch(pickerMimeTypes)
+                        triggerFilePicker()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
@@ -715,6 +1097,49 @@ fun DashboardScreen(
                     Text("Cancel", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                 }
             }
+        )
+    }
+
+    if (showPickerExplanationDialog) {
+        AlertDialog(
+            onDismissRequest = { showPickerExplanationDialog = false },
+            title = {
+                Text(
+                    text = "Choose Your Resume",
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "ResumeIQ needs access to a resume file that you select.\n\n" +
+                               "The app only accesses the document you choose and never scans or reads other files on your device.\n\n" +
+                               "Supported formats:\n• PDF\n• DOCX\n• DOC",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showPickerExplanationDialog = false
+                        authViewModel.setPickerExplanationShown(true)
+                        filePickerLauncher.launch(pickerMimeTypes)
+                    }
+                ) {
+                    Text("Continue")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showPickerExplanationDialog = false }
+                ) {
+                    Text("Cancel", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.surface
         )
     }
 
@@ -765,6 +1190,16 @@ fun DashboardScreen(
                 }
             }
         }
+    }
+
+    if (!dashboardTourCompleted) {
+        FeatureTourOverlay(
+            steps = listOf(
+                TourStep("Quick Actions", "Instantly upload an existing resume PDF/DOCX or build one step-by-step using our interactive builder wizard.", "Quick Actions"),
+                TourStep("Recent Activity", "Review and manage all your recently optimized resumes, templates, cover letters, and track their latest ATS scoring benchmarks.", "Recent Activity")
+            ),
+            onTourFinish = { authViewModel.setDashboardTourCompleted(true) }
+        )
     }
 }
 

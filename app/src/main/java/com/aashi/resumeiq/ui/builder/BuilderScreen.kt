@@ -23,6 +23,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aashi.resumeiq.network.*
 import com.aashi.resumeiq.ui.auth.UiState
+import com.aashi.resumeiq.ui.auth.AuthViewModel
+import com.aashi.resumeiq.ui.tour.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import com.aashi.resumeiq.ui.theme.getOutlinedTextFieldColors
 
@@ -31,12 +33,14 @@ import com.aashi.resumeiq.ui.theme.getOutlinedTextFieldColors
 fun BuilderScreen(
     resumeId: Int,
     viewModel: BuilderViewModel,
+    authViewModel: AuthViewModel,
     onNavigateBack: () -> Unit
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val saveStatus by viewModel.saveStatus.collectAsState()
     val downloadStatus by viewModel.downloadStatus.collectAsState()
+    val builderTourCompleted by authViewModel.builderTourCompleted.collectAsState(initial = true)
 
     var selectedTab by rememberSaveable { mutableStateOf(0) }
     var showDownloadMenu by rememberSaveable { mutableStateOf(false) }
@@ -77,7 +81,7 @@ fun BuilderScreen(
                     if (uiState is UiState.Success) {
                         Box {
                             TextButton(onClick = { showDownloadMenu = true }) {
-                                Text("Export PDF", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                Text("Export", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                             }
                             DropdownMenu(
                                 expanded = showDownloadMenu,
@@ -92,12 +96,36 @@ fun BuilderScreen(
                                     "Minimal Elegant",
                                     "Student/Fresher"
                                 )
+                                Text(
+                                    text = "Export as PDF",
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
                                 templates.forEach { template ->
                                     DropdownMenuItem(
-                                        text = { Text(template, color = MaterialTheme.colorScheme.onSurface) },
+                                        text = { Text(template, color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp) },
                                         onClick = {
                                             showDownloadMenu = false
-                                            viewModel.downloadPdf(context, template)
+                                            viewModel.downloadResume(context, template, "pdf")
+                                        }
+                                    )
+                                }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                                Text(
+                                    text = "Export as DOCX (MS Word)",
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                templates.forEach { template ->
+                                    DropdownMenuItem(
+                                        text = { Text(template, color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp) },
+                                        onClick = {
+                                            showDownloadMenu = false
+                                            viewModel.downloadResume(context, template, "docx")
                                         }
                                     )
                                 }
@@ -170,7 +198,7 @@ fun BuilderScreen(
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Icon(Icons.Default.Warning, contentDescription = "Error", tint = Color(0xFFE57373), modifier = Modifier.size(48.dp))
+                        Icon(Icons.Default.Warning, contentDescription = "Error", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(48.dp))
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(state.message, color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Center)
                         Spacer(modifier = Modifier.height(24.dp))
@@ -202,6 +230,18 @@ fun BuilderScreen(
             }
         }
     }
+
+    if (!builderTourCompleted) {
+        FeatureTourOverlay(
+            steps = listOf(
+                TourStep("Templates", "Choose from a curated collection of recruiter-tested design templates.", "Templates"),
+                TourStep("AI Improve", "Leverage Gemini AI suggestions to rewrite descriptions and polish metrics.", "AI Improve"),
+                TourStep("Export Options", "Download your optimized resume in PDF or editable DOCX formats directly to your storage.", "Export"),
+                TourStep("Edit Toolbar", "Navigate through personal details, professional experience, education, skills, and languages tabs.", "Edit Toolbar")
+            ),
+            onTourFinish = { authViewModel.setBuilderTourCompleted(true) }
+        )
+    }
 }
 
 @Composable
@@ -215,10 +255,10 @@ fun SaveStatusIndicator(saveStatus: SaveStatus) {
     }
     val color = when (saveStatus) {
         is SaveStatus.Saving -> MaterialTheme.colorScheme.primary
-        is SaveStatus.Saved -> Color(0xFF81C784)
+        is SaveStatus.Saved -> if (androidx.compose.foundation.isSystemInDarkTheme()) Color(0xFF81C784) else Color(0xFF2E7D32)
         is SaveStatus.ValidationError -> MaterialTheme.colorScheme.tertiary
-        is SaveStatus.Error -> Color(0xFFE57373)
-        is SaveStatus.Idle -> Color.White.copy(alpha = 0.5f)
+        is SaveStatus.Error -> MaterialTheme.colorScheme.error
+        is SaveStatus.Idle -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
     }
     Text(text, color = color, fontSize = 11.sp, fontWeight = FontWeight.Medium)
 }
@@ -252,7 +292,7 @@ fun PersonalSection(viewModel: BuilderViewModel) {
                 },
                 label = { Text("Full Name") },
                 isError = nameError != null,
-                supportingText = nameError?.let { { Text(it, color = Color(0xFFE57373)) } },
+                supportingText = nameError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
                 colors = getOutlinedTextFieldColors(),
                 modifier = Modifier.fillMaxWidth()
             )
@@ -267,7 +307,7 @@ fun PersonalSection(viewModel: BuilderViewModel) {
                 },
                 label = { Text("Email Address") },
                 isError = emailError != null,
-                supportingText = emailError?.let { { Text(it, color = Color(0xFFE57373)) } },
+                supportingText = emailError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
                 colors = getOutlinedTextFieldColors(),
                 modifier = Modifier.fillMaxWidth()
             )
@@ -282,7 +322,7 @@ fun PersonalSection(viewModel: BuilderViewModel) {
                 },
                 label = { Text("Phone Number") },
                 isError = phoneError != null,
-                supportingText = phoneError?.let { { Text(it, color = Color(0xFFE57373)) } },
+                supportingText = phoneError?.let { { Text(it, color = MaterialTheme.colorScheme.error) } },
                 colors = getOutlinedTextFieldColors(),
                 modifier = Modifier.fillMaxWidth()
             )
@@ -347,7 +387,7 @@ fun EducationSection(viewModel: BuilderViewModel) {
                             },
                             modifier = Modifier.size(28.dp)
                         ) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color(0xFFE57373), modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
                         }
                     }
 
@@ -474,7 +514,7 @@ fun ExperienceSection(viewModel: BuilderViewModel) {
                             },
                             modifier = Modifier.size(28.dp)
                         ) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color(0xFFE57373), modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
                         }
                     }
 
@@ -686,7 +726,7 @@ fun ProjectsSection(viewModel: BuilderViewModel) {
                             },
                             modifier = Modifier.size(28.dp)
                         ) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color(0xFFE57373), modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
                         }
                     }
 
@@ -792,7 +832,7 @@ fun CertificationsSection(viewModel: BuilderViewModel) {
                             },
                             modifier = Modifier.size(28.dp)
                         ) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color(0xFFE57373), modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
                         }
                     }
 
@@ -907,7 +947,7 @@ fun LanguagesSection(viewModel: BuilderViewModel) {
                             },
                             modifier = Modifier.size(28.dp)
                         ) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color(0xFFE57373), modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
                         }
                     }
 

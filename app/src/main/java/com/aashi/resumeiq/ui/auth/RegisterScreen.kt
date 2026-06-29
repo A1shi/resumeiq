@@ -227,8 +227,8 @@ fun RegisterScreen(
                         "⚙️ Internal Server Error"
                     )
                     ErrorType.UNKNOWN -> Triple(
-                        Color(0x1AFFFFFF),
-                        Color.White,
+                        MaterialTheme.colorScheme.errorContainer,
+                        MaterialTheme.colorScheme.onErrorContainer,
                         "❌ Error"
                     )
                 }
