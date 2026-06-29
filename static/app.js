@@ -4758,7 +4758,8 @@ function App() {
               )}
 
             </div>
-          )}
+          </div>
+        )}
 
           {/* Centered Live Preview Canvas with Zoom and Pan */}
           {(!isMobile || mobileTab === "preview") && (
