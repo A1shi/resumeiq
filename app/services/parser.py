@@ -1071,12 +1071,106 @@ def detect_profession_local(raw_text: str, parsed_skills: list) -> dict:
 
 def parse_resume_text(raw_text: str) -> ResumeParsedSchema:
     """
-    Passes raw extracted resume text through our local rule-based parsing engine and returns
-    a validated structured ResumeParsedSchema.
+    Parses raw extracted resume text using dynamic ResumeParserService from Gemini,
+    with a local rule-based fallback if offline.
     """
     if not raw_text.strip():
         raise ValueError("No text extracted from the resume to parse.")
 
+    if settings.GEMINI_API_KEY:
+        try:
+            from app.services.ai_engine import ResumeParserService
+            logger.info("Parsing resume text using V3 AI ResumeParserService...")
+            data = ResumeParserService.parse_resume(raw_text)
+            
+            # Combine skills, tools, and programming languages
+            combined_skills = []
+            combined_skills.extend(data.get("skills", []))
+            combined_skills.extend(data.get("tools", []))
+            combined_skills.extend(data.get("programming_languages", []))
+            # Clean duplicate and empty values
+            combined_skills = sorted(list(set([s.strip() for s in combined_skills if s and s.strip()])))
+
+            edu_list = []
+            for edu in data.get("education", []):
+                edu_list.append(EducationSchema(
+                    school=edu.get("school") or "Unknown Institution",
+                    degree=edu.get("degree") or "Degree",
+                    field_of_study=edu.get("field_of_study") or "",
+                    start_date=edu.get("start_date") or "",
+                    end_date=edu.get("end_date") or "",
+                    grade=edu.get("grade") or ""
+                ))
+                
+            exp_list = []
+            for exp in data.get("experience", []):
+                exp_list.append(ExperienceSchema(
+                    role=exp.get("role") or "Role",
+                    company=exp.get("company") or "Company",
+                    location=exp.get("location") or "",
+                    start_date=exp.get("start_date") or "",
+                    end_date=exp.get("end_date") or "",
+                    description=exp.get("description") or ""
+                ))
+                
+            proj_list = []
+            for proj in data.get("projects", []):
+                proj_list.append(ProjectSchema(
+                    title=proj.get("title") or "Project",
+                    description=proj.get("description") or "",
+                    technologies=proj.get("technologies") or []
+                ))
+                
+            cert_list = []
+            for cert in data.get("certifications", []):
+                cert_list.append(CertificationSchema(
+                    name=cert.get("name") or "Certification",
+                    issuer=cert.get("issuer") or "",
+                    date=cert.get("date") or ""
+                ))
+                
+            lang_list = []
+            for lang in data.get("languages", []):
+                lang_list.append(LanguageSchema(
+                    language=lang.get("language") or "Language",
+                    proficiency=lang.get("proficiency") or ""
+                ))
+
+            parsed_resume = ResumeParsedSchema(
+                name=data.get("name"),
+                email=data.get("email"),
+                phone=data.get("phone"),
+                summary=data.get("summary"),
+                skills=combined_skills,
+                education=edu_list,
+                experience=exp_list,
+                projects=proj_list,
+                certifications=cert_list,
+                languages=lang_list,
+                leadership=data.get("leadership_experience") or [],
+                interests=data.get("interests") or [],
+                referees=data.get("referees") or [],
+                profession=data.get("profession"),
+                industry=data.get("industry"),
+                seniority=data.get("seniority"),
+                experience_level=data.get("experience_level"),
+                career_objective=data.get("career_objective"),
+                profession_confidence=float(data.get("profession_confidence") or data.get("confidence") or 1.0),
+                validation_passed=bool(data.get("validation_passed", True)),
+                validation_reason=data.get("validation_reason", "")
+            )
+            logger.info(f"Successfully parsed resume for '{parsed_resume.name}' with profession: '{parsed_resume.profession}'")
+            return parsed_resume
+        except Exception as e:
+            logger.warning(f"V3 ResumeParserService failed: {str(e)}. Falling back to local rule-based parser.")
+
+    return parse_resume_text_local_fallback(raw_text)
+
+def parse_resume_text_local_fallback(raw_text: str) -> ResumeParsedSchema:
+    """
+    Passes raw extracted resume text through our local rule-based parsing engine and returns
+    a validated structured ResumeParsedSchema.
+    """
     try:
         # 1. Segment raw text into sections
         sections = segment_sections(raw_text)

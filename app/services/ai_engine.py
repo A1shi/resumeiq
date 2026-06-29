@@ -203,7 +203,12 @@ class SkillExtractor:
 
 class SemanticMatcher:
     @staticmethod
-    def match(resume_text: str, jd_text: str) -> Dict[str, Any]:
+    def match(
+        resume_data: Dict[str, Any],
+        jd_data: Dict[str, Any],
+        resume_text: str,
+        jd_text: str
+    ) -> Dict[str, Any]:
         """
         Performs semantic similarity matching of candidate resume against a job description.
         Computes match status (Strong Match, Partial Match, Weak Match, Missing), Confidence Score,
@@ -224,9 +229,11 @@ class SemanticMatcher:
 
         prompt = (
             "You are a professional recruiting coordinator and ATS semantic matching expert.\n"
-            "Analyze the alignment of this candidate's resume text against the target job description.\n\n"
-            f"Candidate Resume Text:\n{resume_text}\n\n"
-            f"Target Job Description:\n{jd_text}\n\n"
+            "Analyze the alignment of this candidate's parsed resume details and raw text against the target parsed job description details and raw text.\n\n"
+            f"Candidate Parsed Resume Details:\n{json.dumps(resume_data, indent=2)}\n\n"
+            f"Target Parsed Job Description Details:\n{json.dumps(jd_data, indent=2)}\n\n"
+            f"Raw Candidate Resume Text:\n{resume_text}\n\n"
+            f"Raw Target Job Description:\n{jd_text}\n\n"
             "CRITICAL MATCHING RULES:\n"
             "- Perform SEMANTIC MATCHING instead of strict keyword searches. If the JD requires 'Educational Technology' and the candidate mentions 'Digital Teaching Methods', they match semantically (Strong Match or Partial Match).\n"
             "- Match intent, concepts, and domain knowledge.\n"

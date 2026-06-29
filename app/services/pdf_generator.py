@@ -873,32 +873,11 @@ def generate_resume_template_pdf(resume_data: Dict[str, Any], template_name: str
     if customization is None:
         customization = resume_data.get("customization") or {}
 
-    # Map old template names to new ones to ensure backwards compatibility
-    template_map = {
-        "ATS Professional": "Corporate Blue",
-        "Modern Professional": "Classic Slate",
-        "Software Engineer": "Corporate Blue",
-        "Data Analyst": "Corporate Blue",
-        "Executive": "Navy Premium",
-        "Executive Resume": "Navy Premium",
-        "Creative": "Modern Teal",
-        "Creative Designer": "Modern Teal",
-        "Creative Resume": "Modern Teal",
-        "Minimal Elegant": "Red Accent",
-        "Student/Fresher": "Corporate Blue",
-        "Student / Fresher": "Corporate Blue",
-        "ATS Clean": "Corporate Blue",
-        "ATS Clean Resume": "Corporate Blue",
-        "Blue Sidebar": "Classic Slate",
-        "Blue Sidebar Resume": "Classic Slate",
-        "Elegant": "Corporate Blue",
-        "Elegant Resume": "Corporate Blue",
-        "Compact One Page": "Red Accent",
-        "Compact": "Red Accent"
-    }
-    
-    if template_name in template_map:
-        template_name = template_map[template_name]
+    # Validate template name (enforcing new premium templates only)
+    valid_templates = {"Classic Slate", "Modern Teal", "Navy Premium", "Red Accent", "Corporate Blue"}
+    if template_name not in valid_templates:
+        logger.warning(f"Unsupported template name '{template_name}' requested. Falling back to 'Classic Slate'.")
+        template_name = "Classic Slate"
         
     # 1. Setup margins & document properties based on template
     top_margin = 36

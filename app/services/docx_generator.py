@@ -124,32 +124,10 @@ def generate_resume_template_docx(resume_data: Dict[str, Any], template_name: st
     if customization is None:
         customization = resume_data.get("customization") or {}
 
-    # Map old template names to new ones to ensure backwards compatibility
-    template_map = {
-        "ATS Professional": "Corporate Blue",
-        "Modern Professional": "Classic Slate",
-        "Software Engineer": "Corporate Blue",
-        "Data Analyst": "Corporate Blue",
-        "Executive": "Navy Premium",
-        "Executive Resume": "Navy Premium",
-        "Creative": "Modern Teal",
-        "Creative Designer": "Modern Teal",
-        "Creative Resume": "Modern Teal",
-        "Minimal Elegant": "Red Accent",
-        "Student/Fresher": "Corporate Blue",
-        "Student / Fresher": "Corporate Blue",
-        "ATS Clean": "Corporate Blue",
-        "ATS Clean Resume": "Corporate Blue",
-        "Blue Sidebar": "Classic Slate",
-        "Blue Sidebar Resume": "Classic Slate",
-        "Elegant": "Corporate Blue",
-        "Elegant Resume": "Corporate Blue",
-        "Compact One Page": "Red Accent",
-        "Compact": "Red Accent"
-    }
-    
-    if template_name in template_map:
-        template_name = template_map[template_name]
+    # Validate template name (enforcing new premium templates only)
+    valid_templates = {"Classic Slate", "Modern Teal", "Navy Premium", "Red Accent", "Corporate Blue"}
+    if template_name not in valid_templates:
+        template_name = "Classic Slate"
         
     # Page setup - margins customization (default 0.5 inch)
     margin_val = 0.5
@@ -199,66 +177,36 @@ def generate_resume_template_docx(resume_data: Dict[str, Any], template_name: st
     accent_color = RGBColor(0x4f, 0x46, 0xe5)  # indigo
     border_color_hex = "CBD5E1"
 
-    if template_name == "ATS Professional":
+    if template_name == "Classic Slate":
         font_name = 'Arial'
-        primary_color = RGBColor(0x0f, 0x17, 0x2a)
-        accent_color = RGBColor(0x33, 0x41, 0x55)
-        border_color_hex = "CBD5E1"
-    elif template_name in ["ATS Clean", "ATS Clean Resume"]:
-        font_name = 'Arial'
-        primary_color = RGBColor(0x0f, 0x17, 0x2a)
-        accent_color = RGBColor(0x47, 0x55, 0x69)
-        border_color_hex = "0F172A"
-    elif template_name == "Modern Professional":
-        font_name = 'Calibri'
-        primary_color = RGBColor(0x0f, 0x17, 0x2a)
-        accent_color = RGBColor(0x25, 0x63, 0xeb)
-        border_color_hex = "93C5FD"
-    elif template_name in ["Blue Sidebar", "Blue Sidebar Resume"]:
-        font_name = 'Arial'
-        primary_color = RGBColor(0x1e, 0x3a, 0x8a)
-        accent_color = RGBColor(0x3b, 0x82, 0xf6)
-        border_color_hex = "CBD5E1"
-    elif template_name in ["Creative", "Creative Designer", "Creative Resume"]:
-        font_name = 'Arial'
-        primary_color = RGBColor(0x1e, 0x1b, 0x4b)
-        accent_color = RGBColor(0xec, 0x48, 0x99)
-        border_color_hex = "F472B6"
-    elif template_name == "Software Engineer":
-        font_name = 'Segoe UI'
-        primary_color = RGBColor(0x0f, 0x17, 0x2a)
-        accent_color = RGBColor(0x63, 0x66, 0xf1)
-        border_color_hex = "CBD5E1"
-    elif template_name == "Data Analyst":
-        font_name = 'Calibri'
-        primary_color = RGBColor(0x1f, 0x29, 0x37)
-        accent_color = RGBColor(0x0f, 0x76, 0x6e)
-        border_color_hex = "99F6E4"
-    elif template_name in ["Executive", "Executive Resume"]:
-        font_name = 'Times New Roman'
-        primary_color = RGBColor(0x0f, 0x17, 0x2a)
-        accent_color = RGBColor(0x1e, 0x3a, 0x8a)
-        border_color_hex = "D97706" # Gold
-    elif template_name in ["Elegant", "Elegant Resume"]:
-        font_name = 'Times New Roman'
-        primary_color = RGBColor(0x7c, 0x2d, 0x12)
-        accent_color = RGBColor(0xea, 0x58, 0x0c)
-        border_color_hex = "EA580C"
-    elif template_name in ["Compact One Page", "Compact"]:
-        font_name = 'Arial'
-        primary_color = RGBColor(0x0f, 0x17, 0x2a)
-        accent_color = RGBColor(0x47, 0x55, 0x69)
-        border_color_hex = "475569"
-    elif template_name == "Minimal Elegant":
-        font_name = 'Georgia'
-        primary_color = RGBColor(0x09, 0x09, 0x0b)
-        accent_color = RGBColor(0x71, 0x71, 0x7a)
-        border_color_hex = "E4E4E7"
-    elif template_name in ["Student/Fresher", "Student / Fresher"]:
-        font_name = 'Georgia'
         primary_color = RGBColor(0x1e, 0x29, 0x3b)
-        accent_color = RGBColor(0x10, 0xb9, 0x81)
-        border_color_hex = "A7F3D0"
+        accent_color = RGBColor(0x0f, 0x76, 0x6e)
+        border_color_hex = "94A3B8"
+    elif template_name == "Modern Teal":
+        font_name = 'Arial'
+        primary_color = RGBColor(0x0f, 0x76, 0x6e)
+        accent_color = RGBColor(0x0d, 0x94, 0x88)
+        border_color_hex = "5EEAD4"
+    elif template_name == "Navy Premium":
+        font_name = 'Georgia'
+        primary_color = RGBColor(0x1e, 0x3a, 0x8a)
+        accent_color = RGBColor(0x25, 0x63, 0xeb)
+        border_color_hex = "BFDBFE"
+    elif template_name == "Red Accent":
+        font_name = 'Arial'
+        primary_color = RGBColor(0xbe, 0x12, 0x3c)
+        accent_color = RGBColor(0x99, 0x1b, 0x1b)
+        border_color_hex = "FCA5A5"
+    elif template_name == "Corporate Blue":
+        font_name = 'Arial'
+        primary_color = RGBColor(0x1e, 0x40, 0xaf)
+        accent_color = RGBColor(0x1d, 0x4e, 0xd8)
+        border_color_hex = "BFDBFE"
+    else:
+        font_name = 'Arial'
+        primary_color = RGBColor(0x1e, 0x29, 0x3b)
+        accent_color = RGBColor(0x0f, 0x76, 0x6e)
+        border_color_hex = "94A3B8"
 
     # Extract fields
     name = safe_get(resume_data, "name") or "Candidate Name"
@@ -272,19 +220,19 @@ def generate_resume_template_docx(resume_data: Dict[str, Any], template_name: st
     languages = safe_get(resume_data, "languages") or []
     summary_text = safe_get(resume_data, "professional_summary") or ""
 
-    # Dual column layouts (Modern Professional, Creative Designer, Creative Resume, Blue Sidebar)
-    if template_name in ["Modern Professional", "Creative", "Creative Designer", "Creative Resume", "Blue Sidebar"]:
+    # Dual column layouts (Classic Slate, Modern Teal, Navy Premium)
+    if template_name in ["Classic Slate", "Modern Teal", "Navy Premium"]:
         table = doc.add_table(rows=1, cols=2)
         table.autofit = False
         
-        # Modern & Blue Sidebar: sidebar left (2.2 in), content right (5.3 in). Creative: content left (5.0 in), sidebar right (2.5 in).
-        if template_name in ["Modern Professional", "Blue Sidebar"]:
+        # Classic Slate & Navy Premium: sidebar left (2.2 in), content right (5.3 in). Modern Teal: content left (5.0 in), sidebar right (2.5 in).
+        if template_name in ["Classic Slate", "Navy Premium"]:
             table.columns[0].width = Inches(2.2)
             table.columns[1].width = Inches(5.3)
             left_cell = table.cell(0, 0)
             right_cell = table.cell(0, 1)
             
-            shd_color = "1E3A8A" if template_name == "Blue Sidebar" else "F8FAFC"
+            shd_color = "1E293B" if template_name == "Classic Slate" else "1E3A8A"
             set_cell_shading(left_cell, shd_color)
             set_cell_margins(left_cell, top=144, bottom=144, left=150, right=150)
             set_cell_margins(right_cell, top=144, bottom=144, left=200, right=150)
@@ -294,13 +242,13 @@ def generate_resume_template_docx(resume_data: Dict[str, Any], template_name: st
             left_cell = table.cell(0, 1) # sidebar column
             right_cell = table.cell(0, 0) # content column
             
-            set_cell_shading(left_cell, "FFF1F2") # soft pink shading
+            set_cell_shading(left_cell, "0F766E") # Teal sidebar shading
             set_cell_margins(left_cell, top=144, bottom=144, left=150, right=150)
             set_cell_margins(right_cell, top=144, bottom=144, left=150, right=200)
         
         # Define sidebar custom colors
-        sidebar_text_color = RGBColor(0xff, 0xff, 0xff) if template_name == "Blue Sidebar" else primary_color
-        sidebar_accent_color = RGBColor(0x38, 0xbd, 0xf8) if template_name == "Blue Sidebar" else accent_color
+        sidebar_text_color = RGBColor(0xff, 0xff, 0xff) if template_name in ["Classic Slate", "Navy Premium", "Modern Teal"] else primary_color
+        sidebar_accent_color = RGBColor(0x38, 0xbd, 0xf8) if template_name in ["Classic Slate", "Navy Premium", "Modern Teal"] else accent_color
 
         # Helper to add paragraph in a cell
         def add_cell_p(cell, text="", bold=False, size=10, color=primary_color, space_before=0, space_after=2, italic=False):
@@ -350,7 +298,7 @@ def generate_resume_template_docx(resume_data: Dict[str, Any], template_name: st
                 add_cell_p(left_cell, f"• {c_name}", size=9, color=sidebar_text_color, space_after=3)
                 
         # Add main column content (right_cell)
-        if template_name == "Modern Professional":
+        if template_name == "Classic Slate":
             # Profile Card in a shaded single-cell nested table
             card_table = right_cell.add_table(rows=1, cols=1)
             card_table.autofit = False
@@ -385,8 +333,8 @@ def generate_resume_template_docx(resume_data: Dict[str, Any], template_name: st
                 r_card_sum.font.color.rgb = RGBColor(0x33, 0x41, 0x55)
         else:
             add_cell_p(right_cell, name, bold=True, size=20, color=primary_color, space_after=2)
-            if template_name in ["Creative", "Creative Designer", "Creative Resume"]:
-                add_cell_p(right_cell, "CREATIVE PROFESSIONAL", bold=True, size=9.5, color=accent_color, space_after=8)
+            if template_name == "Modern Teal":
+                add_cell_p(right_cell, "PROFESSIONAL PROFILE", bold=True, size=9.5, color=accent_color, space_after=8)
             
             if summary_text:
                 p_sec = add_cell_p(right_cell, "PROFESSIONAL SUMMARY", bold=True, size=12, color=accent_color, space_before=10, space_after=4)
@@ -489,7 +437,7 @@ def generate_resume_template_docx(resume_data: Dict[str, Any], template_name: st
     else:
         # Single column layout for other templates
         header_align = WD_ALIGN_PARAGRAPH.LEFT
-        if template_name in ["Executive", "Executive Resume", "Student/Fresher", "Student / Fresher"]:
+        if template_name in ["Navy Premium"]:
             header_align = WD_ALIGN_PARAGRAPH.CENTER
             
         p_name = doc.add_paragraph()

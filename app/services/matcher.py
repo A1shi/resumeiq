@@ -135,12 +135,27 @@ def compare_resume_to_jd(resume_text: str, jd_title: str, jd_keywords: List[str]
         semantic_fit_score=semantic_fit_score
     )
 
-def match_resume_with_jd_gemini(resume_text: str, jd_text: str) -> Dict[str, Any]:
+def match_resume_with_jd_gemini(
+    resume_text: str,
+    jd_text: str,
+    resume_data: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
     """
     Calls the SemanticMatcher service to compute semantic matching.
     """
-    from app.services.ai_engine import SemanticMatcher
-    return SemanticMatcher.match(resume_text, jd_text)
+    from app.services.ai_engine import JDParserService, ResumeParserService, SemanticMatcher
+    
+    # 1. Parse Job Description using modular service
+    logger.info("Parsing Job Description using V3 JDParserService...")
+    jd_data = JDParserService.parse_jd(jd_text)
+    
+    # 2. Parse Resume if not already provided as structured dict
+    if not resume_data:
+        logger.info("Parsing resume text using V3 ResumeParserService for matching...")
+        resume_data = ResumeParserService.parse_resume(resume_text)
+        
+    # 3. Perform semantic match passing parsed structures and raw texts
+    return SemanticMatcher.match(resume_data, jd_data, resume_text, jd_text)
 
 
 def match_resume_with_jd_local(resume_text: str, jd_text: str) -> Dict[str, Any]:
@@ -277,7 +292,11 @@ def match_resume_with_jd_local(resume_text: str, jd_text: str) -> Dict[str, Any]
         "interview_questions": interview_qs
     }
 
-def match_resume_with_jd(resume_text: str, jd_text: str) -> Dict[str, Any]:
+def match_resume_with_jd(
+    resume_text: str,
+    jd_text: str,
+    resume_data: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
     """
     Executes the full matching engine and returns the final scoring and analysis.
     Uses Gemini AI if configured; otherwise falls back to local rule-based analysis.
@@ -285,7 +304,7 @@ def match_resume_with_jd(resume_text: str, jd_text: str) -> Dict[str, Any]:
     if settings.GEMINI_API_KEY:
         try:
             logger.info("Matching resume with JD using Gemini API...")
-            return match_resume_with_jd_gemini(resume_text, jd_text)
+            return match_resume_with_jd_gemini(resume_text, jd_text, resume_data=resume_data)
         except Exception as e:
             logger.warning(f"Failed to match resume with JD using Gemini: {str(e)}. Falling back to local match.")
             

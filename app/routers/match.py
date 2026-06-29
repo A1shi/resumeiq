@@ -43,8 +43,26 @@ def match_resume(
         )
 
     try:
-        # Run matching engine using the raw text of the resume
-        match_result = match_resume_with_jd(resume.raw_text, request.jd_text)
+        # Construct parsed resume data dictionary
+        resume_data = {
+            "name": resume.name,
+            "email": resume.email,
+            "phone": resume.phone,
+            "summary": resume.summary,
+            "skills": resume.skills,
+            "education": resume.education or [],
+            "experience": resume.experience or [],
+            "projects": resume.projects or [],
+            "certifications": resume.certifications or [],
+            "languages": resume.languages or [],
+            "profession": resume.profession,
+            "industry": resume.industry,
+            "seniority": resume.seniority,
+            "experience_level": resume.experience_level
+        }
+        
+        # Run matching engine using the raw text of the resume and parsed data
+        match_result = match_resume_with_jd(resume.raw_text, request.jd_text, resume_data=resume_data)
 
         # Store in database
         db_match = models.JobMatch(
