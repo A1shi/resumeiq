@@ -1,69 +1,125 @@
-# ResumeIQ AI - AI-Powered Resume Intelligence Platform
+# 📄 ResumeIQ
 
-A premium, production-grade, local rule-based resume parser and scoring engine. It extracts raw text from PDF and DOCX CVs and structures it using an intelligent local pattern-matching engine. The results are stored in a database (SQLite locally, swappable to PostgreSQL) and rendered on a sleek, high-fidelity glassmorphism React-based Single Page Application.
+## Intelligent Resume Parsing & Analysis Platform
 
----
-
-## Features
-
-- **Document Extraction**: Seamlessly extracts text from single/multi-column PDFs and DOCX files (including paragraph tables).
-- **Local Structured Parsing**: Evaluates and parses `Name`, `Email`, `Phone`, `Skills`, `Education`, `Experience`, and `Projects` deterministically using robust local rule-based pattern matching.
-- **Unified Engine**: Zero external API dependencies to run locally (uses SQLite and compiles React in the browser via CDN).
-- **Aesthetic Dashboard**: Custom premium dark-themed glassmorphism interface with drag-and-drop support, animated upload progress, historical timelines, and interactive profile summaries.
+ResumeIQ is a full-stack resume analysis application that extracts information from PDF and DOCX resumes, converts unstructured documents into structured candidate data, and stores the results for analysis and retrieval.
 
 ---
 
-## Tech Stack
+## ✨ Features
 
-- **Backend**: FastAPI, SQLAlchemy, Pydantic v2, PyPDF, Python-Docx
-- **Database**: SQLite (default) / PostgreSQL (via environment variable)
-- **Frontend**: React 18, Custom Vanilla CSS Grid and Variables, Babel Standalone (zero compilation steps)
+- 📄 **Document Extraction** — Extract text from PDF and DOCX resumes.
+- 🔍 **Structured Resume Parsing** — Extract candidate information such as name, email, phone number, skills, education, experience, and projects.
+- ⚙️ **Rule-Based Analysis Engine** — Process resume data using deterministic pattern-matching logic.
+- 🗄️ **Database Storage** — Store and retrieve parsed resume information.
+- 📜 **Resume History** — Access previously processed resumes.
+- 🌐 **REST API** — Backend services built with FastAPI.
+- 💻 **Interactive Dashboard** — Upload resumes and view structured candidate information.
+- 🔄 **Database Flexibility** — SQLite for local development with PostgreSQL support.
 
 ---
 
-## Quick Start (Local Run)
+## 🏗️ Architecture
 
-Follow these simple steps to launch the application:
-
-### 1. Configure the Environment
-Open the `.env` file in the root folder (optional configuration parameters can be added here):
-```env
-DATABASE_URL=sqlite:///./resumes.db
-```
-
-### 2. Run the Application
-Start the FastAPI server. Because we set up a Python virtual environment (`.venv`), you can run the server directly using Uvicorn:
-```powershell
-# In PowerShell:
-.venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8000
-```
-
-### 3. Open the Dashboard
-Open your browser and navigate to:
 ```text
+                ┌──────────────────┐
+                │  React Frontend  │
+                └────────┬─────────┘
+                         │
+                     REST API
+                         │
+                         ▼
+                ┌──────────────────┐
+                │ FastAPI Backend  │
+                └────────┬─────────┘
+                         │
+              ┌──────────┼──────────┐
+              ▼          ▼          ▼
+        PDF Parser   DOCX Parser  Resume Parser
+              │          │          │
+              └──────────┼──────────┘
+                         │
+                         ▼
+                    SQLAlchemy
+                         │
+              ┌──────────┴──────────┐
+              ▼                     ▼
+           SQLite              PostgreSQL
+Tech Stack
+Backend
+Python
+FastAPI
+SQLAlchemy
+Pydantic
+Document Processing
+PyPDF
+python-docx
+Database
+SQLite
+PostgreSQL
+Frontend
+React
+JavaScript
+HTML
+CSS
+🔄 Application Workflow
+Resume Upload
+      ↓
+PDF / DOCX Text Extraction
+      ↓
+Structured Information Parsing
+      ↓
+Candidate Data Extraction
+      ↓
+Database Storage
+      ↓
+Dashboard Visualization
+Quick Start
+1. Clone the Repository
+git clone https://github.com/A1shi/resumeiq.git
+cd resumeiq
+2. Create a Virtual Environment
+
+Windows PowerShell:
+
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+3. Install Dependencies
+pip install -r requirements.txt
+4. Configure Environment Variables
+
+Create a .env file:
+
+DATABASE_URL=sqlite:///./resumes.db
+
+⚠️ Never commit your .env file or database credentials to GitHub.
+
+5. Run the Application
+python -m uvicorn app.main:app --reload --port 8000
+6. Open the Application
+
+Open:
+
 http://127.0.0.1:8000
-```
-*Drag and drop your PDF or DOCX resume to start parsing!*
+📡 API Endpoints
+Method	Endpoint	Description
+POST	/resumes/upload	Upload and parse a resume
+GET	/resumes	Retrieve resume history
+GET	/resumes/{id}	Retrieve detailed resume information
+GET	/health	Check application health
 
----
+Note: Verify the endpoint paths against the routes defined in the FastAPI application.
 
-## API Endpoints
+🔮 Planned Enhancements
+AI-powered resume recommendations
+Job description matching
+ATS compatibility analysis
+Skill gap analysis
+LLM integration
+AI-powered cover letter generation
+Interview preparation
+Advanced semantic resume analysis
+👩‍💻 Author
+-Aashi Gupta
 
-All APIs are prefixed with `/api/v1` and document shapes are validated using Pydantic:
-
-- `POST /resumes/upload` - Upload a resume file (`multipart/form-data`) to extract, parse, and analyze it.
-- `GET /resumes` - Fetch the resume list history with basic pagination parameters (`?skip=0&limit=10`).
-- `GET /resumes/{id}` - Fetch full detail objects (skills, timelines, projects) of a specific candidate.
-- `GET /health` - Checks backend connection integrity.
-
----
-
-## Switching to PostgreSQL
-
-To deploy this in production with a PostgreSQL database:
-1. Ensure your PostgreSQL server is active.
-2. In your `.env` file, change `DATABASE_URL`:
-   ```env
-   DATABASE_URL=postgresql://username:password@localhost:5432/your_database_name
-   ```
-3. Run the backend normally. SQLAlchemy will auto-generate all required schemas on boot!
+Aspiring GenAI & Software Developer
