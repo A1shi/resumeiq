@@ -1,4 +1,4 @@
-# 📄 ResumeIQ
+#  ResumeIQ
 
 ### Intelligent Resume Parsing & Analysis Platform
 
@@ -8,7 +8,7 @@ The application uses **React** for the frontend and **FastAPI** for the backend,
 
 ---
 
-## 🚀 Overview
+##  Overview
 
 ResumeIQ addresses the problem of manually processing large numbers of resumes.
 
@@ -38,23 +38,23 @@ Interactive Dashboard
 
 ---
 
-## ✨ Key Features
+##  Key Features
 
 | Feature                 | Description                                                            |
 | ----------------------- | ---------------------------------------------------------------------- |
-| 📄 Document Processing  | Extract text from PDF and DOCX resumes                                 |
-| 🔍 Resume Parsing       | Identify candidate information from unstructured text                  |
-| 👤 Candidate Extraction | Extract name, email, phone, skills, education, experience and projects |
-| ⚙️ Rule-Based Engine    | Deterministic pattern-matching for structured extraction               |
-| 🗄️ Database Storage    | Persist processed resume information                                   |
-| 📜 Resume History       | Retrieve previously processed resumes                                  |
-| 🌐 REST API             | FastAPI-based backend API                                              |
-| 💻 Dashboard            | Upload resumes and view extracted information                          |
-| 🔄 Database Flexibility | SQLite for development with PostgreSQL support                         |
+|  Document Processing  | Extract text from PDF and DOCX resumes                                 |
+|  Resume Parsing       | Identify candidate information from unstructured text                  |
+|  Candidate Extraction | Extract name, email, phone, skills, education, experience and projects |
+|  Rule-Based Engine    | Deterministic pattern-matching for structured extraction               |
+|  Database Storage     | Persist processed resume information                                   |
+|  Resume History       | Retrieve previously processed resumes                                  |
+|  REST API             | FastAPI-based backend API                                              |
+|  Dashboard            | Upload resumes and view extracted information                          |
+|  Database Flexibility | SQLite for development with PostgreSQL support                         |
 
 ---
 
-## 🏗️ System Architecture
+##  System Architecture
 
 ```text
                          ┌─────────────────────┐
@@ -96,7 +96,7 @@ Interactive Dashboard
 
 ---
 
-## 🔄 Application Workflow
+##  Application Workflow
 
 ### 1. Resume Upload
 
@@ -158,7 +158,7 @@ The frontend retrieves the processed information through REST APIs and presents 
 
 ---
 
-## 🛠️ Tech Stack
+##  Tech Stack
 
 ### Backend
 
@@ -194,7 +194,7 @@ The frontend retrieves the processed information through REST APIs and presents 
 
 ---
 
-## 📂 Project Structure
+##  Project Structure
 
 ```text
 resumeiq/
@@ -224,7 +224,7 @@ resumeiq/
 
 ---
 
-## 📸 Screenshots
+##  Screenshots
 
 ### Dashboard
 
@@ -256,7 +256,7 @@ Add your main dashboard screenshot here:
 
 ---
 
-## 📡 REST API
+##  REST API
 
 | Method | Endpoint          | Description                 |
 | ------ | ----------------- | --------------------------- |
@@ -269,7 +269,7 @@ Add your main dashboard screenshot here:
 
 ---
 
-## ⚙️ Installation & Setup
+##  Installation & Setup
 
 ### 1. Clone the Repository
 
@@ -314,7 +314,7 @@ For PostgreSQL:
 DATABASE_URL=postgresql://username:password@localhost:5432/resumeiq
 ```
 
-⚠️ **Never commit `.env`, database credentials, API keys, or other secrets to GitHub.**
+ **Never commit `.env`, database credentials, API keys, or other secrets to GitHub.**
 
 ### 5. Start the Backend
 
@@ -348,22 +348,22 @@ http://127.0.0.1:8000/docs
 
 ---
 
-## 🔮 Future Improvements
+##  Future Improvements
 
 The project can be extended with AI-powered capabilities such as:
 
-* 🤖 LLM-based resume analysis
-* 🎯 Job description matching
-* 📊 ATS compatibility analysis
-* 🧩 Skill-gap identification
-* 📝 AI-generated cover letters
-* 🎤 Interview preparation
-* 🔎 Semantic resume search
-* 📈 Candidate ranking and analytics
+*  LLM-based resume analysis
+*  Job description matching
+*  ATS compatibility analysis
+*  Skill-gap identification
+*  AI-generated cover letters
+*  Interview preparation
+*  Semantic resume search
+*  Candidate ranking and analytics
 
 ---
 
-## 🎯 Learning Outcomes
+##  Learning Outcomes
 
 Through this project, I worked with:
 
@@ -379,7 +379,7 @@ Through this project, I worked with:
 
 ---
 
-## 👩‍💻 Author
+##  Author
 
 **Aashi Gupta**
 
